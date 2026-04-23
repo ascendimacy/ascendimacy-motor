@@ -14,7 +14,7 @@ function getClient(): OpenAI {
 
 export async function callLlm(systemPrompt: string, userMessage: string): Promise<string> {
   const c = getClient();
-  const model = process.env["MOTOR_DROTA_MODEL"] ?? "mistral-small-latest";
+  const model = process.env["MOTOR_DROTA_MODEL"] ?? "mistral24b";
   const response = await c.chat.completions.create({
     model,
     messages: [
@@ -22,7 +22,6 @@ export async function callLlm(systemPrompt: string, userMessage: string): Promis
       { role: "user", content: userMessage },
     ],
     max_tokens: 512,
-    response_format: { type: "json_object" },
   });
   return response.choices[0]?.message?.content ?? "{}";
 }

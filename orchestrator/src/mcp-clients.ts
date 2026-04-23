@@ -4,7 +4,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "../../..");
+const root = join(__dirname, "../..");
 
 export interface McpClients {
   planejador: Client;
@@ -12,9 +12,19 @@ export interface McpClients {
   motorExecucao: Client;
 }
 
+function buildEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  const keys = ["ANTHROPIC_API_KEY", "INFOMANIAK_API_KEY", "INFOMANIAK_BASE_URL", "PLANEJADOR_MODEL", "MOTOR_DROTA_MODEL", "USE_MOCK_LLM"];
+  for (const k of keys) {
+    const v = process.env[k];
+    if (v) env[k] = v;
+  }
+  return env;
+}
+
 async function createClient(name: string, command: string, args: string[]): Promise<Client> {
   const client = new Client({ name: `orchestrator->${name}`, version: "0.1.0" });
-  const transport = new StdioClientTransport({ command, args });
+  const transport = new StdioClientTransport({ command, args, env: buildEnv() });
   await client.connect(transport);
   return client;
 }

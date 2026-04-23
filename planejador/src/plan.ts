@@ -23,7 +23,7 @@ ESTADO DA SESSÃO:
 PLAYBOOKS DISPONÍVEIS:
 ${inventoryList}
 
-Responda APENAS com JSON válido neste formato:
+Responda APENAS com JSON COMPACTO (sem newlines extras). Máximo 2 candidateActions. strategicRationale max 80 chars. Formato:
 {
   "strategicRationale": "string com raciocínio estratégico",
   "candidateActions": [

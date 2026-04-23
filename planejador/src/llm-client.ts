@@ -14,7 +14,7 @@ export async function callLlm(systemPrompt: string, userMessage: string): Promis
   const model = process.env["PLANEJADOR_MODEL"] ?? "claude-sonnet-4-6";
   const response = await c.messages.create({
     model,
-    max_tokens: 1024,
+    max_tokens: 400,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   });
