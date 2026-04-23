@@ -1,0 +1,19 @@
+{
+  "name": "ascendimacy-motor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Motor canonico Ascendimacy - 3 servicos agênticos via MCP",
+  "workspaces": ["shared","planejador","motor-drota","motor-execucao","orchestrator"],
+  "scripts": {
+    "build": "npm run build -ws",
+    "test": "npm run test -ws",
+    "smoke": "node scripts/smoke.mjs",
+    "clean": "npm run clean -ws --if-present"
+  },
+  "engines": { "node": ">=22" },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

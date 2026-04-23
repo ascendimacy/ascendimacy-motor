@@ -1,0 +1,23 @@
+{
+  "name": "@ascendimacy/motor-drota",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "start": "node dist/server.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "openai": "^4.77.0",
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "@ascendimacy/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "*",
+    "@types/node": "*"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@ascendimacy/motor-execucao",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "start": "node dist/server.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "@ascendimacy/shared": "*",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "*",
+    "@types/node": "*",
+    "@types/better-sqlite3": "*",
+    "@types/js-yaml": "*"
+  }
+}

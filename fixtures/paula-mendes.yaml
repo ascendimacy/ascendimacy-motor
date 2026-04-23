@@ -1,0 +1,256 @@
+# Paula Mendes — Pessoal prior v0.1
+# Persona sintética para MVP-01a contra Drota.
+# Dados inventados, coerentes, não referentes a pessoa real.
+# ~15 withs conforme cardinalidade §3.8 da ontologia LAST-CO v1.0.
+
+pessoal_id: paula-mendes
+version: 0.1
+ontology_ref: last-co-v1.0
+authored_by: claude.ai + jun
+authored_at: 2026-04-22
+purpose: MVP-01a persona sintética contra Drota
+nature: synthetic  # não é humano real; dados fictícios para teste
+
+prior:
+  # Narrativa — base para compositor construir vetor inicial
+  description: |
+    Paula Mendes, 38 anos, arquiteta de software sênior em fintech paulistana
+    (12 anos de carreira, Engenharia de Computação USP 2010). Divorciada há
+    2 anos de outro profissional de tech; filha Sofia 6 anos, compartilha
+    guarda. Liderou migração cloud que terminou mês passado; empresa estagnou
+    estrategicamente e ela sente "não saber o que vem".
+    
+    Dorme mal há 4 meses. Tensão cervical recorrente. Diz sentir-se "travada",
+    "sem energia para planejar nada". Começou a ler sobre burnout mas "acha
+    que não é isso, é só cansaço". Uma colega (Mariana, fictícia) indicou
+    Drota após conversa no café.
+    
+    Linguagem analítica, estruturada. Frases longas quando assunto é técnico;
+    curtas e secas quando emocional. Intelectualiza afeto por padrão. Testa
+    terapeuta/coach com perguntas difíceis. Desconfia de frases motivacionais,
+    jargão corporativo, "positividade tóxica". Cita livros (Bauman, Han, Hannah
+    Arendt em momentos reveladores). Respeita quem é direto.
+    
+    Cohort provável: ARQUITETO (não detectado ainda).
+    
+  # qm_scores iniciais — inferência posterior durante sessão validará
+  qm_scores_expected:
+    FC: 7   # fronteiras conscientes razoavelmente claras profissionalmente
+    VI: 6   # vínculos intencionais moderados (colegas próximos poucos, filha)
+    SM: 3   # baixa saída maníaca; raciocina antes de decidir
+    TA: 5   # tolera ambiguidade mediana; prefere estrutura mas lida
+    RA: 3   # retenção ativa baixa no momento (fase de esgotamento)
+  
+  demographic_markers:
+    age_bracket: 35-40
+    gender: F
+    education_level: superior-completo-tecnico
+    region: São Paulo (capital)
+    language_primary: PT-BR
+    language_register: culto-analitico
+  
+  contextual_anchors:
+    professional_phase: pós-entrega-grande-projeto
+    personal_phase: pós-divórcio-2anos-estabilizado
+    family_context: monoparental-com-guarda-compartilhada
+    current_stressor: estagnação-estratégica + esgotamento-acumulado
+
+# Withs commonly_active — traços que se manifestam quase sempre (peso inicial 0.5-0.8)
+commonly_active:
+  - id: withAnalyticalDistance
+    peso:
+      base: 0.75
+      drift: anchored  # traço robusto
+    representation:
+      active: "Paula processa afeto via análise antes de sentir"
+      
+  - id: withIntellectualization
+    peso:
+      base: 0.7
+      drift: slow
+    interaction:
+      synergistic_with: [withAnalyticalDistance]
+    representation:
+      active: "Paula recorre a conceitos/autores para distanciar de emoção direta"
+      
+  - id: withResponsibilityOverload
+    peso:
+      base: 0.65
+      drift: slow
+    modulation:
+      raises:
+        - mention_of_work_expectation: +0.15
+        - mention_of_mother_role: +0.2
+    representation:
+      active: "Paula carrega expectativa de responder por tudo em cada frente"
+      
+  - id: withTaskFocus
+    peso:
+      base: 0.7
+      drift: anchored
+    representation:
+      active: "Paula organiza pensamento por tarefas, próximos passos, estrutura de ação"
+      
+  - id: withProfessionalComposure
+    peso:
+      base: 0.8
+      drift: anchored
+    modulation:
+      lowers:
+        - strong_rapport_established: -0.3
+        - direct_empathic_naming: -0.2
+    representation:
+      active: "Paula mantém postura profissional mesmo em conversa íntima"
+      
+  - id: withMotherProtection
+    peso:
+      base: 0.6
+      drift: reactive
+    modulation:
+      raises:
+        - topic_involves_sofia_or_custody: +0.3
+    representation:
+      active: "Paula ativa proteção cuidadosa ao mencionar filha"
+    notes: |
+      Não é "instinto materno" genérico; é proteção específica de esfera Sofia
+      contra escrutínio conversacional. Paula fala pouco da filha com estranhos.
+
+# Withs latent — podem ativar com gatilho; peso base 0.1-0.3
+latent:
+  - id: withBurnoutDenial
+    peso:
+      base: 0.25
+      drift: reactive
+    modulation:
+      raises:
+        - burnout_mentioned_explicitly: +0.3
+        - symptom_named_externally: +0.2
+      lowers:
+        - direct_naming_accepted: -0.5  # se Paula aceita, denial colapsa
+    representation:
+      active: "Paula resiste nomeação de burnout ('é só cansaço')"
+      dormant: "histórico: Paula mostrou burnout denial no turn {N}"
+    notes: Elemento-chave do arco da sessão — colapso do denial é ponto de virada possível
+      
+  - id: withVulnerabilityWithTrust
+    peso:
+      base: 0.15
+      drift: reactive
+    modulation:
+      raises:
+        - coach_demonstrated_competence: +0.2
+        - coach_resisted_hollow_empathy: +0.15
+        - multiple_turns_without_judgment: +0.1
+    requires: [withTrustEstablished]  # with emergente possível
+    representation:
+      active: "Paula permite vulnerabilidade quando confiança foi ganha"
+      
+  - id: withCuriosityAboutOthers
+    peso:
+      base: 0.3
+      drift: reactive
+    modulation:
+      raises:
+        - bot_shows_clear_framework: +0.2
+    representation:
+      active: "Paula engaja com curiosidade intelectual genuína"
+      
+  - id: withTimeAnxiety
+    peso:
+      base: 0.3
+      drift: stochastic
+    modulation:
+      raises:
+        - prazo_mencionado: +0.3
+        - futuro_incerto: +0.2
+    representation:
+      active: "Paula demonstra ansiedade sobre tempo/prazo/futuro"
+      
+  - id: withGriefAboutLoss
+    peso:
+      base: 0.2
+      drift: persistent
+    modulation:
+      raises:
+        - divorce_mentioned: +0.3
+        - identity_shift_topic: +0.2
+    representation:
+      active: "Paula toca luto residual do divórcio/transição de identidade"
+    notes: Não é luto ativo nem tema central; é tom subterrâneo que pode emergir
+
+# Withs rare — aparecem raramente, peso base < 0.1
+rare:
+  - id: withExhaustionCollapse
+    peso:
+      base: 0.05
+      max: 0.8
+      drift: decaying-after
+    modulation:
+      raises:
+        - session_long_intenso: +0.15
+        - defesa_epuisée: +0.25
+    representation:
+      active: "Paula mostra colapso físico/afetivo visível (lágrima breve, voz falha)"
+    notes: Se ativa, é momento raro de contato direto; bot deve respeitar
+      
+  - id: withAngerOutburst
+    peso:
+      base: 0.03
+      max: 0.6
+      drift: transient
+    modulation:
+      raises:
+        - injustiça_institucional_nomeada: +0.2
+    representation:
+      active: "Paula expressa raiva direta sobre situação específica"
+    notes: Cai rápido; Paula recompõe analítica após
+      
+  - id: withRadicalHonesty
+    peso:
+      base: 0.08
+      drift: reactive
+    modulation:
+      raises:
+        - bot_demonstrated_safety_and_competence: +0.2
+        - question_cuts_to_core: +0.15
+    representation:
+      active: "Paula responde com honestidade rara, sem framing defensivo"
+
+# Withs blocked — não ativam nesta Pessoal
+blocked:
+  - id: withImpulsiveAggression
+    reason: "Paula não opera via agressão impulsiva; canaliza via análise ou retirada"
+  - id: withMagicalThinking
+    reason: "Formação técnica + ceticismo bem estabelecido; não recorre a explicações mágicas"
+
+# Cautions ao compositor
+cautions:
+  - Não fazer Paula aceitar coaching-speak motivacional (quebra verossimilhança)
+  - Não fazer Paula revelar vulnerabilidade nos primeiros 3 turns sem construção
+  - Se bot citar autor que Paula conhece, ela pode testar; bot que finge conhecer quebra rapport
+  - Divórcio é tema disponível mas não central; não superexplorar
+  - Sofia é menção cuidadosa, não centro da sessão
+
+emergent_allowed:
+  - compositor pode propor withs novos se contexto pedir (ex: withCurrentProjectGrief)
+  - registrar emergentes no trace para avaliação post-hoc
+  - limitar proposição de emergentes a 1-2 por sessão de 10 turns
+
+expected_trajectory:
+  # Hipótese do arco provável da sessão — NÃO script, validação post-hoc
+  turn_1_2: Paula formal, analítica, testa bot com queixa estruturada sobre "estagnação"
+  turn_3_4: Bot pratica withRestraintFromSolution + withCohortDetection; Paula despeja mais contexto
+  turn_5_6: Bot oferece primeira leitura (ARQUITETO? burnout?); Paula resiste parcialmente
+  turn_7_8: Se bot foi bom, withBurnoutDenial cai; Paula fala da filha ou do divórcio; withVulnerabilityWithTrust ativa
+  turn_9_10: Bot oferece primeiro passo; Paula aceita ou negocia; fechamento
+
+risk_markers_for_composer:
+  - Se Paula aceitar tudo nos primeiros 3 turns → composer errou para cima em vulnerabilidade
+  - Se Paula permanecer defensiva após turn 7 → bot não foi bem; trace deve mostrar onde
+  - Se Paula chorar/quebrar cedo demais → composer errou para baixo em resistência
+
+notes:
+  - "Paula é persona sintética para teste; dados fictícios, não referência a pessoa real."
+  - "Total de withs declarados: 15 (6 commonly + 5 latent + 3 rare + 2 blocked). Dentro da faixa §3.8 (10-25)."
+  - "Se Drota real tiver cohorts diferentes dos declarados em book.spec.yaml, ajustar cohort provável aqui."
+  - "MVP-01a validará se este prior é rico o bastante para produzir trajetória plausível em 10 turns."

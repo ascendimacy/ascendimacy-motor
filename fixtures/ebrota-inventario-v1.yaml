@@ -1,0 +1,506 @@
+# INVENTARIO.yaml — Inventário Esqueleto dos Playbooks do eBrota Kids
+# Destino: ascendimacy-ops/docs/specs/yaml-examples/ebrota-inventario-v1.yaml
+# Versão: 1-preview — 23 de abril de 2026
+# Escopo v1-preview: estrutura completa + playbooks fundacionais por fase
+#
+# NOTA DE VERSÃO:
+# Esta é a versão 1-preview do inventário. Contém:
+#   - meta bloco completo (57 playbooks catalogados)
+#   - playbooks fundacionais (primeiros de cada fase) com especificação completa
+#   - listagem compacta (id + nome + fase + criticidade) dos 47 playbooks restantes
+#
+# A versão v1-full (57 playbooks todos com especificação completa) foi gerada
+# em sessão 23 abr 2026 e será commitada em PRs sucessivos, um por fase, para
+# manter histórico de diff granular. Tracker: umbrella issue desta sessão.
+#
+# Este inventário é documento-fonte operacional secundário do motor de validação.
+# Fontes primárias complementares:
+#   - livro eBrota Toolkit (12 partes + anexos) — book de processo canônico
+#   - adquirente-jun.md — persona arquetípica v1 para fill-the-cap
+#
+# Formato de cada entrada:
+#   id — identificador hierárquico com ponto (fase.subfase.playbook)
+#   nome — nome humano
+#   trigger — o que ativa
+#   nivel_operacional — 1 (estético) / 2 (funcional) / 3 (ético) / 4 (existencial)
+#   criticidade — seguranca | operacional-core | periferico
+#   camadas_consultadas — lista de camadas da persona/morais aplicáveis
+#   dependencias_upstream — playbooks que precisam ter rodado antes
+#   dependencias_downstream — playbooks que este ativa
+#   fonte_canonica — livro (capítulo) + arquivos do repositório
+#   status — esqueleto | especificado | implementado | testado
+#   especificacao.completa — true | false
+#   especificacao.aspectos_especificados — o que o livro/fontes já cobrem
+#   especificacao.aspectos_em_omissao — o que o motor precisa inferir
+#   fill_the_cap_via — qual persona/camada usar para inferir
+#   notas — comentário livre
+
+meta:
+  versao: 1-preview
+  data: 2026-04-23
+  autor: Jun Ochiai + Claude Opus 4.7
+  escopo: fluxo-ponta-a-ponta-minimo
+  total_entradas: 57
+  total_neste_arquivo_preview: 10
+  restantes_para_pr_sucessivos: 47
+  cobertura_livro: Cap. 7 a Cap. 64 (parcial, criticos + operacional-core)
+  fases:
+    - fase_1_pre_onboarding:
+        total: 12
+        detalhados_neste_preview: 4
+    - fase_2_triagem:
+        total: 10
+        detalhados_neste_preview: 1
+    - fase_3_operacao_regular:
+        total: 13
+        detalhados_neste_preview: 1
+    - fase_4_helix_ciclo_18d:
+        total: 4
+        detalhados_neste_preview: 1
+    - fase_5_acolhimento:
+        total: 3
+        detalhados_neste_preview: 1
+    - fase_6_cohort_digest:
+        total: 5
+        detalhados_neste_preview: 1
+    - fase_7_crise:
+        total: 6
+        detalhados_neste_preview: 1
+    - fase_8_terminal_revisao:
+        total: 4
+        detalhados_neste_preview: 0
+  pendencias_explicitas:
+    - inventario_exaustivo_v2  # expansao para ~200-400 playbooks
+    - motor_execucao_playbooks  # especificacao tecnica (v1 feito, ver 2026-04-23-motor-execucao-v1.md)
+    - motor_sts  # especificacao tecnica (pendente)
+    - motor_drota  # especificacao tecnica (v1 feito, ver 2026-04-23-motor-drota-v1.md)
+    - planejador  # especificacao tecnica (pendente)
+    - book_processo_formal  # declaracao de que o livro eBrota Toolkit serve este papel
+    - expansao_playbooks_restantes  # 47 playbooks em PRs por fase
+
+
+# =====================================================================
+# FASE 1 — PRÉ-ONBOARDING (Parte II do livro) — 12 playbooks no total
+# =====================================================================
+
+playbooks:
+
+  - id: pre_onboarding.mapa_circulo.definir
+    nome: Definir o mapa do círculo de cuidado
+    trigger: adquirente primário manifesta intenção de iniciar piloto
+    nivel_operacional: 3
+    criticidade: seguranca
+    camadas_consultadas:
+      - moral/universal_humano
+      - moral/parental
+      - moral/cultural_br
+      - persona-jun
+    dependencias_upstream: []
+    dependencias_downstream:
+      - pre_onboarding.autorizacoes.consent_whatsapp_kids
+      - pre_onboarding.kit.preparar
+    fonte_canonica:
+      - livro/Cap.7
+      - PLAYBOOK-COMITE-PARENTAL.MD §1
+      - COMITE-CONCEITO.MD §4-5
+      - POLITICAS-DE-OPERACAO.MD §7
+    status: esqueleto
+    especificacao:
+      completa: false
+      aspectos_especificados:
+        - cinco_papeis_possiveis
+        - regras_de_obrigatoriedade
+        - niveis_acesso_ao_digest
+        - template_de_mapeamento
+      aspectos_em_omissao:
+        - protocolo_quando_adquirente_resiste_a_nomear_operador_substituto
+        - protocolo_quando_profissional_de_escopo_recusa_declaracao_formal
+        - comportamento_quando_familiar_periferico_pede_acesso_maior
+      fill_the_cap_via: persona-jun
+    notas: >
+      Este playbook é crítico porque produz o "vetor estrutural" de todo
+      o círculo. Se o mapa é mal definido aqui, todos os playbooks
+      downstream operam sobre fundação fraca.
+
+  - id: pre_onboarding.escopo.explicar_o_que_engine_nao_faz
+    nome: Explicar o que o engine NÃO faz
+    trigger: durante leitura do Cap. 1 + Cap. 9 pelo adquirente
+    nivel_operacional: 3
+    criticidade: seguranca
+    camadas_consultadas:
+      - moral/universal_humano
+      - moral/parental
+    dependencias_upstream:
+      - pre_onboarding.facilitador.apresentar_7_regras
+    dependencias_downstream:
+      - pre_onboarding.autorizacoes.consent_whatsapp_kids
+    fonte_canonica:
+      - livro/Cap.9
+      - POLITICAS-DE-OPERACAO.MD §10
+    status: esqueleto
+    especificacao:
+      completa: true
+      aspectos_especificados:
+        - lista_dura_6_coisas_que_nao_faz
+        - protocolo_redirecionamento_em_4_passos
+        - template_resposta_padrao_a_pedido_diagnostico
+      aspectos_em_omissao:
+        - comportamento_quando_adquirente_insiste_apos_redirecionamento_3x
+      fill_the_cap_via: persona-jun
+    notas: null
+
+  - id: pre_onboarding.autorizacoes.consent_whatsapp_kids
+    nome: Coletar consent WhatsApp Kids dos responsáveis legais
+    trigger: adquirente confirma intenção de iniciar e mapa está pronto
+    nivel_operacional: 3
+    criticidade: seguranca
+    camadas_consultadas:
+      - moral/universal_humano
+      - moral/parental
+      - moral/cultural_br
+    dependencias_upstream:
+      - pre_onboarding.mapa_circulo.definir
+      - pre_onboarding.escopo.explicar_o_que_engine_nao_faz
+    dependencias_downstream:
+      - pre_onboarding.autorizacoes.registrar_event_log
+      - pre_onboarding.ok_de_comecar.conversa_estruturada
+    fonte_canonica:
+      - livro/Cap.10
+      - juridico/CONSENT-WHATSAPP-EBROTA-KIDS.MD
+      - POLITICAS-DE-OPERACAO.MD §1
+    status: esqueleto
+    especificacao:
+      completa: true
+      aspectos_especificados:
+        - templates_PT_BR_e_JP
+        - passo_a_passo_8_etapas
+        - canais_revogacao
+      aspectos_em_omissao:
+        - protocolo_quando_1_responsavel_aprova_e_outro_demora_72h
+        - protocolo_quando_consent_chega_em_formato_ambiguo_ex_thumbs_up_emoji
+      fill_the_cap_via: moral/parental + persona-jun
+    notas: >
+      Playbook NÃO avança sem 100% dos consents explícitos. Em caso de
+      qualquer ambiguidade, volta à fase "aguardando".
+
+  - id: pre_onboarding.ok_de_comecar.gerar_baseline_casel
+    nome: Gerar baseline CASEL da criança a partir das respostas
+    trigger: 3 perguntas do "ok de começar" respondidas
+    nivel_operacional: 2
+    criticidade: operacional-core
+    camadas_consultadas: []
+    dependencias_upstream:
+      - pre_onboarding.ok_de_comecar.conversa_estruturada
+    dependencias_downstream:
+      - pre_onboarding.ok_de_comecar.gerar_starter_deck
+      - triagem.dia_1.icebreaker_2_verdades
+    fonte_canonica:
+      - CLAUDE_6.MD §4.5
+      - livro/Cap.18
+    status: esqueleto
+    especificacao:
+      completa: true
+      aspectos_especificados:
+        - algoritmo_baseline_por_serie
+        - aplicacao_modifiers
+      aspectos_em_omissao:
+        - protocolo_quando_adquirente_informa_serie_inconsistente_com_idade
+        - protocolo_quando_modifier_nao_esta_catalogado
+      fill_the_cap_via: motor_execucao_playbooks + persona-jun
+    notas: null
+
+
+# =====================================================================
+# FASE 2 — TRIAGEM (Parte IV, dias 1-5) — 10 playbooks no total
+# =====================================================================
+
+  - id: triagem.dia_1.icebreaker_2_verdades
+    nome: Executar icebreaker "2 verdades 1 mentira" (probe INA + LIN)
+    trigger: criança respondeu mensagem zero
+    nivel_operacional: 1
+    criticidade: operacional-core
+    camadas_consultadas: []
+    dependencias_upstream:
+      - triagem.dia_1.mensagem_zero_enviar
+    dependencias_downstream:
+      - triagem.dia_1.atualizar_trust_score
+      - triagem.dia_2.icebreaker_preferencias
+    fonte_canonica:
+      - livro/Cap.18
+      - livro/Cap.25
+      - CLAUDE_6.MD §6.1
+    status: esqueleto
+    especificacao:
+      completa: true
+      aspectos_especificados:
+        - dinamica
+        - probes_ativados
+        - duracao_tipica
+      aspectos_em_omissao:
+        - protocolo_quando_crianca_inverte_o_jogo_faz_engine_adivinhar
+        - protocolo_quando_crianca_responde_monossilabo
+      fill_the_cap_via: motor_sts + persona-jun
+    notas: null
+
+
+# =====================================================================
+# FASE 3 — OPERAÇÃO REGULAR (Parte V) — 13 playbooks no total
+# =====================================================================
+
+  - id: operacao.sessao_diaria.colher_mood
+    nome: Colher mood ao longo do icebreaker (covert)
+    trigger: turnos do icebreaker em andamento
+    nivel_operacional: 1
+    criticidade: seguranca
+    camadas_consultadas: []
+    dependencias_upstream:
+      - operacao.sessao_diaria.icebreaker
+    dependencias_downstream:
+      - operacao.sessao_diaria.decidir_a1_a2_a3
+    fonte_canonica:
+      - CLAUDE_6.MD §5.3
+      - livro/Cap.26
+      - livro/Cap.32
+    status: esqueleto
+    especificacao:
+      completa: false
+      aspectos_especificados:
+        - escala_1_a_10
+        - regra_5_nao_vazamento
+      aspectos_em_omissao:
+        - algoritmo_preciso_de_classificacao_de_mood
+        - protocolo_quando_mood_oscila_dentro_da_sessao
+      fill_the_cap_via: motor_execucao_playbooks + motor_sts
+    notas: >
+      Crítico. Qualquer vazamento aqui quebra o produto inteiro.
+
+
+# =====================================================================
+# FASE 4 — HELIX CICLO 18D (Parte V/§5 CLAUDE_6.MD) — 4 playbooks no total
+# =====================================================================
+
+  - id: helix.ciclo.avancar_dia
+    nome: Avançar cycle_day do helix
+    trigger: inicio de novo dia calendario com sessao completa no dia anterior
+    nivel_operacional: 2
+    criticidade: operacional-core
+    camadas_consultadas: []
+    dependencias_upstream:
+      - operacao.helix.iniciar_ciclo_1
+    dependencias_downstream:
+      - helix.ciclo.checar_retrieval_gate_50
+      - helix.ciclo.checar_boss_fight_100
+    fonte_canonica:
+      - CLAUDE_6.MD §5
+      - livro/Cap.28
+    status: esqueleto
+    especificacao:
+      completa: true
+      aspectos_especificados:
+        - triggers_50_100_dia7
+        - cadencia_18d_2_sessoes_dia
+        - rotacao_queue_completed_deferred
+      aspectos_em_omissao:
+        - protocolo_quando_cycle_day_congela_3_dias_sem_conversa
+      fill_the_cap_via: motor_execucao_playbooks
+    notas: >
+      Ver issue #365 para implementacao completa do motor Double Helix.
+
+
+# =====================================================================
+# FASE 5 — ACOLHIMENTO (Parte VI) — 3 playbooks no total
+# =====================================================================
+
+  - id: acolhimento.detectar_sinal
+    nome: Detectar sinal de alerta (mood <=3 por N dias, palavra-chave crise, etc.)
+    trigger: mood sustentado baixo OU palavra-chave critica OU sinal operador
+    nivel_operacional: 3
+    criticidade: seguranca
+    camadas_consultadas:
+      - moral/universal_humano
+      - moral/parental
+      - persona-jun
+    dependencias_upstream: []
+    dependencias_downstream:
+      - acolhimento.acionar_roda_acolhimento
+      - crise.mood_critico.protocolo_zero_helix
+    fonte_canonica:
+      - POLITICAS-DE-OPERACAO.MD §17
+      - livro/Cap.32
+    status: esqueleto
+    especificacao:
+      completa: false
+      aspectos_especificados:
+        - thresholds_de_acionamento
+        - papeis_ativados_na_roda
+      aspectos_em_omissao:
+        - algoritmo_de_detecção_de_palavras-chave_sensivel_a_jurisdicao
+        - protocolo_quando_sinal_ambiguo_falso_positivo_vs_real
+      fill_the_cap_via: moral/parental + persona-jun + motor_sts
+    notas: >
+      Critico. Cascateia pro protocolo de crise se confirmar sinal.
+
+
+# =====================================================================
+# FASE 6 — COHORT / DIGEST (Parte VII) — 5 playbooks no total
+# =====================================================================
+
+  - id: cohort.gerar_digest_semanal
+    nome: Gerar digest semanal para adquirente
+    trigger: dia 7 do ciclo OU pedido explicito
+    nivel_operacional: 2
+    criticidade: operacional-core
+    camadas_consultadas:
+      - persona-jun
+      - moral/cultural_br
+    dependencias_upstream:
+      - helix.ciclo.avancar_dia
+    dependencias_downstream:
+      - cohort.entregar_digest
+    fonte_canonica:
+      - livro/Cap.40
+      - CLAUDE_6.MD §7.4
+    status: esqueleto
+    especificacao:
+      completa: true
+      aspectos_especificados:
+        - estrutura_do_digest
+        - niveis_de_acesso_por_papel
+        - regra_de_nao_vazamento_entre_papeis
+      aspectos_em_omissao:
+        - protocolo_quando_adquirente_pede_granularidade_acima_do_autorizado
+      fill_the_cap_via: persona-jun
+    notas: null
+
+
+# =====================================================================
+# FASE 7 — CRISE (Parte VIII, §9 CLAUDE_6.MD) — 6 playbooks no total
+# =====================================================================
+
+  - id: crise.mood_critico.protocolo_zero_helix
+    nome: Suspender helix imediatamente + acionar operador
+    trigger: mood <= 3 confirmado OU acolhimento.detectar_sinal positivo
+    nivel_operacional: 3
+    criticidade: seguranca
+    camadas_consultadas:
+      - moral/universal_humano
+      - moral/parental
+      - persona-jun
+    dependencias_upstream:
+      - acolhimento.detectar_sinal
+    dependencias_downstream:
+      - crise.escalacao_nivel_2
+      - acolhimento.acionar_roda_acolhimento
+    fonte_canonica:
+      - CLAUDE_6.MD §9
+      - POLITICAS-DE-OPERACAO.MD §17
+      - livro/Cap.48
+    status: esqueleto
+    especificacao:
+      completa: true
+      aspectos_especificados:
+        - suspensao_imediata_de_helix
+        - template_notificacao_operador
+        - prazos_de_resposta_esperados
+      aspectos_em_omissao:
+        - protocolo_quando_operador_offline_ha_mais_de_30min_em_crise
+        - integracao_com_servicos_externos_ex_CVV_BR_inochi_no_denwa_JP
+      fill_the_cap_via: moral/universal_humano + persona-jun
+    notas: >
+      Em caso de risco iminente: não substitui serviços humanos de emergência.
+      Engine sempre escala.
+
+
+# =====================================================================
+# LISTAGEM COMPACTA DOS 47 PLAYBOOKS RESTANTES
+# (especificação completa em PRs sucessivos)
+# =====================================================================
+
+playbooks_pending_expansion:
+  # FASE 1 - restantes 8
+  - { id: pre_onboarding.facilitador.apresentar_7_regras, fase: 1, criticidade: operacional-core }
+  - { id: pre_onboarding.autorizacoes.registrar_event_log, fase: 1, criticidade: seguranca }
+  - { id: pre_onboarding.ok_de_comecar.conversa_estruturada, fase: 1, criticidade: operacional-core }
+  - { id: pre_onboarding.ok_de_comecar.gerar_starter_deck, fase: 1, criticidade: operacional-core }
+  - { id: pre_onboarding.kit.preparar, fase: 1, criticidade: operacional-core }
+  - { id: pre_onboarding.kit.enviar, fase: 1, criticidade: periferico }
+  - { id: pre_onboarding.mensagem_zero.agendar, fase: 1, criticidade: operacional-core }
+  - { id: pre_onboarding.kit.imprimir_starter_deck, fase: 1, criticidade: periferico }
+
+  # FASE 2 - restantes 9
+  - { id: triagem.dia_1.mensagem_zero_enviar, fase: 2, criticidade: operacional-core }
+  - { id: triagem.dia_1.atualizar_trust_score, fase: 2, criticidade: operacional-core }
+  - { id: triagem.dia_2.icebreaker_preferencias, fase: 2, criticidade: operacional-core }
+  - { id: triagem.dia_3.ranking_battle, fase: 2, criticidade: operacional-core }
+  - { id: triagem.dia_4.se_fosse, fase: 2, criticidade: operacional-core }
+  - { id: triagem.dia_5.missao_impossivel, fase: 2, criticidade: operacional-core }
+  - { id: triagem.dia_5.gerar_card_triagem, fase: 2, criticidade: operacional-core }
+  - { id: triagem.dia_5.validar_plano_ciclo_com_adquirente, fase: 2, criticidade: seguranca }
+  - { id: triagem.dia_5.adquirente_aprova_ou_ajusta_dimensao, fase: 2, criticidade: operacional-core }
+
+  # FASE 3 - restantes 12
+  - { id: operacao.helix.iniciar_ciclo_1, fase: 3, criticidade: operacional-core }
+  - { id: operacao.sessao_diaria.icebreaker, fase: 3, criticidade: operacional-core }
+  - { id: operacao.sessao_diaria.decidir_a1_a2_a3, fase: 3, criticidade: operacional-core }
+  - { id: operacao.sessao_diaria.helix, fase: 3, criticidade: operacional-core }
+  - { id: operacao.sessao_diaria.gerar_quest_offline, fase: 3, criticidade: operacional-core }
+  - { id: operacao.quest.autorizacao_granular, fase: 3, criticidade: seguranca }
+  - { id: operacao.quest.enviar_a_crianca, fase: 3, criticidade: operacional-core }
+  - { id: operacao.quest.alternativa_trivial, fase: 3, criticidade: operacional-core }
+  - { id: operacao.sessao_diaria.aguardar_registro, fase: 3, criticidade: periferico }
+  - { id: operacao.sessao_diaria.gerar_card, fase: 3, criticidade: operacional-core }
+  - { id: operacao.sessao_diaria.entregar_card_a_crianca, fase: 3, criticidade: operacional-core }
+  - { id: operacao.sessao_diaria.fechar_sessao, fase: 3, criticidade: periferico }
+
+  # FASE 4 - restantes 3
+  - { id: helix.ciclo.checar_retrieval_gate_50, fase: 4, criticidade: operacional-core }
+  - { id: helix.ciclo.checar_boss_fight_100, fase: 4, criticidade: operacional-core }
+  - { id: helix.ciclo.rotacionar_dimensao, fase: 4, criticidade: operacional-core }
+
+  # FASE 5 - restantes 2
+  - { id: acolhimento.acionar_roda_acolhimento, fase: 5, criticidade: seguranca }
+  - { id: acolhimento.fechar_roda_com_proximos_passos, fase: 5, criticidade: seguranca }
+
+  # FASE 6 - restantes 4
+  - { id: cohort.entregar_digest, fase: 6, criticidade: operacional-core }
+  - { id: cohort.revisao_semanal_operador, fase: 6, criticidade: operacional-core }
+  - { id: cohort.insights_cruzados_3_criancas, fase: 6, criticidade: periferico }
+  - { id: cohort.fallback_quando_amostra_menor_que_3, fase: 6, criticidade: operacional-core }
+
+  # FASE 7 - restantes 5
+  - { id: crise.escalacao_nivel_2, fase: 7, criticidade: seguranca }
+  - { id: crise.escalacao_nivel_3_autoridade_externa, fase: 7, criticidade: seguranca }
+  - { id: crise.pos_crise.revisao_operador, fase: 7, criticidade: seguranca }
+  - { id: crise.pos_crise.retomada_gradual, fase: 7, criticidade: seguranca }
+  - { id: crise.kill_switch_piloto, fase: 7, criticidade: seguranca }
+
+  # FASE 8 - 4 playbooks (novos)
+  - { id: terminal.revisao_mensal_adquirente, fase: 8, criticidade: operacional-core }
+  - { id: terminal.ajustar_plano_proximo_ciclo, fase: 8, criticidade: operacional-core }
+  - { id: terminal.encerrar_piloto_planejado, fase: 8, criticidade: operacional-core }
+  - { id: terminal.exportar_dados_para_adquirente, fase: 8, criticidade: seguranca }
+
+
+# =====================================================================
+# NOTAS FINAIS
+# =====================================================================
+
+notas_finais:
+  este_preview: >
+    Este inventário v1-preview cobre a estrutura completa (57 playbooks catalogados)
+    com especificação detalhada dos 10 fundacionais (primeiros de cada fase).
+    Os 47 restantes têm id + fase + criticidade registrados, especificação
+    completa virará em PRs sucessivos por fase.
+  
+  proximo_passo: >
+    Expansão incremental em PRs por fase, começando por Fase 7 (Crise) por
+    segurança, depois Fase 3 (Operação Regular) por volume. Tracker: umbrella
+    issue desta sessão 23 abr 2026.
+  
+  ciclo_sintetico: >
+    Apos expansao completa, primeiro ciclo sintetico dos motores consumirá
+    este inventário para detectar gaps de especificação vs gaps de cobertura.
+    Output esperado: lista de aspectos_em_omissao que fill-the-cap não resolve
+    + lista de playbooks faltando no inventário.
+
+# Fim do INVENTARIO.yaml v1-preview.
