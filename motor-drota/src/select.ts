@@ -13,7 +13,8 @@ export function selectBest(scored: ScoredAction[]): ScoredAction {
 export function sanitizeMaterialization(text: string): string {
   let result = text;
   for (const word of FORBIDDEN_WORDS) {
-    result = result.replace(new RegExp(word, "gi"), "");
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "");
   }
-  return result.trim();
+  return result.replace(/\s{2,}/g, " ").trim();
 }
