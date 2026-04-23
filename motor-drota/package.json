@@ -5,19 +5,20 @@
   "type": "module",
   "main": "./dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "start": "node dist/server.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "openai": "^4.77.0",
+    "@ascendimacy/shared": "*",
     "@modelcontextprotocol/sdk": "^1.10.2",
-    "@ascendimacy/shared": "*"
+    "openai": "^4.77.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/node": "*",
     "typescript": "*",
-    "vitest": "*",
-    "@types/node": "*"
+    "vitest": "*"
   }
 }

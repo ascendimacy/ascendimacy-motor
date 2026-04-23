@@ -5,22 +5,23 @@
   "type": "module",
   "main": "./dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "start": "node dist/server.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
-    "@modelcontextprotocol/sdk": "^1.10.2",
     "@ascendimacy/shared": "*",
-    "js-yaml": "^4.1.0"
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "better-sqlite3": "^11.0.0",
+    "js-yaml": "^4.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "typescript": "*",
-    "vitest": "*",
-    "@types/node": "*",
     "@types/better-sqlite3": "*",
-    "@types/js-yaml": "*"
+    "@types/js-yaml": "*",
+    "@types/node": "*",
+    "typescript": "*",
+    "vitest": "*"
   }
 }

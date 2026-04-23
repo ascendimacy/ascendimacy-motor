@@ -1,4 +1,6 @@
-import type { CandidateAction, SessionState, PersonaDef, AdquirenteDef, PlaybookIndex } from "./types.js";
+import type { CandidateAction, SessionState, PersonaDef, AdquirenteDef, PlaybookIndex, EventEntry } from "./types.js";
+
+export type { CandidateAction };
 
 export interface PlanTurnInput {
   sessionId: string;
@@ -13,14 +15,6 @@ export interface PlanTurnOutput {
   strategicRationale: string;
   candidateActions: CandidateAction[];
   contextHints: Record<string, unknown>;
-}
-
-export interface CandidateAction {
-  playbookId: string;
-  priority: number;
-  rationale: string;
-  estimatedSacrifice: number;
-  estimatedConfidenceGain: number;
 }
 
 export interface EvaluateAndSelectInput {
@@ -48,5 +42,5 @@ export interface ExecutePlaybookInput {
 export interface ExecutePlaybookOutput {
   success: boolean;
   newState: SessionState;
-  eventLogged: import("./types.js").EventEntry;
+  eventLogged: EventEntry;
 }

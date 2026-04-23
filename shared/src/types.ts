@@ -33,3 +33,11 @@ export interface EventEntry {
   playbookId?: string;
   data: Record<string, unknown>;
 }
+
+export interface CandidateAction {
+  playbookId: string;
+  priority: number;
+  rationale: string;
+  estimatedSacrifice: number;
+  estimatedConfidenceGain: number;
+}
