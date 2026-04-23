@@ -16,7 +16,17 @@ Orquestrador conecta os 3 via MCP stdio.
 
 ## Fase atual
 
-Walking skeleton (H0 concluído). Próximo: H1 (contracts) → H2 (motor-execucao) → H3 (planejador) → H4 (motor-drota) → H5 (orchestrator) → H6 (smoke) → H7 (real) → H8 (docs+PR).
+Walking skeleton H0-H6 concluído em [PR#1](https://github.com/ascendimacy/ascendimacy-motor/pull/1) (commit `fc88f39`).
+
+- H0 scaffold + workspace: ✅
+- H1 shared contracts + trace-schema: ✅
+- H2 motor-execucao (MCP + SQLite + 3 tools): ✅
+- H3 planejador (MCP + Anthropic SDK): ✅
+- H4 motor-drota (MCP + Infomaniak Mistral + scoring): ✅
+- H5 orchestrator (CLI + mcp-clients + trace-writer): ✅
+- H6 smoke test (mocks, npm run smoke): ✅
+- H7 trace Paula × Drota com LLMs reais: ✅ (Sonnet 6.1s + Infomaniak 3.4s, rubric G1-G3 verde)
+- H8 docs finais + PR: ✅ (PR#1 mergeado)
 
 ## Decisões arquiteturais (D1-D12)
 

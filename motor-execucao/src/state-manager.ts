@@ -59,9 +59,16 @@ export function getState(sessionId: string): SessionState {
 
 export function updateState(sessionId: string, delta: Partial<SessionState>): void {
   const database = getDb();
+  const current = database.prepare("SELECT * FROM sessions WHERE session_id = ?").get(sessionId) as Record<string, unknown> | undefined;
+  if (!current) return;
+  const merged = {
+    trustLevel: delta.trustLevel ?? Number(current["trust_level"]),
+    budgetRemaining: delta.budgetRemaining ?? Number(current["budget_remaining"]),
+    turn: delta.turn ?? Number(current["turn"]),
+  };
   const now = new Date().toISOString();
   database.prepare("UPDATE sessions SET trust_level = ?, budget_remaining = ?, turn = ?, updated_at = ? WHERE session_id = ?")
-    .run(delta.trustLevel ?? 0.3, delta.budgetRemaining ?? 100, delta.turn ?? 0, now, sessionId);
+    .run(merged.trustLevel, merged.budgetRemaining, merged.turn, now, sessionId);
 }
 
 export function logEvent(sessionId: string, event: EventEntry): void {
