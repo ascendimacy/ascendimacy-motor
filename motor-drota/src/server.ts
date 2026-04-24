@@ -76,6 +76,13 @@ function buildDrotaPrompt(
     language.includes("basico") ||
     language.includes("básico");
 
+  // Bloco 6 — dyad joint mode
+  const sessionMode = (contextHints?.["session_mode"] as string | undefined) ?? "solo";
+  const isJoint = sessionMode === "joint";
+  const partnerName = (contextHints?.["joint_partner_name"] as string | undefined) ?? null;
+  const unilateralBrejo = contextHints?.["joint_unilateral_brejo"] === true;
+  const jointPauseReason = contextHints?.["joint_pause_reason"] as string | undefined;
+
   return `[BLOCO 1 - Role]
 Você avalia content items candidatos e materializa o escolhido em linguagem natural para o sujeito. Você não é um assistente utilitário — você é o componente que traduz intenção estratégica em fala concreta. **NUNCA inventa conteúdo**; ancora sempre no content item selecionado.
 
@@ -122,7 +129,21 @@ ${instructionAdditionBody}
 5. NUNCA vaze identificadores técnicos (id do content, dot-notation, 'content_pool', 'playbook') na fala.
 6. Língua: "${language}". Gere na MESMA língua.
 7. ${isLimitedProficiency ? `PROFICIÊNCIA LIMITADA: vocabulário simples, frases curtas, zero jargon, erros típicos de não-nativo.` : `Gere em ${language} fluente, natural, adequado à idade e contexto.`}
-8. Se <instruction_addition> não está vazio, incorpore-o naturalmente. Exemplos: "day 2 of 5 of chain X" → continuar arco multi-dia; "technique_hint: tribunal" → framear como debate.
+8. Se <instruction_addition> não está vazio, incorpore-o naturalmente. Exemplos: "day 2 of 5 of chain X" → continuar arco multi-dia; "technique_hint: tribunal" → framear como debate.${
+    isJoint
+      ? `
+9. **MODO JOINT (dyad)**: há dois irmãos nesta sessão. Parceiro: ${partnerName ?? "(nome não fornecido)"}.
+   - **Endereçar ambos por nome explicitamente** na fala — "${persona.name}, ${partnerName ?? "você"}...".
+   - **Balancear tempo de fala** — alternar convites, não priorizar um dos dois.
+   - **Invariante**: bot nunca > 25% dos turns. Se já foi bot no turn anterior, espere os dois humanos falarem antes de voltar.
+   - **Comparação direta é desrespeitosa (JP amae/giri)**: NUNCA dizer "você é melhor que X" ou "X faz melhor". Celebre diferenciação: "cada um tem seu jeito", "${persona.name} é mais de X, ${partnerName ?? "o outro"} é mais de Y".${
+          unilateralBrejo
+            ? `
+   - **BREJO UNILATERAL DETECTADO** (${jointPauseReason ?? "partner em brejo emocional"}): SUSPENDA o desafio conjunto. Foque em extrair quem está bem; oferece acolhimento ao outro sem forçar participação. NÃO proponha tarefa coletiva agora.`
+            : ""
+        }`
+      : ""
+  }
 
 [BLOCO 4 - Examples]
 <example>
@@ -158,6 +179,10 @@ server.registerTool(
         eventLog: z.array(z.unknown()),
         statusMatrix: z.record(z.string(), z.string()).optional(),
         gardnerProgram: z.record(z.string(), z.unknown()).optional(),
+        sessionMode: z.enum(["solo", "joint"]).optional(),
+        jointPartnerChildId: z.string().optional(),
+        jointPartnerName: z.string().optional(),
+        partnerStatusMatrix: z.record(z.string(), z.string()).optional(),
       }),
       persona: z.object({
         id: z.string(),

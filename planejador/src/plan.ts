@@ -117,6 +117,14 @@ function buildGardnerInstruction(input: PlanTurnInput): {
     return { text: "", active: false, pauseReason: pause.reason };
   }
 
+  // Bloco 6: se joint, brejo UNILATERAL (parceiro) também pausa.
+  if (input.state.sessionMode === "joint" && input.state.partnerStatusMatrix) {
+    const partnerPause = shouldPauseProgram(input.state.partnerStatusMatrix);
+    if (partnerPause.paused) {
+      return { text: "", active: false, pauseReason: `partner_${partnerPause.reason}` };
+    }
+  }
+
   const pair = pairForWeek(program.current_week, rawAssessment!);
   if (!pair) return { text: "", active: false, pauseReason: "no_pair" };
 
@@ -156,12 +164,14 @@ function applyPinnedDecisions(pool: ContentItem[], persona: PlanTurnInput["perso
 }
 
 export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
+  const sessionMode = input.state.sessionMode ?? "solo";
   // 1. Scoring determinístico do pool.
   const rawPool = loadSeedPool(seedPath());
   const withPinnedMarks = applyPinnedDecisions(rawPool, input.persona);
   const eligible = buildPool(withPinnedMarks, {
     age: input.persona.age,
-    sessionMode: "1v1", // Bloco 6 adotará 'joint' para dyad
+    // Bloco 6: joint filtra por group_compatible (campo já existe desde 2a A.1.1)
+    sessionMode: sessionMode === "joint" ? "joint" : "1v1",
   });
   const child = personaToChildProfile(input.persona, input.state);
   const statusMatrix = input.state.statusMatrix ?? defaultMatrix();
@@ -224,6 +234,25 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     contextHints["parental_triage_mode"] = triageMode;
     if (triageRejectedIds.length > 0) {
       contextHints["parental_triage_rejected_ids"] = triageRejectedIds;
+    }
+  }
+
+  // Bloco 6: joint-mode hints + brejo unilateral pause signal.
+  if (sessionMode === "joint") {
+    contextHints["session_mode"] = "joint";
+    if (input.state.jointPartnerName) {
+      contextHints["joint_partner_name"] = input.state.jointPartnerName;
+    }
+    if (input.state.jointPartnerChildId) {
+      contextHints["joint_partner_child_id"] = input.state.jointPartnerChildId;
+    }
+    if (input.state.partnerStatusMatrix) {
+      const partnerPause = shouldPauseProgram(input.state.partnerStatusMatrix);
+      if (partnerPause.paused) {
+        contextHints["joint_unilateral_brejo"] = true;
+        contextHints["joint_pause_reason"] = `partner_${partnerPause.reason}`;
+      }
+      contextHints["partner_status_gates"] = allGates(input.state.partnerStatusMatrix);
     }
   }
 

@@ -11,6 +11,7 @@ import type {
   StatusComparison,
   CardSummary,
   EmittedCardSummary,
+  JointSessionSummary,
   IgnitionEvent,
   AspirationSignal,
 } from "./types.js";
@@ -149,6 +150,36 @@ function writeAspirations(doc: PDFKit.PDFDocument, aps: AspirationSignal[]): voi
   doc.moveDown(1);
 }
 
+function writeJointSessions(
+  doc: PDFKit.PDFDocument,
+  sessions: JointSessionSummary[] | undefined,
+  trend: number | null | undefined,
+): void {
+  const list = sessions ?? [];
+  doc.fontSize(14).text(`👥 Dinâmicas conjuntas (${list.length})`);
+  doc.fontSize(9).moveDown(0.2);
+  if (list.length === 0) {
+    doc.text("Nenhuma sessão joint nesta semana.");
+  } else {
+    const trendStr =
+      typeof trend === "number"
+        ? ` · trend: ${trend >= 0 ? "+" : ""}${trend.toFixed(2)}`
+        : "";
+    doc.fontSize(9).fillColor("#555").text(`Trust médio do dyad${trendStr}`);
+    doc.fillColor("black").moveDown(0.3);
+    for (const s of list) {
+      const flags = Object.entries(s.bullying_flags_count)
+        .map(([k, v]) => `${k}:${v}`)
+        .join(", ") || "—";
+      const partnerLabel = s.partner_name ?? s.partner_child_id;
+      doc.text(
+        `• ${s.session_id.slice(0, 12)} — ${partnerLabel} · ${s.turns_count} turns · eng ${s.avg_engagement_score.toFixed(2)} · flags ${flags}`,
+      );
+    }
+  }
+  doc.moveDown(1);
+}
+
 function writeMetrics(doc: PDFKit.PDFDocument, data: WeeklyReportData): void {
   const m = data.metrics;
   doc.fontSize(14).text("Métricas operacionais");
@@ -189,6 +220,7 @@ export function renderPdf(
       writeProgram(doc, data);
       writeEmittedCards(doc, data.emitted_cards);
       writeCards(doc, data.cards);
+      writeJointSessions(doc, data.joint_sessions, data.dyad_trust_trend);
       writeStatus(doc, data.status_comparison);
       writeIgnitions(doc, data.ignitions);
       writeAspirations(doc, data.aspirations);

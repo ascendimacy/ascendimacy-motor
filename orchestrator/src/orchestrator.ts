@@ -49,12 +49,24 @@ function parseToolText<T>(result: unknown): T {
   return JSON.parse(text) as T;
 }
 
+/**
+ * JointContext — Bloco 6 (#17): injeta parceiro quando rodando dyad.
+ * Orchestrator busca o statusMatrix do parceiro via get_state(partnerSessionId)
+ * e injeta em state.partnerStatusMatrix antes de chamar planejador.
+ */
+export interface JointContext {
+  partnerSessionId: string;
+  partnerChildId: string;
+  partnerName: string;
+}
+
 export async function runTurn(
   clients: McpClients,
   sessionId: string,
   personaId: string,
   message: string,
-  tracesDir: string
+  tracesDir: string,
+  jointContext?: JointContext,
 ): Promise<{ finalResponse: string; tracePath: string }> {
   const persona = loadPersona(personaId);
   const adquirente = loadAdquirente();
@@ -69,6 +81,24 @@ export async function runTurn(
     arguments: { sessionId },
   });
   const state = parseToolText<import("@ascendimacy/shared").SessionState>(stateResult);
+  if (jointContext) {
+    state.sessionMode = "joint";
+    state.jointPartnerChildId = jointContext.partnerChildId;
+    state.jointPartnerName = jointContext.partnerName;
+    // Busca statusMatrix do parceiro pra detecção de brejo unilateral.
+    try {
+      const partnerStateResult = await clients.motorExecucao.callTool({
+        name: "get_state",
+        arguments: { sessionId: jointContext.partnerSessionId },
+      });
+      const partnerState = parseToolText<import("@ascendimacy/shared").SessionState>(partnerStateResult);
+      if (partnerState.statusMatrix) {
+        state.partnerStatusMatrix = partnerState.statusMatrix;
+      }
+    } catch {
+      // Se o motor não conseguir buscar o parceiro, segue sem (degrade graceful).
+    }
+  }
   turnEntries.push({
     service: "motor-execucao",
     timestamp: new Date().toISOString(),
@@ -170,6 +200,9 @@ export async function runTurn(
     caselTargetsTouched,
     instructionAdditionApplied: (plan.instruction_addition ?? "") || undefined,
     flags: { anomalies: [], warnings: [] },
+    sessionMode: state.sessionMode,
+    jointPartnerChildId: state.jointPartnerChildId,
+    jointPartnerName: state.jointPartnerName,
   });
 
   const tracePath = saveTrace(trace, tracesDir);

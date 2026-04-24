@@ -9,6 +9,7 @@ import type {
   IgnitionEvent,
   CardSummary,
   EmittedCardSummary,
+  JointSessionSummary,
   AspirationSignal,
 } from "./types.js";
 
@@ -171,12 +172,43 @@ function renderEmittedCards(ems: EmittedCardSummary[] | undefined): string {
   return lines.join("\n");
 }
 
+function renderJointSessions(
+  sessions: JointSessionSummary[] | undefined,
+  trend: number | null | undefined,
+): string {
+  const list = sessions ?? [];
+  if (list.length === 0) {
+    return `## 👥 Dinâmicas conjuntas\n\nNenhuma sessão joint nesta semana.\n`;
+  }
+  const lines = [`## 👥 Dinâmicas conjuntas (${list.length})`, ``];
+  const trendStr =
+    typeof trend === "number"
+      ? ` (tendência vs semana anterior: ${trend >= 0 ? "+" : ""}${trend.toFixed(2)})`
+      : "";
+  lines.push(`> Trust médio do dyad${trendStr}.`);
+  lines.push("");
+  lines.push(`| Sessão | Parceiro | Turns | Engagement médio | Flags de bullying |`);
+  lines.push(`|---|---|---|---|---|`);
+  for (const s of list) {
+    const flags = Object.entries(s.bullying_flags_count)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(", ") || "—";
+    const partnerLabel = s.partner_name ?? s.partner_child_id;
+    lines.push(
+      `| \`${s.session_id.slice(0, 12)}\` | ${partnerLabel} | ${s.turns_count} | ${s.avg_engagement_score.toFixed(2)} | ${flags} |`,
+    );
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
 export function renderMarkdown(data: WeeklyReportData): string {
   return [
     renderHeader(data),
     renderProgram(data),
     renderEmittedCards(data.emitted_cards),
     renderCards(data.cards),
+    renderJointSessions(data.joint_sessions, data.dyad_trust_trend),
     renderStatus(data.status_comparison),
     renderIgnitions(data.ignitions),
     renderAspirations(data.aspirations),

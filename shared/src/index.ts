@@ -13,3 +13,4 @@ export * from "./card-catalog.js";
 export * from "./card-authenticity.js";
 export * from "./card-cheat-code.js";
 export * from "./card-image-provider.js";
+export * from "./bullying-check.js";
