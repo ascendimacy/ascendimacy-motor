@@ -10,6 +10,7 @@ import type {
   WeeklyReportData,
   StatusComparison,
   CardSummary,
+  EmittedCardSummary,
   IgnitionEvent,
   AspirationSignal,
 } from "./types.js";
@@ -49,6 +50,40 @@ function writeProgram(doc: PDFKit.PDFDocument, data: WeeklyReportData): void {
       ? ` — pausado (${p.paused_reason ?? "sem motivo"})`
       : "";
     doc.text(`Semana ${p.current_week}/5 · fase: ${p.current_phase ?? "—"}${pauseNote}`);
+  }
+  doc.moveDown(1);
+}
+
+function writeEmittedCards(doc: PDFKit.PDFDocument, ems: EmittedCardSummary[] | undefined): void {
+  const list = ems ?? [];
+  doc.fontSize(14).text(`🏆 Cartas recebidas (${list.length})`);
+  doc.fontSize(9).moveDown(0.2);
+  if (list.length === 0) {
+    doc.text("Nenhuma carta emitida nesta semana.");
+  } else {
+    for (const c of list) {
+      doc.moveDown(0.4);
+      doc.fontSize(11).fillColor("black").text(`${c.title} · ${c.rarity.toUpperCase()}`);
+      doc.fontSize(9).fillColor("#333");
+      // Front image placeholder — pdfkit suporta data: URL via Buffer.
+      try {
+        const match = c.image_url.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)/);
+        if (match && match[2]) {
+          const buf = Buffer.from(match[2], "base64");
+          doc.image(buf, { width: 80 });
+        } else {
+          doc.text(`[img: ${c.image_url.slice(0, 60)}…]`);
+        }
+      } catch {
+        doc.text(`[img unavailable]`);
+      }
+      doc.fontSize(9).text(`"${c.narrative}"`, { indent: 0 });
+      doc.fontSize(8).fillColor("#555");
+      doc.text(`Verso: ${c.gardner_channel_icon}  ${c.casel_dimension}  serial ${c.serial_number}`);
+      doc.text(`Cheat code: ${c.cheat_code}`);
+      doc.fillColor("#1c5fb0").fontSize(7).text(c.qr_payload, { link: c.qr_payload, underline: true });
+      doc.fillColor("black");
+    }
   }
   doc.moveDown(1);
 }
@@ -152,6 +187,7 @@ export function renderPdf(
 
       writeHeader(doc, data);
       writeProgram(doc, data);
+      writeEmittedCards(doc, data.emitted_cards);
       writeCards(doc, data.cards);
       writeStatus(doc, data.status_comparison);
       writeIgnitions(doc, data.ignitions);

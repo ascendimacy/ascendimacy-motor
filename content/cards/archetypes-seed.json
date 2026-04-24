@@ -1,0 +1,47 @@
+[
+  {
+    "id": "arch_persistence_v0",
+    "name": "Persistência Atomic",
+    "narrative_template": "{child_name}, você tentou e tentou, mesmo quando queria desistir. Isso é raro. Aqui está sua carta.",
+    "casel_dimension": "SM",
+    "gardner_channel": "logical_mathematical",
+    "rarity": "rare",
+    "is_scaffold": true
+  },
+  {
+    "id": "arch_curiosity_v0",
+    "name": "Curioso do Mundo",
+    "narrative_template": "{child_name}, você ficou mais tempo numa pergunta do que a maioria fica com a resposta pronta.",
+    "casel_dimension": "SA",
+    "gardner_channel": "intrapersonal",
+    "rarity": "common",
+    "is_scaffold": true
+  },
+  {
+    "id": "arch_teacher_v0",
+    "name": "Professor Improvável",
+    "narrative_template": "{child_name}, você explicou pra alguém hoje. Não repetiu — traduziu. Quem ensina aprende duas vezes.",
+    "casel_dimension": "REL",
+    "gardner_channel": "linguistic",
+    "rarity": "epic",
+    "is_scaffold": true
+  },
+  {
+    "id": "arch_brave_small_v0",
+    "name": "Coragem Pequena",
+    "narrative_template": "{child_name}, pequenos atos. Ninguém viu, mas o motor viu. Esta é sua carta.",
+    "casel_dimension": "SM",
+    "gardner_channel": "interpersonal",
+    "rarity": "common",
+    "is_scaffold": true
+  },
+  {
+    "id": "arch_crossing_v0",
+    "name": "Travessia",
+    "narrative_template": "{child_name}, você atravessou. De brejo pra baia, de baia pra pasto. O caminho conta.",
+    "casel_dimension": "SA",
+    "gardner_channel": "existential",
+    "rarity": "legendary",
+    "is_scaffold": true
+  }
+]

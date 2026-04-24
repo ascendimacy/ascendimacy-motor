@@ -5,6 +5,7 @@ import type { SessionState, EventEntry } from "@ascendimacy/shared";
 import { TREE_NODES_DDL, getStatusMatrix } from "./tree-nodes.js";
 import { GARDNER_PROGRAM_DDL, getProgramState } from "./gardner-program.js";
 import { PARENT_DECISIONS_DDL } from "./parent-decisions.js";
+import { EMITTED_CARDS_DDL } from "./cards-repo.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -35,6 +36,7 @@ function getDb(dbPath?: string): Database.Database {
       ${TREE_NODES_DDL}
       ${GARDNER_PROGRAM_DDL}
       ${PARENT_DECISIONS_DDL}
+      ${EMITTED_CARDS_DDL}
     `);
   }
   return db;
