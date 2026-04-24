@@ -6,6 +6,7 @@ import { TREE_NODES_DDL, getStatusMatrix } from "./tree-nodes.js";
 import { GARDNER_PROGRAM_DDL, getProgramState } from "./gardner-program.js";
 import { PARENT_DECISIONS_DDL } from "./parent-decisions.js";
 import { EMITTED_CARDS_DDL } from "./cards-repo.js";
+import { getNow, resolveDbPath } from "./clock.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -14,7 +15,7 @@ let db: Database.Database | null = null;
 function getDb(dbPath?: string): Database.Database {
   if (!db) {
     const defaultPath = join(__dirname, "../../.motor-state.db");
-    const path = dbPath ?? defaultPath;
+    const path = resolveDbPath(defaultPath, dbPath);
     db = new Database(path);
     db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
@@ -42,18 +43,18 @@ function getDb(dbPath?: string): Database.Database {
   return db;
 }
 
-export function getState(sessionId: string): SessionState {
+export function getState(sessionId: string, now?: string): SessionState {
   const database = getDb();
   let row = database
     .prepare("SELECT * FROM sessions WHERE session_id = ?")
     .get(sessionId) as Record<string, unknown> | undefined;
   if (!row) {
-    const now = new Date().toISOString();
+    const ts = getNow(now);
     database
       .prepare(
         "INSERT INTO sessions (session_id, trust_level, budget_remaining, turn, created_at, updated_at) VALUES (?, 0.3, 100, 0, ?, ?)",
       )
-      .run(sessionId, now, now);
+      .run(sessionId, ts, ts);
     row = { session_id: sessionId, trust_level: 0.3, budget_remaining: 100, turn: 0 };
   }
   const events = database
@@ -77,7 +78,11 @@ export function getState(sessionId: string): SessionState {
   };
 }
 
-export function updateState(sessionId: string, delta: Partial<SessionState>): void {
+export function updateState(
+  sessionId: string,
+  delta: Partial<SessionState>,
+  now?: string,
+): void {
   const database = getDb();
   const current = database
     .prepare("SELECT * FROM sessions WHERE session_id = ?")
@@ -88,12 +93,12 @@ export function updateState(sessionId: string, delta: Partial<SessionState>): vo
     budgetRemaining: delta.budgetRemaining ?? Number(current["budget_remaining"]),
     turn: delta.turn ?? Number(current["turn"]),
   };
-  const now = new Date().toISOString();
+  const ts = getNow(now);
   database
     .prepare(
       "UPDATE sessions SET trust_level = ?, budget_remaining = ?, turn = ?, updated_at = ? WHERE session_id = ?",
     )
-    .run(merged.trustLevel, merged.budgetRemaining, merged.turn, now, sessionId);
+    .run(merged.trustLevel, merged.budgetRemaining, merged.turn, ts, sessionId);
 }
 
 export function logEvent(sessionId: string, event: EventEntry): void {

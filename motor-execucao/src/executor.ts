@@ -1,3 +1,4 @@
+import { getNow } from "./clock.js";
 import type { ExecutePlaybookInput, ExecutePlaybookOutput } from "@ascendimacy/shared";
 import { getState, updateState, logEvent } from "./state-manager.js";
 import { getPlaybookById } from "./loader.js";
@@ -12,7 +13,7 @@ export function executePlaybook(
 
   const state = getState(sessionId);
   const event = {
-    timestamp: new Date().toISOString(),
+    timestamp: getNow(),
     type: "playbook_executed",
     playbookId,
     data: {

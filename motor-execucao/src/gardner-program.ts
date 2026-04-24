@@ -13,6 +13,7 @@ import type Database from "better-sqlite3";
 import type { GardnerProgramState, ProgramPhase } from "@ascendimacy/shared";
 import { nextPhase, isAssessmentReady } from "@ascendimacy/shared";
 import type { GardnerAssessment } from "@ascendimacy/shared";
+import { getNow } from "./clock.js";
 
 export const GARDNER_PROGRAM_DDL = `
 CREATE TABLE IF NOT EXISTS kids_gardner_program (
@@ -83,7 +84,7 @@ export function getProgramState(
   const row = db
     .prepare("SELECT * FROM kids_gardner_program WHERE session_id = ?")
     .get(sessionId) as ProgramRow | undefined;
-  if (!row) return defaultProgramState(new Date().toISOString());
+  if (!row) return defaultProgramState(getNow());
   return rowToState(row);
 }
 
@@ -97,7 +98,7 @@ export function startProgram(
   sessionId: string,
   now?: string,
 ): GardnerProgramState {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const existing = getProgramState(db, sessionId);
   if (existing.current_week !== null) return existing;
   db.prepare(
@@ -127,7 +128,7 @@ export function advanceProgram(
   sessionId: string,
   now?: string,
 ): GardnerProgramState {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const current = getProgramState(db, sessionId);
   if (current.paused) {
     throw new Error("advanceProgram: program is paused; resume first");
@@ -144,7 +145,7 @@ export function pauseProgram(
   reason: string,
   now?: string,
 ): GardnerProgramState {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const current = getProgramState(db, sessionId);
   upsertProgram(db, sessionId, { ...current, paused: true, paused_reason: reason }, ts);
   return getProgramState(db, sessionId);
@@ -156,7 +157,7 @@ export function resumeProgram(
   sessionId: string,
   now?: string,
 ): GardnerProgramState {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const current = getProgramState(db, sessionId);
   upsertProgram(
     db,
@@ -173,7 +174,7 @@ export function recordMissedMilestone(
   sessionId: string,
   now?: string,
 ): GardnerProgramState {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const current = getProgramState(db, sessionId);
   const next = current.consecutive_missed_milestones + 1;
   const shouldPause = next >= 2;
@@ -197,7 +198,7 @@ export function resetMissedMilestones(
   sessionId: string,
   now?: string,
 ): void {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const current = getProgramState(db, sessionId);
   upsertProgram(
     db,
