@@ -1,4 +1,5 @@
 import type { StatusMatrix } from "./status-matrix.js";
+import type { GardnerProgramState } from "./mixins/with-gardner-program.js";
 
 export interface PersonaDef {
   id: string;
@@ -29,6 +30,8 @@ export interface SessionState {
   turn: number;
   /** Hidratado por motor-execucao a partir de tree_nodes (zone='status'). */
   statusMatrix?: StatusMatrix;
+  /** Estado do programa Gardner 5 semanas (Bloco 2b). */
+  gardnerProgram?: GardnerProgramState;
 }
 
 export interface EventEntry {

@@ -101,7 +101,7 @@ export async function runTurn(
       persona,
       strategicRationale: plan.strategicRationale,
       contextHints: plan.contextHints,
-      instruction_addition: "",
+      instruction_addition: plan.instruction_addition ?? "",
     },
   });
   const drota = parseToolText<import("@ascendimacy/shared").EvaluateAndSelectOutput>(drotaResult);

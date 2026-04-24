@@ -3,6 +3,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SessionState, EventEntry } from "@ascendimacy/shared";
 import { TREE_NODES_DDL, getStatusMatrix } from "./tree-nodes.js";
+import { GARDNER_PROGRAM_DDL, getProgramState } from "./gardner-program.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -31,6 +32,7 @@ function getDb(dbPath?: string): Database.Database {
         data TEXT
       );
       ${TREE_NODES_DDL}
+      ${GARDNER_PROGRAM_DDL}
     `);
   }
   return db;
@@ -54,12 +56,14 @@ export function getState(sessionId: string): SessionState {
     .prepare("SELECT * FROM event_log WHERE session_id = ? ORDER BY id DESC LIMIT 20")
     .all(sessionId) as Record<string, unknown>[];
   const statusMatrix = getStatusMatrix(database, sessionId);
+  const gardnerProgram = getProgramState(database, sessionId);
   return {
     sessionId,
     trustLevel: Number(row["trust_level"]),
     budgetRemaining: Number(row["budget_remaining"]),
     turn: Number(row["turn"]),
     statusMatrix,
+    gardnerProgram,
     eventLog: events.map((e) => ({
       timestamp: String(e["timestamp"]),
       type: String(e["type"]),

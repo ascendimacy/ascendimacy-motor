@@ -2,8 +2,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { loadInventory } from "./loader.js";
-import { getState, logEvent } from "./state-manager.js";
+import { getState, logEvent, getDbInstance } from "./state-manager.js";
 import { executePlaybook } from "./executor.js";
+import {
+  startProgram,
+  advanceProgram,
+  pauseProgram,
+  resumeProgram,
+} from "./gardner-program.js";
 
 const inventory = loadInventory();
 
@@ -33,6 +39,38 @@ server.registerTool("execute_playbook", {
 }, async ({ sessionId, playbookId, selectedContentId, output, metadata }: { sessionId: string; playbookId: string; selectedContentId?: string; output: string; metadata?: Record<string, unknown> }) => {
   const result = executePlaybook({ sessionId, playbookId, selectedContentId, output, metadata: metadata ?? {} }, inventory);
   return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+});
+
+server.registerTool("gardner_program_start", {
+  description: "Inicia programa Gardner 5 semanas (week=1, phase=exploration). Caller deve ter verificado assessment pronto (min 3 sessões).",
+  inputSchema: { sessionId: z.string() } as any,
+}, async ({ sessionId }: { sessionId: string }) => {
+  const state = startProgram(getDbInstance(), sessionId);
+  return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
+});
+
+server.registerTool("gardner_program_advance", {
+  description: "Avança programa Gardner pela próxima fase (1→2→3→week+1 phase1). Throws se pausado.",
+  inputSchema: { sessionId: z.string() } as any,
+}, async ({ sessionId }: { sessionId: string }) => {
+  const state = advanceProgram(getDbInstance(), sessionId);
+  return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
+});
+
+server.registerTool("gardner_program_pause", {
+  description: "Pausa programa Gardner com motivo (ex: emotional_brejo, child_request, missed_milestones).",
+  inputSchema: { sessionId: z.string(), reason: z.string() } as any,
+}, async ({ sessionId, reason }: { sessionId: string; reason: string }) => {
+  const state = pauseProgram(getDbInstance(), sessionId, reason);
+  return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
+});
+
+server.registerTool("gardner_program_resume", {
+  description: "Retoma programa Gardner pausado.",
+  inputSchema: { sessionId: z.string() } as any,
+}, async ({ sessionId }: { sessionId: string }) => {
+  const state = resumeProgram(getDbInstance(), sessionId);
+  return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
 });
 
 server.registerTool("log_event", {
