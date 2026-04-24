@@ -15,6 +15,7 @@ import type {
   TreeNodeZone,
 } from "@ascendimacy/shared";
 import { transition, isStatusValue, defaultMatrix } from "@ascendimacy/shared";
+import { getNow } from "./clock.js";
 
 export const TREE_NODES_DDL = `
 CREATE TABLE IF NOT EXISTS tree_nodes (
@@ -93,7 +94,7 @@ export function upsertNode(
   db: Database.Database,
   input: UpsertNodeInput,
 ): TreeNode {
-  const now = input.now ?? new Date().toISOString();
+  const now = input.now ?? getNow();
   db.prepare(
     `INSERT INTO tree_nodes
      (session_id, zone, key, value, source, state, sensitivity, urgency, importance,

@@ -23,6 +23,7 @@ import {
   getEmittedCardsInRange,
 } from "./cards-repo.js";
 import type { EmittedCard } from "@ascendimacy/shared";
+import { getNow } from "./clock.js";
 
 const inventory = loadInventory();
 
@@ -160,7 +161,7 @@ server.registerTool("log_event", {
     data: z.record(z.string(), z.unknown()).optional().default({}),
   } as any,
 }, async ({ sessionId, type, data }: { sessionId: string; type: string; data?: Record<string, unknown> }) => {
-  const event = { timestamp: new Date().toISOString(), type, data: data ?? {} };
+  const event = { timestamp: getNow(), type, data: data ?? {} };
   logEvent(sessionId, event);
   return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true, event }) }] };
 });

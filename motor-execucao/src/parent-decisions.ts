@@ -11,6 +11,7 @@
  */
 
 import type Database from "better-sqlite3";
+import { getNow } from "./clock.js";
 
 export const PARENT_DECISION_STATUSES = [
   "pending",
@@ -70,7 +71,7 @@ export function setParentDecision(
   db: Database.Database,
   input: Omit<ParentDecision, "id" | "decided_at"> & { decided_at?: string },
 ): ParentDecision {
-  const now = input.decided_at ?? new Date().toISOString();
+  const now = input.decided_at ?? getNow();
   db.prepare(
     `INSERT INTO kids_parent_decisions (session_id, content_id, status, reason, decided_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?)
@@ -124,7 +125,7 @@ export function getRejectedIds(
   sessionId: string,
   now?: string,
 ): Set<string> {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const rows = db
     .prepare(
       `SELECT content_id FROM kids_parent_decisions
@@ -141,7 +142,7 @@ export function getPinnedIds(
   sessionId: string,
   now?: string,
 ): Set<string> {
-  const ts = now ?? new Date().toISOString();
+  const ts = getNow(now);
   const rows = db
     .prepare(
       `SELECT content_id FROM kids_parent_decisions
