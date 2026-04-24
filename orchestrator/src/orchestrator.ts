@@ -94,7 +94,14 @@ export async function runTurn(
   const t2 = Date.now();
   const drotaResult = await clients.motorDrota.callTool({
     name: "evaluate_and_select",
-    arguments: { sessionId, candidateActions: plan.candidateActions, state, persona },
+    arguments: {
+      sessionId,
+      candidateActions: plan.candidateActions,
+      state,
+      persona,
+      strategicRationale: plan.strategicRationale,
+      contextHints: plan.contextHints,
+    },
   });
   const drota = parseToolText<import("@ascendimacy/shared").EvaluateAndSelectOutput>(drotaResult);
   turnEntries.push({

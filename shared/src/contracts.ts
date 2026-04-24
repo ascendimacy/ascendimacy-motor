@@ -22,6 +22,8 @@ export interface EvaluateAndSelectInput {
   candidateActions: CandidateAction[];
   state: SessionState;
   persona: PersonaDef;
+  strategicRationale: string;
+  contextHints: Record<string, unknown>;
 }
 
 export interface EvaluateAndSelectOutput {
