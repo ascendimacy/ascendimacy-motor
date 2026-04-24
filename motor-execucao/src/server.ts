@@ -26,11 +26,12 @@ server.registerTool("execute_playbook", {
   inputSchema: {
     sessionId: z.string(),
     playbookId: z.string(),
+    selectedContentId: z.string().optional(),
     output: z.string(),
     metadata: z.record(z.string(), z.unknown()).optional().default({}),
   } as any,
-}, async ({ sessionId, playbookId, output, metadata }: { sessionId: string; playbookId: string; output: string; metadata?: Record<string, unknown> }) => {
-  const result = executePlaybook({ sessionId, playbookId, output, metadata: metadata ?? {} }, inventory);
+}, async ({ sessionId, playbookId, selectedContentId, output, metadata }: { sessionId: string; playbookId: string; selectedContentId?: string; output: string; metadata?: Record<string, unknown> }) => {
+  const result = executePlaybook({ sessionId, playbookId, selectedContentId, output, metadata: metadata ?? {} }, inventory);
   return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
 });
 

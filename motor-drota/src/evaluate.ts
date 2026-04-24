@@ -1,17 +1,19 @@
-import type { CandidateAction, SessionState } from "@ascendimacy/shared";
-import type { ScoredAction } from "./types.js";
+/**
+ * Evaluate — Bloco 2a.
+ *
+ * Planejador já scorou o pool. Motor-drota recebe `contentPool` pronto,
+ * precisa apenas selecionar (selectFromPool) e materializar linguisticamente.
+ *
+ * Nota: a lógica antiga `scoreActions` (multiplicava por trustWeight etc)
+ * saiu. Scoring é responsabilidade única do planejador agora.
+ */
 
-export function scoreActions(
-  candidates: CandidateAction[],
-  state: SessionState
-): ScoredAction[] {
-  return candidates.map(action => {
-    const trustWeight = state.trustLevel < 0.4 ? 1.5 : 1.0;
-    const budgetPenalty = action.estimatedSacrifice > state.budgetRemaining * 0.3 ? 0.7 : 1.0;
-    const score =
-      (action.estimatedConfidenceGain * trustWeight - action.estimatedSacrifice * 0.5) *
-      budgetPenalty *
-      (1 / action.priority);
-    return { ...action, score };
-  });
+import type { ScoredContentItem } from "@ascendimacy/shared";
+
+/**
+ * Reordena só por garantia — planejador já devolve ordenado, mas o
+ * pool pode ter sido mutado pelo MCP serialization.
+ */
+export function rankPool(pool: ScoredContentItem[]): ScoredContentItem[] {
+  return [...pool].sort((a, b) => b.score - a.score);
 }

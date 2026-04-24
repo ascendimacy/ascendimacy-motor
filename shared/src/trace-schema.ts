@@ -1,4 +1,5 @@
-import type { CandidateAction, EventEntry } from "./types.js";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { EventEntry } from "./types.js";
 
 export interface TraceEntry {
   service: "planejador" | "motor-drota" | "motor-execucao";

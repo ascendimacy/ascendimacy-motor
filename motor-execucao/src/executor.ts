@@ -7,7 +7,7 @@ export function executePlaybook(
   input: ExecutePlaybookInput,
   inventory: PlaybookInventory
 ): ExecutePlaybookOutput {
-  const { sessionId, playbookId, output, metadata } = input;
+  const { sessionId, playbookId, selectedContentId, output, metadata } = input;
   const playbook = getPlaybookById(inventory, playbookId);
 
   const state = getState(sessionId);
@@ -19,6 +19,7 @@ export function executePlaybook(
       output: output.slice(0, 200),
       metadata,
       playbookFound: !!playbook,
+      selectedContentId: selectedContentId ?? null,
     },
   };
 

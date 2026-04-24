@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { planTurn } from "../src/plan.js";
 
 process.env["USE_MOCK_LLM"] = "true";
@@ -12,10 +12,10 @@ const mockState = {
 };
 
 const mockPersona = {
-  id: "paula-mendes",
-  name: "Paula Mendes",
-  age: 34,
-  profile: { occupation: "analista_financeira", city: "Sao_Paulo" },
+  id: "ryo",
+  name: "Ryo",
+  age: 13,
+  profile: { interests: ["dragon_ball"] },
 };
 
 const mockAdquirente = {
@@ -25,12 +25,15 @@ const mockAdquirente = {
 };
 
 const mockInventory = [
-  { id: "icebreaker.primeiro-contato", title: "Icebreaker", category: "onboarding", estimatedSacrifice: 1, estimatedConfidenceGain: 4 },
-  { id: "onboarding.apresentacao-produto", title: "Apresentação produto", category: "onboarding", estimatedSacrifice: 2, estimatedConfidenceGain: 3 },
+  { id: "kids.helix.session", title: "Helix session", category: "kids", estimatedSacrifice: 1, estimatedConfidenceGain: 4 },
 ];
 
-describe("planTurn", () => {
-  it("returns candidateActions with at least 1 action (mock)", async () => {
+beforeAll(() => {
+  // Garante que o seed padrão é encontrado pelos testes — caminho relativo do ESM.
+});
+
+describe("planTurn — Bloco 2a (contentPool)", () => {
+  it("returns contentPool (not candidateActions)", async () => {
     const output = await planTurn({
       sessionId: "test-001",
       persona: mockPersona,
@@ -39,11 +42,12 @@ describe("planTurn", () => {
       state: mockState,
       incomingMessage: "oi, tudo bem?",
     });
-    expect(output.candidateActions.length).toBeGreaterThan(0);
+    expect(Array.isArray(output.contentPool)).toBe(true);
+    expect(output.contentPool.length).toBeGreaterThan(0);
     expect(output.strategicRationale).toBeTruthy();
   });
 
-  it("each candidateAction has required fields", async () => {
+  it("each ScoredContentItem has item + score + reasons", async () => {
     const output = await planTurn({
       sessionId: "test-001",
       persona: mockPersona,
@@ -52,11 +56,47 @@ describe("planTurn", () => {
       state: mockState,
       incomingMessage: "quero saber mais",
     });
-    for (const action of output.candidateActions) {
-      expect(action.playbookId).toBeTruthy();
-      expect(typeof action.priority).toBe("number");
-      expect(typeof action.estimatedSacrifice).toBe("number");
-      expect(typeof action.estimatedConfidenceGain).toBe("number");
+    for (const scored of output.contentPool) {
+      expect(scored.item).toBeDefined();
+      expect(typeof scored.score).toBe("number");
+      expect(Array.isArray(scored.reasons)).toBe(true);
     }
+  });
+
+  it("contentPool is bounded by TOP_K_POOL (5)", async () => {
+    const output = await planTurn({
+      sessionId: "test-001",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "me conta algo legal",
+    });
+    expect(output.contentPool.length).toBeLessThanOrEqual(5);
+  });
+
+  it("injects status_gates in contextHints", async () => {
+    const output = await planTurn({
+      sessionId: "test-001",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "oi",
+    });
+    expect(output.contextHints["status_gates"]).toBeDefined();
+  });
+
+  it("injects casel_focus_dimension derived from status matrix", async () => {
+    const output = await planTurn({
+      sessionId: "test-001",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: { ...mockState, statusMatrix: { emotional: "brejo", social_with_ebrota: "baia" } },
+      incomingMessage: "oi",
+    });
+    // emotional=brejo deve vir primeiro pela ordem de prioridade
+    expect(output.contextHints["casel_focus_dimension"]).toBe("emotional");
   });
 });

@@ -9,12 +9,15 @@ function getClient(): Anthropic {
   return client;
 }
 
-export async function callLlm(systemPrompt: string, userMessage: string): Promise<string> {
+export async function callLlm(
+  systemPrompt: string,
+  userMessage: string,
+): Promise<string> {
   const c = getClient();
   const model = process.env["PLANEJADOR_MODEL"] ?? "claude-sonnet-4-6";
   const response = await c.messages.create({
     model,
-    max_tokens: 400,
+    max_tokens: 200,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   });
@@ -23,13 +26,16 @@ export async function callLlm(systemPrompt: string, userMessage: string): Promis
   return block.text;
 }
 
-export async function callLlmMock(_systemPrompt: string, _userMessage: string): Promise<string> {
+/**
+ * Mock: planejador Bloco 2a devolve só rationale + hints.
+ * Scoring de conteúdo é determinístico, fora do LLM.
+ */
+export async function callLlmMock(
+  _systemPrompt: string,
+  _userMessage: string,
+): Promise<string> {
   return JSON.stringify({
-    strategicRationale: "Mock: contexto inicial, usuário se apresentou. Foco em receptividade.",
-    candidateActions: [
-      { playbookId: "icebreaker.primeiro-contato", priority: 1, rationale: "Primeira interação", estimatedSacrifice: 1, estimatedConfidenceGain: 4 },
-      { playbookId: "onboarding.apresentacao-produto", priority: 2, rationale: "Momento certo para apresentar", estimatedSacrifice: 2, estimatedConfidenceGain: 3 },
-    ],
-    contextHints: { mood: "receptive", urgency: "low" },
+    strategicRationale: "Mock: contexto inicial, foco em receptividade.",
+    contextHints: { language: "pt-br", mood: "receptive", urgency: "low" },
   });
 }

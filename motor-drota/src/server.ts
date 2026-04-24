@@ -1,40 +1,83 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import type { EvaluateAndSelectInput, EvaluateAndSelectOutput } from "@ascendimacy/shared";
-import { scoreActions } from "./evaluate.js";
-import { selectBest, sanitizeMaterialization } from "./select.js";
+import type {
+  EvaluateAndSelectInput,
+  EvaluateAndSelectOutput,
+  ContentItem,
+  ScoredContentItem,
+} from "@ascendimacy/shared";
+import { rankPool } from "./evaluate.js";
+import { selectFromPool, sanitizeMaterialization } from "./select.js";
 import { callLlm, callLlmMock } from "./llm-client.js";
 
 const server = new McpServer({
   name: "motor-drota",
-  version: "0.2.0",
+  version: "0.3.0",
 });
 
-const candidateSchema = z.object({
-  playbookId: z.string(),
-  priority: z.number(),
-  rationale: z.string(),
-  estimatedSacrifice: z.number(),
-  estimatedConfidenceGain: z.number(),
+const scoredContentSchema = z.object({
+  item: z.record(z.string(), z.unknown()),
+  score: z.number(),
+  reasons: z.array(z.string()),
 });
 
-function buildDrotaPrompt(input: EvaluateAndSelectInput, selectedPlaybookId: string): string {
-  const { persona, state, contextHints, strategicRationale, candidateActions } = input;
+/**
+ * Serializa um ContentItem para o prompt do drota preservando o discriminante.
+ * v1 é hooks-only em termos de teste — outros tipos fazem fallback genérico (campos comuns).
+ * Plan v2 §4.12.
+ */
+function serializeContentItem(item: ContentItem): string {
+  const common = {
+    id: item.id,
+    type: item.type,
+    domain: item.domain,
+    casel_target: item.casel_target,
+    surprise: item.surprise,
+    age_range: item.age_range,
+    group_compatible: item.group_compatible ?? false,
+  };
+  // curiosity_hook e cultural_diamond carregam fact/bridge/quest
+  if (item.type === "curiosity_hook" || item.type === "cultural_diamond") {
+    return JSON.stringify({
+      ...common,
+      fact: item.fact,
+      bridge: item.bridge,
+      quest: item.quest,
+      sacrifice_type: item.sacrifice_type,
+      country: item.country,
+    });
+  }
+  // Demais tipos: serialização genérica com todos os campos próprios.
+  return JSON.stringify({ ...common, ...item });
+}
 
-  const personaYaml = typeof persona.profile === "object"
-    ? JSON.stringify(persona.profile, null, 2)
-    : String(persona.profile);
+function buildDrotaPrompt(
+  input: EvaluateAndSelectInput,
+  selected: ScoredContentItem,
+): string {
+  const { persona, state, contextHints, strategicRationale, contentPool, instruction_addition } = input;
+
+  const personaYaml =
+    typeof persona.profile === "object"
+      ? JSON.stringify(persona.profile, null, 2)
+      : String(persona.profile);
 
   const contextHintsJson = JSON.stringify(contextHints ?? {}, null, 2);
-  const candidateActionsJson = JSON.stringify(candidateActions, null, 2);
+  const poolSerialized = contentPool
+    .map((s) => ({ score: s.score, reasons: s.reasons, content: JSON.parse(serializeContentItem(s.item)) }));
+  const contentPoolJson = JSON.stringify(poolSerialized, null, 2);
+  const selectedJson = serializeContentItem(selected.item);
+  const instructionAdditionBody = (instruction_addition ?? "").trim();
 
-  // Detect language from contextHints, fallback to pt-br
   const language = (contextHints?.["language"] as string | undefined) ?? "pt-br";
-  const isLimitedProficiency = language.includes("limitado") || language.includes("basico") || language.includes("básico");
+  const isLimitedProficiency =
+    language.includes("limitado") ||
+    language.includes("basico") ||
+    language.includes("básico");
 
   return `[BLOCO 1 - Role]
-Você avalia ações candidatas e materializa a ação escolhida em linguagem natural para o sujeito. Você não é um assistente utilitário — você é o componente que traduz intenção estratégica em fala concreta.
+Você avalia content items candidatos e materializa o escolhido em linguagem natural para o sujeito. Você não é um assistente utilitário — você é o componente que traduz intenção estratégica em fala concreta. **NUNCA inventa conteúdo**; ancora sempre no content item selecionado.
 
 [BLOCO 2 - Dynamic content]
 <persona>
@@ -59,100 +102,140 @@ ${strategicRationale ?? ""}
 ${contextHintsJson}
 </context_hints>
 
-<candidate_actions>
-${candidateActionsJson}
-</candidate_actions>
+<content_pool>
+${contentPoolJson}
+</content_pool>
 
-<selected_playbook_id>
-${selectedPlaybookId}
-</selected_playbook_id>
+<selected_content>
+${selectedJson}
+</selected_content>
+
+<instruction_addition>
+${instructionAdditionBody}
+</instruction_addition>
 
 [BLOCO 3 - Numbered instructions]
-1. A ação selecionada é ${selectedPlaybookId}. Materialize-a em linguagem natural para ${persona.name}.
-2. A materialização DEVE respeitar todas as diretivas em <context_hints>.
-3. Se <context_hints> contém chaves 'avoid', 'evitar', ou 'alertas', esses padrões são PROIBIDOS na saída — não apareçam na fala de forma alguma.
-4. Se <context_hints> contém 'tom', 'format', 'tone', ou 'next_move', siga literalmente.
-5. Quando <context_hints> contém informação específica extraída (ex: afirmações da persona, hipóteses, intenções), USE essa informação na materialização — não gere conteúdo genérico que ignora o que foi extraído.
-6. Use o ID do playbook (ex: 'helix.ciclo.avancar_dia') APENAS como índice interno. NUNCA reproduza identificadores técnicos, dot-notation ou jargon interno na materialização. A persona não sabe que o sistema tem 'Helix', 'painel', 'ciclo.avancar_dia'.
-7. Língua: "${language}". Gere na MESMA língua. Se omitido, default pt-br.
-8. ${isLimitedProficiency ? `PROFICIÊNCIA LIMITADA: vocabulário simples, frases curtas, zero jargon, erros típicos de não-nativo (concordância de gênero, preposições), eventual interjeição na língua nativa, pausas 'hmm'.` : `Gere em ${language} fluente, natural, adequado à idade e contexto.`}
-9. Se o playbook não tem template canônico, construa a materialização PELOS HINTS (não pelo nome técnico).
+1. Materialize o <selected_content> em fala natural para ${persona.name}. Use OS CAMPOS do content (fact, bridge, quest para hooks; title, trigger para cards; etc).
+2. **Ancoragem obrigatória**: a fala deve citar/adaptar o conteúdo do item selecionado — não invente fato novo.
+3. Respeite <context_hints>. Se contém 'avoid', 'evitar' ou 'alertas', esses padrões são PROIBIDOS na saída.
+4. 'status_gates' em contextHints lista dimensões bloqueadas. Se dimensão bloqueada aparece como casel_focus, adapte tom (reparador, não desafiador).
+5. NUNCA vaze identificadores técnicos (id do content, dot-notation, 'content_pool', 'playbook') na fala.
+6. Língua: "${language}". Gere na MESMA língua.
+7. ${isLimitedProficiency ? `PROFICIÊNCIA LIMITADA: vocabulário simples, frases curtas, zero jargon, erros típicos de não-nativo.` : `Gere em ${language} fluente, natural, adequado à idade e contexto.`}
+8. Se <instruction_addition> não está vazio, incorpore-o naturalmente. Exemplos: "day 2 of 5 of chain X" → continuar arco multi-dia; "technique_hint: tribunal" → framear como debate.
 
 [BLOCO 4 - Examples]
 <example>
-<context_hints>
-{"language": "pt-br", "afirmacoes_extraidas": ["trabalho me consome", "não consigo descansar"], "avoid": ["diagnóstico emocional", "rótulos clínicos"]}
-</context_hints>
-<selected_playbook_id>reflexao.custo-beneficio</selected_playbook_id>
+<selected_content>{"id":"ling_inuit_snow","type":"curiosity_hook","fact":"Os Inuit têm 50+ palavras pra neve.","bridge":"Quantas palavras você tem pra RAIVA?","quest":"Encontre 5 palavras pro que sente agora."}</selected_content>
+<context_hints>{"language":"pt-br","mood":"receptive"}</context_hints>
 Output esperado:
-{"selectionRationale": "Reflexão sobre custo-benefício dado que persona afirmou que trabalho consome", "linguisticMaterialization": "Você mencionou que o trabalho te consome e que é difícil descansar. Vou te propor algo simples: imagina que seu tempo é um recurso limitado. Como você está distribuindo ele agora?"}
-</example>
-
-<example>
-<context_hints>
-{"language": "pt-br limitado", "avoid": ["diagnóstico emocional", "vocabulário técnico"]}
-</context_hints>
-<selected_playbook_id>icebreaker.primeiro-contato</selected_playbook_id>
-Output esperado:
-{"selectionRationale": "Primeiro contato adaptado para proficiência limitada", "linguisticMaterialization": "Oi! Como você está hoje? Pode falar simples, tudo bem."}
+{"selectionRationale":"Hook linguístico com alta surpresa, casel SA","linguisticMaterialization":"Sabia que os Inuit têm mais de 50 palavras pra neve? Cada uma indica algo diferente. Quantas palavras você tem pra RAIVA? Irritado, furioso, frustrado... Se só tem uma, como sabe o que tá sentindo? Tenta: escreve 5 palavras diferentes pro que você sente AGORA. Não vale repetir."}
 </example>
 
 [BLOCO 5 - Repeat critical]
 Lembre-se:
-- NUNCA vaze identificadores técnicos (dot-notation, nomes de playbooks) na fala ao sujeito.
-- Diretivas em <context_hints> são OBRIGATÓRIAS, não sugestões.
-- Gere na mesma língua do sujeito; adapte para proficiência limitada quando indicado.
+- **Ancoragem obrigatória** — fato/ponte/quest vêm do selected_content.
+- NUNCA vaze identificadores técnicos na fala.
+- Diretivas em <context_hints> são OBRIGATÓRIAS.
 - Retorne APENAS JSON válido, sem markdown fence.
-- JSON schema: {"selectionRationale": "string", "linguisticMaterialization": "string"}`;
+- Schema: {"selectionRationale": "string", "linguisticMaterialization": "string"}`;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-server.registerTool("evaluate_and_select", {
-  description: "Avalia candidateActions, seleciona o melhor e materializa linguisticamente",
-  inputSchema: {
-    sessionId: z.string(),
-    candidateActions: z.array(candidateSchema),
-    state: z.object({
+server.registerTool(
+  "evaluate_and_select",
+  {
+    description:
+      "Recebe contentPool scorado, seleciona top, materializa linguisticamente",
+    inputSchema: {
       sessionId: z.string(),
-      trustLevel: z.number(),
-      budgetRemaining: z.number(),
-      turn: z.number(),
-      eventLog: z.array(z.unknown()),
-    }),
-    persona: z.object({
-      id: z.string(),
-      name: z.string(),
-      age: z.number(),
-      profile: z.union([z.record(z.string(), z.unknown()), z.string()]),
-    }),
-    strategicRationale: z.string().optional().default(""),
-    contextHints: z.record(z.string(), z.unknown()).optional().default({}),
-  } as any,
-}, async (input: EvaluateAndSelectInput) => {
-  const { candidateActions, state } = input;
-  const scored = scoreActions(candidateActions, state);
-  const selected = selectBest(scored);
+      contentPool: z.array(scoredContentSchema),
+      state: z.object({
+        sessionId: z.string(),
+        trustLevel: z.number(),
+        budgetRemaining: z.number(),
+        turn: z.number(),
+        eventLog: z.array(z.unknown()),
+        statusMatrix: z.record(z.string(), z.string()).optional(),
+      }),
+      persona: z.object({
+        id: z.string(),
+        name: z.string(),
+        age: z.number(),
+        profile: z.union([z.record(z.string(), z.unknown()), z.string()]),
+      }),
+      strategicRationale: z.string().optional().default(""),
+      contextHints: z.record(z.string(), z.unknown()).optional().default({}),
+      instruction_addition: z.string().optional().default(""),
+    } as any,
+  },
+  async (input: EvaluateAndSelectInput) => {
+    const ranked = rankPool(input.contentPool);
+    if (ranked.length === 0) {
+      // Pool vazio: fallback conversacional (v2 §4.2 do plano).
+      const output: EvaluateAndSelectOutput = {
+        selectedContent: {
+          item: {
+            id: "__empty_pool__",
+            type: "curiosity_hook",
+            domain: "generic",
+            casel_target: [],
+            age_range: [0, 99],
+            surprise: 7,
+            verified: false,
+            base_score: 0,
+            fact: "",
+            bridge: "",
+            quest: "",
+            sacrifice_type: "reflect",
+          } as ContentItem,
+          score: 0,
+          reasons: ["pool_empty_fallback"],
+        },
+        selectionRationale: "Pool vazio — fallback conversacional.",
+        linguisticMaterialization:
+          "Oi! Me conta o que está passando na sua cabeça.",
+      };
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(output) }],
+      };
+    }
 
-  const useMock = process.env["USE_MOCK_LLM"] === "true" || !process.env["INFOMANIAK_API_KEY"];
-  const systemPrompt = buildDrotaPrompt(input, selected.playbookId);
-  const userMessage = `Materialize a ação selecionada em JSON.`;
-  const raw = useMock ? await callLlmMock(systemPrompt, userMessage) : await callLlm(systemPrompt, userMessage);
+    const selected = selectFromPool(ranked);
+    const useMock =
+      process.env["USE_MOCK_LLM"] === "true" ||
+      !process.env["INFOMANIAK_API_KEY"];
+    const systemPrompt = buildDrotaPrompt(input, selected);
+    const userMessage = `Materialize o content selecionado em JSON.`;
+    const raw = useMock
+      ? await callLlmMock(systemPrompt, userMessage)
+      : await callLlm(systemPrompt, userMessage);
 
-  let parsed: { selectionRationale?: string; linguisticMaterialization?: string } = {};
-  try { parsed = JSON.parse(raw); } catch { parsed = { linguisticMaterialization: raw }; }
+    let parsed: {
+      selectionRationale?: string;
+      linguisticMaterialization?: string;
+    } = {};
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = { linguisticMaterialization: raw };
+    }
 
-  const materialization = sanitizeMaterialization(parsed.linguisticMaterialization ?? "");
+    const materialization = sanitizeMaterialization(
+      parsed.linguisticMaterialization ?? "",
+    );
 
-  const output: EvaluateAndSelectOutput = {
-    selectedAction: selected,
-    selectionRationale: parsed.selectionRationale ?? selected.rationale,
-    actualSacrifice: selected.estimatedSacrifice,
-    actualConfidenceGain: selected.estimatedConfidenceGain,
-    linguisticMaterialization: materialization,
-  };
+    const output: EvaluateAndSelectOutput = {
+      selectedContent: selected,
+      selectionRationale: parsed.selectionRationale ?? "auto-select top pool",
+      linguisticMaterialization: materialization,
+    };
 
-  return { content: [{ type: "text" as const, text: JSON.stringify(output) }] };
-});
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(output) }],
+    };
+  },
+);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
