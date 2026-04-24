@@ -79,10 +79,14 @@ function getMockResponse(service: string, tool: string, args?: Record<string, un
         { playbookId: "icebreaker.primeiro-contato", priority: 1, rationale: "Primeiro contato", estimatedSacrifice: 1, estimatedConfidenceGain: 4 },
         { playbookId: "onboarding.apresentacao-produto", priority: 2, rationale: "Apresentar produto", estimatedSacrifice: 2, estimatedConfidenceGain: 3 },
       ],
-      contextHints: {},
+      contextHints: { language: "pt-br" },
     });
   }
   if (service === "motor-drota" && tool === "evaluate_and_select") {
+    // Accept strategicRationale and contextHints from args (ignored in mock, but validated here)
+    const _strategicRationale = (args?.["strategicRationale"] as string | undefined) ?? "";
+    const _contextHints = (args?.["contextHints"] as Record<string, unknown> | undefined) ?? {};
+    void _strategicRationale; void _contextHints;
     return JSON.stringify({
       selectedAction: { playbookId: "icebreaker.primeiro-contato", priority: 1, rationale: "Melhor score", estimatedSacrifice: 1, estimatedConfidenceGain: 4, score: 6 },
       selectionRationale: "Mock: icebreaker tem maior score.",

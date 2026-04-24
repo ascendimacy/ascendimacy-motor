@@ -35,8 +35,12 @@ Responda APENAS com JSON COMPACTO (sem newlines extras). Máximo 2 candidateActi
       "estimatedConfidenceGain": 0
     }
   ],
-  "contextHints": {}
-}`;
+  "contextHints": {
+    "language": "detectar da mensagem e perfil — valores: 'pt-br', 'pt-br limitado', 'pt-br basico', 'ja', 'en', etc."
+  }
+}
+
+Instrução adicional: detecte a língua e proficiência do sujeito com base na mensagem recebida e no perfil. Registre em contextHints.language. Se o perfil indica falante não-nativo de pt-br (ex: japonês aprendendo), use 'pt-br limitado'. Se a mensagem está em outra língua, use essa língua. Default: 'pt-br'.`;
 }
 
 function parseOutput(raw: string): PlanTurnOutput {
