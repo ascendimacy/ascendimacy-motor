@@ -16,6 +16,7 @@ import type {
   CardSummary,
   EmittedCardSummary,
   IgnitionEvent,
+  JointSessionSummary,
   StatusComparison,
   AspirationSignal,
   WeeklyReportOptions,
@@ -225,6 +226,39 @@ function deriveWeekRange(traces: SessionTrace[]): WeekRange {
   };
 }
 
+/**
+ * Extrai resumo de joint sessions dos traces (Bloco 6).
+ * Um trace é joint se qualquer turn.sessionMode === 'joint'.
+ */
+export function aggregateJointSessions(traces: SessionTrace[]): JointSessionSummary[] {
+  const out: JointSessionSummary[] = [];
+  for (const trace of traces) {
+    const jointTurns = trace.turns.filter((t) => t.sessionMode === "joint");
+    if (jointTurns.length === 0) continue;
+    const firstJoint = jointTurns[0]!;
+    const scores = jointTurns
+      .map((t) => t.selectedContent?.score)
+      .filter((s): s is number => typeof s === "number");
+    const avg = scores.length === 0 ? 0 : scores.reduce((a, b) => a + b, 0) / scores.length;
+    const bullyingFlags: Record<string, number> = {};
+    for (const turn of jointTurns) {
+      if (turn.bullyingCheck?.flagged && turn.bullyingCheck.pattern) {
+        const k = turn.bullyingCheck.pattern;
+        bullyingFlags[k] = (bullyingFlags[k] ?? 0) + 1;
+      }
+    }
+    out.push({
+      session_id: trace.sessionId,
+      partner_child_id: firstJoint.jointPartnerChildId ?? "",
+      partner_name: firstJoint.jointPartnerName,
+      turns_count: jointTurns.length,
+      avg_engagement_score: Number(avg.toFixed(2)),
+      bullying_flags_count: bullyingFlags,
+    });
+  }
+  return out;
+}
+
 /** Converte EmittedCard em summary pro relatório. */
 export function summarizeEmittedCard(card: EmittedCard): EmittedCardSummary {
   return {
@@ -253,6 +287,15 @@ export function aggregate(
 ): WeeklyReportData {
   const childAge = traces.find((t) => t.personaAge !== undefined)?.personaAge ?? null;
   const emittedCards = (opts.emitted_cards ?? []).map(summarizeEmittedCard);
+  const jointSessions = aggregateJointSessions(traces);
+  const currentDyadAvg =
+    jointSessions.length === 0
+      ? null
+      : jointSessions.reduce((a, s) => a + s.avg_engagement_score, 0) / jointSessions.length;
+  const dyadTrend =
+    currentDyadAvg === null || opts.previous_dyad_avg_engagement === undefined
+      ? null
+      : Number((currentDyadAvg - opts.previous_dyad_avg_engagement).toFixed(2));
   return {
     child_name: childName,
     child_age: childAge,
@@ -264,5 +307,7 @@ export function aggregate(
     ignitions: detectIgnitions(traces),
     aspirations: extractAspirations(traces),
     metrics: computeMetrics(traces),
+    joint_sessions: jointSessions,
+    dyad_trust_trend: dyadTrend,
   };
 }

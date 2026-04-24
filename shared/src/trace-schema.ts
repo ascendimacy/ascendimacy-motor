@@ -19,6 +19,7 @@
 import type { StatusMatrix, StatusValue } from "./status-matrix.js";
 import type { GardnerProgramState } from "./mixins/with-gardner-program.js";
 import type { GardnerChannel, CaselDimension, ContentItemType } from "./content-item.js";
+import type { SessionMode } from "./types.js";
 
 export const TRACE_SCHEMA_VERSION = "0.3.0";
 
@@ -84,6 +85,18 @@ export interface TurnTrace {
   statusTransitions?: StatusTransitionRecord[];
   /** Anomalias ou warnings detectados. */
   flags?: TurnTraceFlags;
+
+  // ─── v0.3.1 — Bloco 6 (dyad) ──────────────────────────────────────────
+  sessionMode?: SessionMode;
+  jointPartnerChildId?: string;
+  jointPartnerName?: string;
+  /** Resultado do bullying-check aplicado no turn (se sessionMode=joint). */
+  bullyingCheck?: {
+    flagged: boolean;
+    pattern?: string;
+    confidence?: number;
+    reason?: string;
+  };
 }
 
 export interface SessionTrace {

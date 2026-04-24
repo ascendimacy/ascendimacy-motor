@@ -22,6 +22,9 @@ export interface PlaybookIndex {
   estimatedConfidenceGain: number;
 }
 
+export const SESSION_MODES = ["solo", "joint"] as const;
+export type SessionMode = (typeof SESSION_MODES)[number];
+
 export interface SessionState {
   sessionId: string;
   trustLevel: number;
@@ -32,6 +35,17 @@ export interface SessionState {
   statusMatrix?: StatusMatrix;
   /** Estado do programa Gardner 5 semanas (Bloco 2b). */
   gardnerProgram?: GardnerProgramState;
+
+  // ─── Bloco 6 — Dinâmicas em grupo (dyad) ─────────────────────────────
+
+  /** solo | joint. Default 'solo' se ausente. Joint só ativa com consent Bloco 4. */
+  sessionMode?: SessionMode;
+  /** Se joint: child_id do parceiro (ex: 'kei' quando sessão é com Ryo + Kei). */
+  jointPartnerChildId?: string;
+  /** Nome do parceiro — pro drota endereçar por nome. */
+  jointPartnerName?: string;
+  /** StatusMatrix do parceiro no instante do turn. Planejador verifica brejo unilateral. */
+  partnerStatusMatrix?: StatusMatrix;
 }
 
 export interface EventEntry {

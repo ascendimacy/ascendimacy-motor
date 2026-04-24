@@ -86,6 +86,18 @@ export interface EmittedCardSummary {
   emitted_at: string;
 }
 
+/** Resumo de sessões joint (dyad) na semana (Bloco 6). */
+export interface JointSessionSummary {
+  session_id: string;
+  partner_child_id: string;
+  partner_name?: string;
+  turns_count: number;
+  /** Média de score dos content items selecionados — proxy pra engagement/trust. */
+  avg_engagement_score: number;
+  /** Count de turns com bullying flag por pattern. */
+  bullying_flags_count: Record<string, number>;
+}
+
 export interface WeeklyReportData {
   child_name: string;
   child_age: number | null;
@@ -103,6 +115,13 @@ export interface WeeklyReportData {
   ignitions: IgnitionEvent[];
   aspirations: AspirationSignal[];
   metrics: OperationalMetrics;
+  /** Dinâmicas conjuntas agregadas (Bloco 6). Array vazio se só sessões solo. */
+  joint_sessions: JointSessionSummary[];
+  /**
+   * Trend do trust dyad (Bloco 6): média atual − média semana anterior.
+   * Null se não tem dados para comparação.
+   */
+  dyad_trust_trend: number | null;
 }
 
 export interface WeeklyReportOptions {
@@ -112,4 +131,6 @@ export interface WeeklyReportOptions {
   week_range?: WeekRange;
   /** EmittedCards da semana (opcional — vem do caller que consulta motor-execucao). */
   emitted_cards?: import("@ascendimacy/shared").EmittedCard[];
+  /** Avg de engagement de joint sessions na semana anterior — usado pra trend (Bloco 6). */
+  previous_dyad_avg_engagement?: number;
 }
