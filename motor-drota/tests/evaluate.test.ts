@@ -1,52 +1,58 @@
 import { describe, it, expect } from "vitest";
-import { scoreActions } from "../src/evaluate.js";
-import { selectBest, sanitizeMaterialization } from "../src/select.js";
-import type { SessionState } from "@ascendimacy/shared";
+import { rankPool } from "../src/evaluate.js";
+import { selectFromPool, sanitizeMaterialization } from "../src/select.js";
+import type { ScoredContentItem } from "@ascendimacy/shared";
 
-const mockState: SessionState = {
-  sessionId: "test-001",
-  trustLevel: 0.3,
-  budgetRemaining: 100,
-  turn: 0,
-  eventLog: [],
-};
+const makeScored = (id: string, score: number): ScoredContentItem => ({
+  item: {
+    id,
+    type: "curiosity_hook",
+    domain: "generic",
+    casel_target: ["SA"],
+    age_range: [7, 14],
+    surprise: 7,
+    verified: true,
+    base_score: 7,
+    fact: "",
+    bridge: "",
+    quest: "",
+    sacrifice_type: "reflect",
+  },
+  score,
+  reasons: [],
+});
 
-const candidates = [
-  { playbookId: "icebreaker.primeiro-contato", priority: 1, rationale: "Primeiro contato", estimatedSacrifice: 1, estimatedConfidenceGain: 4 },
-  { playbookId: "onboarding.pitch", priority: 2, rationale: "Pitch direto", estimatedSacrifice: 5, estimatedConfidenceGain: 7 },
-];
-
-describe("scoreActions", () => {
-  it("scores all candidates", () => {
-    const scored = scoreActions(candidates, mockState);
-    expect(scored).toHaveLength(2);
-    for (const s of scored) {
-      expect(typeof s.score).toBe("number");
-    }
+describe("rankPool", () => {
+  it("sorts pool by score descending", () => {
+    const pool = [makeScored("a", 3), makeScored("b", 9), makeScored("c", 5)];
+    const ranked = rankPool(pool);
+    expect(ranked.map((s) => s.item.id)).toEqual(["b", "c", "a"]);
   });
 
-  it("applies trustWeight penalty for low trust", () => {
-    const lowTrustState = { ...mockState, trustLevel: 0.2 };
-    const highTrustState = { ...mockState, trustLevel: 0.8 };
-    const lowScores = scoreActions([candidates[0]!], lowTrustState);
-    const highScores = scoreActions([candidates[0]!], highTrustState);
-    expect(lowScores[0]!.score).toBeGreaterThan(highScores[0]!.score);
+  it("does not mutate input", () => {
+    const pool = [makeScored("a", 3), makeScored("b", 9)];
+    rankPool(pool);
+    expect(pool.map((s) => s.item.id)).toEqual(["a", "b"]);
   });
 });
 
-describe("selectBest", () => {
-  it("selects action with highest score", () => {
-    const scored = scoreActions(candidates, mockState);
-    const best = selectBest(scored);
-    expect(best.playbookId).toBeTruthy();
+describe("selectFromPool", () => {
+  it("returns top-scored item", () => {
+    const pool = [makeScored("a", 3), makeScored("b", 9)];
+    const selected = selectFromPool(pool);
+    expect(selected.item.id).toBe("b");
+  });
+
+  it("throws on empty pool", () => {
+    expect(() => selectFromPool([])).toThrow();
   });
 });
 
-describe("sanitizeMaterialization", () => {
-  it("removes forbidden technical words", () => {
-    const dirty = "Oi! Este playbook vai aumentar seu trust_level.";
+describe("sanitizeMaterialization — forbidden words (Bloco 2a inclui contentPool/content_pool)", () => {
+  it("removes technical identifiers from materialization", () => {
+    const dirty = "O content_pool sugere playbook helix.";
     const clean = sanitizeMaterialization(dirty);
+    expect(clean).not.toContain("content_pool");
     expect(clean).not.toContain("playbook");
-    expect(clean).not.toContain("trust_level");
   });
 });

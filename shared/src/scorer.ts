@@ -51,6 +51,19 @@ export interface ChildScoringProfile {
   domain_ranking?: Record<string, DomainRankEntry>;
   recent_hook_domains?: string[];
   engagement_by_type?: Partial<Record<ContentItemType, number>>;
+
+  /**
+   * Dia no ciclo helix de 18 dias (1-18). Bloco 2a adiciona o slot;
+   * scorer v1 não consome. Referência: BRIDGING_PLAYBOOK.MD linhas 2700-2715
+   * (distribuição de técnicas por fase). Plan §2.A v2, A.1.2.
+   */
+  cycle_day?: number;
+
+  /**
+   * Fase derivada do cycle_day. Bloco 3 pode modular pesos por fase.
+   *   rapport (1-3), building (4-7), peak (8-10), consolidation (11-14), buffer (15-18)
+   */
+  cycle_phase?: "rapport" | "building" | "peak" | "consolidation" | "buffer";
 }
 
 export interface ScoringContext {

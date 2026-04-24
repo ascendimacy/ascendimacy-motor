@@ -74,37 +74,84 @@ function createMockClients(): McpClients {
 function getMockResponse(service: string, tool: string, args?: Record<string, unknown>): string {
   if (service === "planejador" && tool === "plan_turn") {
     return JSON.stringify({
-      strategicRationale: "Mock: contexto inicial.",
-      candidateActions: [
-        { playbookId: "icebreaker.primeiro-contato", priority: 1, rationale: "Primeiro contato", estimatedSacrifice: 1, estimatedConfidenceGain: 4 },
-        { playbookId: "onboarding.apresentacao-produto", priority: 2, rationale: "Apresentar produto", estimatedSacrifice: 2, estimatedConfidenceGain: 3 },
+      strategicRationale: "Mock: contexto inicial, foco em receptividade.",
+      contentPool: [
+        {
+          item: {
+            id: "ling_inuit_snow",
+            type: "curiosity_hook",
+            domain: "linguistics",
+            casel_target: ["SA"],
+            age_range: [7, 14],
+            surprise: 9,
+            verified: true,
+            base_score: 7,
+            fact: "Os Inuit têm 50+ palavras pra neve.",
+            bridge: "Quantas palavras você tem pra raiva?",
+            quest: "Encontre 5 palavras pro que sente agora.",
+            sacrifice_type: "reflect",
+          },
+          score: 9,
+          reasons: ["base_score=7", "surprise_bonus=+4"],
+        },
       ],
-      contextHints: { language: "pt-br" },
+      contextHints: { language: "pt-br", status_gates: { emotional: { ok: true } } },
     });
   }
   if (service === "motor-drota" && tool === "evaluate_and_select") {
-    // Accept strategicRationale and contextHints from args (ignored in mock, but validated here)
     const _strategicRationale = (args?.["strategicRationale"] as string | undefined) ?? "";
     const _contextHints = (args?.["contextHints"] as Record<string, unknown> | undefined) ?? {};
-    void _strategicRationale; void _contextHints;
+    const _instructionAddition = (args?.["instruction_addition"] as string | undefined) ?? "";
+    void _strategicRationale; void _contextHints; void _instructionAddition;
+    const contentPool = (args?.["contentPool"] as unknown[] | undefined) ?? [];
+    const first = contentPool[0] as { item?: { id?: string }; score?: number; reasons?: string[] } | undefined;
+    const selectedItem = first?.item ?? {
+      id: "mock_fallback",
+      type: "curiosity_hook",
+      domain: "generic",
+      casel_target: ["SA"],
+      age_range: [0, 99],
+      surprise: 7,
+      verified: true,
+      base_score: 7,
+      fact: "",
+      bridge: "",
+      quest: "",
+      sacrifice_type: "reflect",
+    };
     return JSON.stringify({
-      selectedAction: { playbookId: "icebreaker.primeiro-contato", priority: 1, rationale: "Melhor score", estimatedSacrifice: 1, estimatedConfidenceGain: 4, score: 6 },
-      selectionRationale: "Mock: icebreaker tem maior score.",
-      actualSacrifice: 1,
-      actualConfidenceGain: 4,
-      linguisticMaterialization: "Olá! Que bom ter você aqui. Como posso ajudar hoje?",
+      selectedContent: { item: selectedItem, score: first?.score ?? 0, reasons: first?.reasons ?? [] },
+      selectionRationale: "Mock: top do pool.",
+      linguisticMaterialization: "Olá! Que bom ter você aqui. Posso te contar algo que pode te surpreender?",
     });
   }
   if (service === "motor-execucao" && tool === "get_state") {
     const sessionId = (args?.["sessionId"] as string) ?? "mock-session";
-    return JSON.stringify({ sessionId, trustLevel: 0.3, budgetRemaining: 100, turn: 0, eventLog: [] });
+    return JSON.stringify({
+      sessionId,
+      trustLevel: 0.3,
+      budgetRemaining: 100,
+      turn: 0,
+      eventLog: [],
+      statusMatrix: {
+        emotional: "baia",
+        social_with_ebrota: "baia",
+        social_with_parent: "baia",
+        social_with_sibling: "baia",
+      },
+    });
   }
   if (service === "motor-execucao" && tool === "execute_playbook") {
     const sessionId = (args?.["sessionId"] as string) ?? "mock-session";
     return JSON.stringify({
       success: true,
       newState: { sessionId, trustLevel: 0.34, budgetRemaining: 99, turn: 1, eventLog: [] },
-      eventLogged: { timestamp: new Date().toISOString(), type: "playbook_executed", playbookId: "icebreaker.primeiro-contato", data: {} },
+      eventLogged: {
+        timestamp: new Date().toISOString(),
+        type: "playbook_executed",
+        playbookId: "default",
+        data: { selectedContentId: args?.["selectedContentId"] ?? "" },
+      },
     });
   }
   return JSON.stringify({ ok: true });

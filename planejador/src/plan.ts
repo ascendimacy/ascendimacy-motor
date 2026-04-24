@@ -1,68 +1,118 @@
-import type { PlanTurnInput, PlanTurnOutput, CandidateAction } from "@ascendimacy/shared";
+/**
+ * Planejador — deixa de nomear playbook-ação-unitária.
+ * Agora: scora o pool (via scoreItem de @ascendimacy/shared) e devolve top 1-5.
+ *
+ * LLM é consultada APENAS para strategicRationale e contextHints
+ * (detecção de língua + ajuste tonal). O scoring é determinístico.
+ *
+ * Spec: docs/handoffs/2026-04-24-cc-bloco2-plan.md §2.A v2.
+ */
+
+import type {
+  PlanTurnInput,
+  PlanTurnOutput,
+  ScoredContentItem,
+} from "@ascendimacy/shared";
+import {
+  scorePool,
+  allGates,
+  pickFocusDimension,
+  caselTargetsFor,
+  defaultMatrix,
+} from "@ascendimacy/shared";
 import { callLlm, callLlmMock } from "./llm-client.js";
+import { loadSeedPool, buildPool } from "./pool-builder.js";
+import { personaToChildProfile } from "./child-profile.js";
+
+/** Quantos items do pool passamos ao drota (top-K). */
+export const TOP_K_POOL = 5;
+
+/** Caminho do seed pode ser sobrescrito via env para testes. */
+function seedPath(): string | undefined {
+  return process.env["CONTENT_SEED_PATH"];
+}
 
 function buildSystemPrompt(input: PlanTurnInput): string {
-  const { persona, adquirente, inventory, state } = input;
-  const inventoryList = inventory
-    .map(p => `- ${p.id}: ${p.title} (sacrifício estimado: ${p.estimatedSacrifice}, confiança estimada: +${p.estimatedConfidenceGain})`)
-    .join("\n");
+  const { persona, state, incomingMessage } = input;
+  return `Você é o Planejador do motor Ascendimacy. Seu papel é AUXILIAR de compositor:
+o scoring de content items é determinístico (feito no código). Você só emite:
 
-  return `Você é o Planejador do motor Ascendimacy. Seu papel é estratégico: dado o contexto do sujeito e o estado da sessão, escolha 2-5 playbooks candidatos em ordem de prioridade.
+1. strategicRationale (≤80 chars) — 1 frase sobre o momento da sessão.
+2. contextHints — dicas de composição (language, tom, avoid, etc).
 
-SUJEITO: ${persona.name}, ${persona.age} anos
+SUJEITO: ${persona.name}, ${persona.age} anos.
 Perfil: ${JSON.stringify(persona.profile, null, 2)}
+Estado: trust=${state.trustLevel.toFixed(2)}, turn=${state.turn}, budget=${state.budgetRemaining}
+Mensagem: "${incomingMessage}"
 
-ADQUIRENTE (defaults de contexto):
-${JSON.stringify(adquirente.defaults, null, 2)}
+Detecte a língua do sujeito (ex: 'pt-br', 'pt-br limitado', 'pt-br basico', 'ja', 'en'). Se o perfil indica falante não-nativo (ex: japonês aprendendo pt-br), use 'pt-br limitado'.
 
-ESTADO DA SESSÃO:
-- Trust level: ${state.trustLevel.toFixed(2)}
-- Budget restante: ${state.budgetRemaining}
-- Turno: ${state.turn}
+Responda APENAS JSON COMPACTO:
+{"strategicRationale":"string ≤80 chars","contextHints":{"language":"pt-br","mood":"receptive","urgency":"low"}}`;
+}
 
-PLAYBOOKS DISPONÍVEIS:
-${inventoryList}
+interface LlmRationale {
+  strategicRationale: string;
+  contextHints: Record<string, unknown>;
+}
 
-Responda APENAS com JSON COMPACTO (sem newlines extras). Máximo 2 candidateActions. strategicRationale max 80 chars. Formato:
-{
-  "strategicRationale": "string com raciocínio estratégico",
-  "candidateActions": [
-    {
-      "playbookId": "id do playbook",
-      "priority": 1,
-      "rationale": "por que este playbook agora",
-      "estimatedSacrifice": 0,
-      "estimatedConfidenceGain": 0
-    }
-  ],
-  "contextHints": {
-    "language": "detectar da mensagem e perfil — valores: 'pt-br', 'pt-br limitado', 'pt-br basico', 'ja', 'en', etc."
+function parseRationale(raw: string): LlmRationale {
+  const cleaned = raw.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+  try {
+    const parsed = JSON.parse(cleaned) as {
+      strategicRationale?: string;
+      contextHints?: Record<string, unknown>;
+    };
+    return {
+      strategicRationale: parsed.strategicRationale ?? "",
+      contextHints: parsed.contextHints ?? {},
+    };
+  } catch {
+    return { strategicRationale: "", contextHints: { language: "pt-br" } };
   }
 }
 
-Instrução adicional: detecte a língua e proficiência do sujeito com base na mensagem recebida e no perfil. Registre em contextHints.language. Se o perfil indica falante não-nativo de pt-br (ex: japonês aprendendo), use 'pt-br limitado'. Se a mensagem está em outra língua, use essa língua. Default: 'pt-br'.`;
-}
-
-function parseOutput(raw: string): PlanTurnOutput {
-  const cleaned = raw.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
-  const parsed = JSON.parse(cleaned) as {
-    strategicRationale?: string;
-    candidateActions?: CandidateAction[];
-    contextHints?: Record<string, unknown>;
-  };
-  return {
-    strategicRationale: parsed.strategicRationale ?? "",
-    candidateActions: parsed.candidateActions ?? [],
-    contextHints: parsed.contextHints ?? {},
-  };
-}
-
 export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
-  const useMock = process.env["USE_MOCK_LLM"] === "true" || !process.env["ANTHROPIC_API_KEY"];
+  // 1. Scoring determinístico do pool.
+  const rawPool = loadSeedPool(seedPath());
+  const eligible = buildPool(rawPool, {
+    age: input.persona.age,
+    sessionMode: "1v1", // Bloco 6 adotará 'joint' para dyad
+  });
+  const child = personaToChildProfile(input.persona, input.state);
+  const statusMatrix = input.state.statusMatrix ?? defaultMatrix();
+  const focusDim = pickFocusDimension(statusMatrix);
+  const caselTargets = focusDim ? caselTargetsFor(focusDim) : [];
+  const scored = scorePool(eligible, child, {
+    now: new Date().toISOString(),
+    casel_focus: caselTargets[0] as ScoredContentItem["item"]["casel_target"][number] | undefined,
+  });
+  const topK = scored.slice(0, TOP_K_POOL);
+
+  // 2. LLM consulta para rationale + contextHints.
+  const useMock =
+    process.env["USE_MOCK_LLM"] === "true" ||
+    !process.env["ANTHROPIC_API_KEY"];
   const systemPrompt = buildSystemPrompt(input);
-  const userMessage = `Mensagem recebida do sujeito: "${input.incomingMessage}"\n\nGere o plano estratégico.`;
+  const userMessage = `Emita o JSON com rationale + hints.`;
   const raw = useMock
     ? await callLlmMock(systemPrompt, userMessage)
     : await callLlm(systemPrompt, userMessage);
-  return parseOutput(raw);
+  const rationale = parseRationale(raw);
+
+  // 3. Injeta status_gates + casel_focus em contextHints.
+  const contextHints: Record<string, unknown> = {
+    ...rationale.contextHints,
+    status_gates: allGates(statusMatrix),
+  };
+  if (focusDim) {
+    contextHints["casel_focus_dimension"] = focusDim;
+    contextHints["casel_focus_targets"] = caselTargets;
+  }
+
+  return {
+    strategicRationale: rationale.strategicRationale,
+    contentPool: topK,
+    contextHints,
+  };
 }

@@ -1,6 +1,11 @@
-import type { CandidateAction, SessionState, PersonaDef, AdquirenteDef, PlaybookIndex, EventEntry } from "./types.js";
-
-export type { CandidateAction };
+import type { ContentItem, ScoredContentItem } from "./content-item.js";
+import type {
+  SessionState,
+  PersonaDef,
+  AdquirenteDef,
+  PlaybookIndex,
+  EventEntry,
+} from "./types.js";
 
 export interface PlanTurnInput {
   sessionId: string;
@@ -13,30 +18,41 @@ export interface PlanTurnInput {
 
 export interface PlanTurnOutput {
   strategicRationale: string;
-  candidateActions: CandidateAction[];
+  /**
+   * Top 1-5 items scorados do pool.
+   * Substitui `candidateActions` (removido Bloco 2a).
+   */
+  contentPool: ScoredContentItem[];
   contextHints: Record<string, unknown>;
 }
 
 export interface EvaluateAndSelectInput {
   sessionId: string;
-  candidateActions: CandidateAction[];
+  contentPool: ScoredContentItem[];
   state: SessionState;
   persona: PersonaDef;
   strategicRationale: string;
   contextHints: Record<string, unknown>;
+  /**
+   * Slot para continuidade multi-dia / technique hints (Bloco 3/5).
+   * Bloco 2a sempre passa string vazia ou omite. Ver plano v2 A.2.
+   */
+  instruction_addition?: string;
 }
 
 export interface EvaluateAndSelectOutput {
-  selectedAction: CandidateAction;
+  /** Item escolhido do pool (com score + reasons preservados). */
+  selectedContent: ScoredContentItem;
   selectionRationale: string;
-  actualSacrifice: number;
-  actualConfidenceGain: number;
   linguisticMaterialization: string;
 }
 
 export interface ExecutePlaybookInput {
   sessionId: string;
+  /** Deploy profile (e.g. "kids.session" / "drota.session"). */
   playbookId: string;
+  /** Id do content item materializado, se houve — para trace + updates. */
+  selectedContentId?: string;
   output: string;
   metadata: Record<string, unknown>;
 }
@@ -46,3 +62,6 @@ export interface ExecutePlaybookOutput {
   newState: SessionState;
   eventLogged: EventEntry;
 }
+
+/** Re-export conveniente para consumidores. */
+export type { ContentItem, ScoredContentItem };

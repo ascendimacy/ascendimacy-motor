@@ -87,7 +87,7 @@ export async function runTurn(
     service: "planejador",
     timestamp: new Date().toISOString(),
     durationMs: Date.now() - t1,
-    input: { incomingMessage: message, candidateCount: plan.candidateActions.length },
+    input: { incomingMessage: message, poolSize: plan.contentPool.length },
     output: plan as unknown as Record<string, unknown>,
   });
 
@@ -96,11 +96,12 @@ export async function runTurn(
     name: "evaluate_and_select",
     arguments: {
       sessionId,
-      candidateActions: plan.candidateActions,
+      contentPool: plan.contentPool,
       state,
       persona,
       strategicRationale: plan.strategicRationale,
       contextHints: plan.contextHints,
+      instruction_addition: "",
     },
   });
   const drota = parseToolText<import("@ascendimacy/shared").EvaluateAndSelectOutput>(drotaResult);
@@ -108,21 +109,33 @@ export async function runTurn(
     service: "motor-drota",
     timestamp: new Date().toISOString(),
     durationMs: Date.now() - t2,
-    input: { candidateCount: plan.candidateActions.length },
+    input: { poolSize: plan.contentPool.length },
     output: drota as unknown as Record<string, unknown>,
   });
 
   const t3 = Date.now();
+  // v1 usa playbookId = inventory[0] como deploy profile default.
+  // Plan §2.A v2: playbookId é session profile, não mais action-id.
+  const deployProfileId = inventory[0]?.id ?? "default";
   const execResult = await clients.motorExecucao.callTool({
     name: "execute_playbook",
-    arguments: { sessionId, playbookId: drota.selectedAction.playbookId, output: drota.linguisticMaterialization, metadata: {} },
+    arguments: {
+      sessionId,
+      playbookId: deployProfileId,
+      selectedContentId: drota.selectedContent?.item?.id ?? "",
+      output: drota.linguisticMaterialization,
+      metadata: {},
+    },
   });
   const exec = parseToolText<import("@ascendimacy/shared").ExecutePlaybookOutput>(execResult);
   turnEntries.push({
     service: "motor-execucao",
     timestamp: new Date().toISOString(),
     durationMs: Date.now() - t3,
-    input: { playbookId: drota.selectedAction.playbookId },
+    input: {
+      playbookId: deployProfileId,
+      selectedContentId: drota.selectedContent?.item?.id ?? "",
+    },
     output: exec as unknown as Record<string, unknown>,
   });
 

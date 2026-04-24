@@ -70,6 +70,14 @@ export interface ContentItemBase {
   verified: boolean;
   base_score: number;
 
+  /**
+   * Elegibilidade para joint/dyad sessions (Bloco 6 #17).
+   * Bloco 2a adiciona o campo com default `false` para evitar migration
+   * futura no schema. Pool-builder v1 não filtra por isso — consumo é
+   * Bloco 6+. Plan §2.A v2, A.1.1.
+   */
+  group_compatible?: boolean;
+
   /** Dinâmico por criança — resultante do histórico de uso. */
   times_used?: number;
   last_used_at?: string | null;

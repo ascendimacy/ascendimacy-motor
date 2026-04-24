@@ -1,3 +1,5 @@
+import type { StatusMatrix } from "./status-matrix.js";
+
 export interface PersonaDef {
   id: string;
   name: string;
@@ -25,6 +27,8 @@ export interface SessionState {
   budgetRemaining: number;
   eventLog: EventEntry[];
   turn: number;
+  /** Hidratado por motor-execucao a partir de tree_nodes (zone='status'). */
+  statusMatrix?: StatusMatrix;
 }
 
 export interface EventEntry {
@@ -32,12 +36,4 @@ export interface EventEntry {
   type: string;
   playbookId?: string;
   data: Record<string, unknown>;
-}
-
-export interface CandidateAction {
-  playbookId: string;
-  priority: number;
-  rationale: string;
-  estimatedSacrifice: number;
-  estimatedConfidenceGain: number;
 }

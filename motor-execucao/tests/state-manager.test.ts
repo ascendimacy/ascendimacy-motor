@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { getState, updateState, closeDb } from "../src/state-manager.js";
+import { getState, updateState, closeDb, getDbInstance } from "../src/state-manager.js";
+import { applyStatusTransition } from "../src/tree-nodes.js";
 
 beforeEach(() => {
   closeDb();
@@ -31,5 +32,37 @@ describe("updateState — partial delta preservation", () => {
   it("does not throw when session does not exist", () => {
     const sessionId = `nonexistent-${Date.now()}`;
     expect(() => updateState(sessionId, { turn: 1 })).not.toThrow();
+  });
+});
+
+describe("getState — hydrates statusMatrix (Bloco 2a)", () => {
+  it("new session comes with default matrix (all baia)", () => {
+    const sessionId = `sm-new-${Date.now()}`;
+    const state = getState(sessionId);
+    expect(state.statusMatrix).toBeDefined();
+    expect(state.statusMatrix!["emotional"]).toBe("baia");
+    expect(state.statusMatrix!["social_with_ebrota"]).toBe("baia");
+  });
+
+  it("persisted status transitions are reflected in next getState", () => {
+    const sessionId = `sm-persist-${Date.now()}`;
+    getState(sessionId); // creates row
+    const db = getDbInstance();
+    applyStatusTransition(db, sessionId, "emotional", "brejo");
+    applyStatusTransition(db, sessionId, "cognitive_math", "pasto");
+    const reloaded = getState(sessionId);
+    expect(reloaded.statusMatrix!["emotional"]).toBe("brejo");
+    expect(reloaded.statusMatrix!["cognitive_math"]).toBe("pasto");
+  });
+
+  it("different sessions do not leak statusMatrix", () => {
+    const a = `sm-a-${Date.now()}`;
+    const b = `sm-b-${Date.now()}-other`;
+    getState(a);
+    getState(b);
+    const db = getDbInstance();
+    applyStatusTransition(db, a, "emotional", "brejo");
+    expect(getState(a).statusMatrix!["emotional"]).toBe("brejo");
+    expect(getState(b).statusMatrix!["emotional"]).toBe("baia");
   });
 });

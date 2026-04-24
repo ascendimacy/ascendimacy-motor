@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { sanitizeMaterialization } from "../src/select.js";
 
-// Tests for contextHints 'avoid' enforcement via sanitizeMaterialization.
-// The full pipeline test (real LLM) is covered by STS H7 re-run (v0.2 traces).
+// Testes para contextHints 'avoid' enforcement via sanitizeMaterialization.
+// Full pipeline com LLM real é coberto por STS H7 re-run.
 
 describe("contextHints avoid enforcement — sanitizeMaterialization", () => {
   it("removes playbook technical identifier from materialization", () => {
@@ -13,7 +13,6 @@ describe("contextHints avoid enforcement — sanitizeMaterialization", () => {
   });
 
   it("does not remove words that only contain a forbidden substring", () => {
-    // 'bot' is not in FORBIDDEN_WORDS, so 'robot' should not be touched
     const raw = "o bot se adapta ao robot";
     const clean = sanitizeMaterialization(raw);
     expect(clean).toBe("o bot se adapta ao robot");
@@ -28,30 +27,30 @@ describe("contextHints avoid enforcement — sanitizeMaterialization", () => {
   });
 });
 
-describe("contextHints language passthrough — prompt construction", () => {
-  it("language field propagates through EvaluateAndSelectInput interface contract", () => {
-    // Structural test: ensure the interface accepts the new fields without TypeScript errors.
-    // If this file compiles, the contract is correct.
+describe("EvaluateAndSelectInput — contract shape (contentPool + instruction_addition)", () => {
+  it("interface accepts contentPool + instruction_addition", () => {
+    // Structural test: verifica que o contract aceita os campos novos.
     type EvaluateAndSelectInput = {
       sessionId: string;
-      candidateActions: unknown[];
+      contentPool: Array<{ item: unknown; score: number; reasons: string[] }>;
       state: unknown;
       persona: unknown;
       strategicRationale: string;
       contextHints: Record<string, unknown>;
+      instruction_addition?: string;
     };
 
     const input: EvaluateAndSelectInput = {
       sessionId: "test-001",
-      candidateActions: [],
+      contentPool: [],
       state: {},
-      persona: { id: "ryo", name: "Ryo", age: 15, profile: {} },
-      strategicRationale: "Primo contato com adolescente japonês",
-      contextHints: { language: "pt-br limitado", avoid: ["diagnóstico emocional"] },
+      persona: { id: "ryo", name: "Ryo", age: 13, profile: {} },
+      strategicRationale: "Primo contato com adolescente",
+      contextHints: { language: "pt-br", status_gates: { emotional: { ok: true } } },
+      instruction_addition: "",
     };
 
-    expect(input.strategicRationale).toBe("Primo contato com adolescente japonês");
-    expect(input.contextHints["language"]).toBe("pt-br limitado");
-    expect(Array.isArray(input.contextHints["avoid"])).toBe(true);
+    expect(input.contextHints["language"]).toBe("pt-br");
+    expect(input.instruction_addition).toBe("");
   });
 });
