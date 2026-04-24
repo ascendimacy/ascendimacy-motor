@@ -1,0 +1,67 @@
+schema_version: "1.0.0"
+version: "1.0"
+name: "kids.session"
+extends_playbook: null
+deployment_profile: "kids-default"
+
+base_mixins:
+  - name: withConversation
+    config:
+      confirmation_mode: minimal
+      batch_mode: true
+      graduation:
+        type: session_count
+        params: { min: 3 }
+  - name: withMemory
+    config:
+      ttl: "30d"
+      compression: "summarize_daily"
+  - name: withTree
+    config:
+      zones: 4
+      half_life_days: 30
+
+composition_rules:
+  - when: { signal: "first_session" }
+    apply_mixins:
+      - name: withOnboarding
+        config: { collect_consent: true }
+    priority: 10
+  - when: { signal: "joint_session" }
+    apply_mixins:
+      - name: withCrossing
+        config: { mode: "parent_child" }
+    priority: 5
+
+phases:
+  onboarding:
+    mixins: [withConversation, withMemory, withOnboarding]
+    duration_sessions: 3
+    graduation:
+      type: completion
+      params: { completed_steps: [consent, profile, goals] }
+  regular:
+    mixins: [withConversation, withMemory, withTree]
+    graduation:
+      type: mastery_level
+      params: { min_level: 3, in_zones: 2 }
+  graduated:
+    mixins: [withConversation, withMemory]
+    mixin_config_overrides:
+      withMemory:
+        ttl: "90d"
+
+signal_sources:
+  - type: webhook
+    config:
+      endpoint: /kids/signals
+      auth_ref: "secrets.webhook_kids"
+
+external_bridges: []
+
+metadata:
+  author: "Jun Ochiai"
+  product: "kids"
+  target_audience: "children 8-14"
+  description: "Kids session with Living Tree model and GTD adaptation for children"
+  tags: [kids, tree, activity-based]
