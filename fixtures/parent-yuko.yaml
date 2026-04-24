@@ -1,0 +1,54 @@
+# Yuko Ochiai — parental profile fixture v1
+# Perfil da mãe (secondary no contexto eBrota) de Ryo e Kei.
+# Schema conforme shared/src/parental-profile.ts.
+# Decision profile = decider_permissive: decide rápido, aprova mais que Yuji.
+
+id: yuko-ochiai
+name: Yuko Ochiai
+age: 40
+profile:
+  role: secondary
+  parental_profile:
+    id: yuko-ochiai
+    role: secondary
+    decision_profile: decider_permissive
+    family_values:
+      principles:
+        - "liberdade de escolha infantil respeitada"
+        - "erros fazem parte; julgamento envergonha"
+        - "falar sobre sentimentos não é tabu"
+      cultural_axis: japanese_brazilian
+      religious_tradition: secular
+      political_sensitivity: low
+    forbidden_zones:
+      - topic: religious_proselytizing
+        reason: "mesma razão do Yuji"
+    budget_constraints:
+      materials_monthly_ceiling_jpy: 5000
+      screen_time_daily_max_minutes: 120
+      screen_time_weekly_soft_ceiling: 600
+    parental_availability:
+      supervision_available_hours_per_week: 10
+      supervision_for_which_kinds_of_challenges:
+        - physical_supervised
+        - public_exposure_supervised
+        - conflict_mediation
+      scale_tolerance:
+        micro: yes
+        pequeno: yes
+        medio: yes
+        grande: yes
+        monumental: yes_with_review
+      ready_for_dyad_sessions: true
+      ready_for_joint_sessions: true
+    parental_perception:
+      perceived_aspiration: "socialização + expressão emocional"
+      perceived_strengths:
+        - { channel: interpersonal, note: "identifica emoção no outro rápido" }
+        - { channel: linguistic, note: "vocabulário emocional rico" }
+      perceived_weaknesses:
+        - { channel: bodily_kinesthetic, note: "coordenação ainda em desenvolvimento" }
+      concerns_current:
+        - "Ryo às vezes se isola demais"
+      hopes_for_next_3_months:
+        - "Ryo ter 1 interação social voluntária semanal"

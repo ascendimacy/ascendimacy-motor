@@ -27,6 +27,27 @@ export async function callLlm(
 }
 
 /**
+ * Haiku chamado pra triagem parental (Bloco 4 #17). Reuso do client global.
+ * Modelo default `claude-haiku-4-5-20251001`. Curto (150 tokens) — rerank only.
+ */
+export async function callHaiku(
+  systemPrompt: string,
+  userMessage: string,
+): Promise<string> {
+  const c = getClient();
+  const model = process.env["HAIKU_MODEL"] ?? "claude-haiku-4-5-20251001";
+  const response = await c.messages.create({
+    model,
+    max_tokens: 150,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+  });
+  const block = response.content[0];
+  if (block.type !== "text") throw new Error("Unexpected response type from Haiku");
+  return block.text;
+}
+
+/**
  * Mock: planejador Bloco 2a devolve só rationale + hints.
  * Scoring de conteúdo é determinístico, fora do LLM.
  */
