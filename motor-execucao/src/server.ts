@@ -10,6 +10,12 @@ import {
   pauseProgram,
   resumeProgram,
 } from "./gardner-program.js";
+import {
+  setParentDecision,
+  listParentDecisions,
+  PARENT_DECISION_STATUSES,
+} from "./parent-decisions.js";
+import type { ParentDecisionStatus } from "./parent-decisions.js";
 
 const inventory = loadInventory();
 
@@ -71,6 +77,34 @@ server.registerTool("gardner_program_resume", {
 }, async ({ sessionId }: { sessionId: string }) => {
   const state = resumeProgram(getDbInstance(), sessionId);
   return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
+});
+
+server.registerTool("parent_decision_set", {
+  description: "Registra decisão parental para um content item (pending/approved/rejected/pinned).",
+  inputSchema: {
+    sessionId: z.string(),
+    contentId: z.string(),
+    status: z.enum(PARENT_DECISION_STATUSES),
+    reason: z.string().optional(),
+    expiresAt: z.string().optional(),
+  } as any,
+}, async ({ sessionId, contentId, status, reason, expiresAt }: { sessionId: string; contentId: string; status: ParentDecisionStatus; reason?: string; expiresAt?: string }) => {
+  const decision = setParentDecision(getDbInstance(), {
+    session_id: sessionId,
+    content_id: contentId,
+    status,
+    reason,
+    expires_at: expiresAt,
+  });
+  return { content: [{ type: "text" as const, text: JSON.stringify(decision) }] };
+});
+
+server.registerTool("parent_decision_list", {
+  description: "Lista todas as decisões parentais de uma sessão.",
+  inputSchema: { sessionId: z.string() } as any,
+}, async ({ sessionId }: { sessionId: string }) => {
+  const decisions = listParentDecisions(getDbInstance(), sessionId);
+  return { content: [{ type: "text" as const, text: JSON.stringify(decisions) }] };
 });
 
 server.registerTool("log_event", {

@@ -1,0 +1,62 @@
+# Yuji Ochiai — parental profile fixture v1
+# Perfil do pai primário de Ryo e Kei; schema conforme shared/src/parental-profile.ts
+# Spec: ascendimacy-ops/docs/fundamentos/ebrota-kids-onboarding-parental.md §2.
+# Uso: consumido por testes + orchestrator pra simular onboarding parental em STS.
+
+id: yuji-ochiai
+name: Yuji Ochiai
+age: 42
+profile:
+  role: primary
+  parental_profile:
+    id: yuji-ochiai
+    role: primary
+    decision_profile: consultative_risk_averse
+    family_values:
+      principles:
+        - "respeito por anciãos e professores é inegociável"
+        - "vergonha pública é evitada a todo custo"
+        - "esforço importa mais que resultado"
+        - "curiosidade é celebrada, tédio não é julgado"
+      cultural_axis: japanese_brazilian
+      religious_tradition: secular
+      political_sensitivity: moderate
+    forbidden_zones:
+      - topic: political_content
+        reason: "não queremos expor a criança a temas divisivos ainda"
+      - topic: religious_proselytizing
+        reason: "respeitamos a escolha futura da criança"
+      - topic: screen_gaming_promotion
+        reason: "já limitamos games suficiente"
+    budget_constraints:
+      materials_monthly_ceiling_jpy: 3000
+      screen_time_daily_max_minutes: 90
+      screen_time_weekly_soft_ceiling: 420
+    parental_availability:
+      supervision_available_hours_per_week: 6
+      supervision_for_which_kinds_of_challenges:
+        - physical_supervised
+        - conflict_mediation
+      scale_tolerance:
+        micro: yes
+        pequeno: yes
+        medio: yes
+        grande: yes_with_review
+        monumental: yes_with_full_review_meeting
+      ready_for_dyad_sessions: true
+      ready_for_joint_sessions: true
+    parental_perception:
+      perceived_aspiration: "criatividade artística e narrativa via mangá"
+      perceived_strengths:
+        - { channel: linguistic, note: "conta histórias longas" }
+        - { channel: spatial, note: "desenha bem pra idade" }
+        - { channel: intrapersonal, note: "reflete quando desafiado" }
+      perceived_weaknesses:
+        - { channel: musical, note: "nunca demonstrou interesse musical" }
+        - { channel: naturalist, note: "indiferente a animais e natureza" }
+      concerns_current:
+        - "Ryo não quer ir à escola — 2 semanas de recusa"
+        - "passa tempo demais no celular"
+      hopes_for_next_3_months:
+        - "reconectar com o prazer de aprender"
+        - "encontrar 1 atividade que ele escolha voluntariamente"

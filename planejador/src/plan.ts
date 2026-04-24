@@ -17,6 +17,8 @@ import type {
   ScoredContentItem,
   GardnerAssessment,
   GardnerProgramState,
+  ParentalProfile,
+  ContentItem,
 } from "@ascendimacy/shared";
 import {
   scorePool,
@@ -28,8 +30,10 @@ import {
   isAssessmentReady,
   pairForWeek,
   shouldPauseProgram,
+  isParentalProfileMinimal,
+  triageForParents,
 } from "@ascendimacy/shared";
-import { callLlm, callLlmMock } from "./llm-client.js";
+import { callLlm, callLlmMock, callHaiku } from "./llm-client.js";
 import { loadSeedPool, buildPool } from "./pool-builder.js";
 import { personaToChildProfile } from "./child-profile.js";
 
@@ -127,10 +131,35 @@ function buildGardnerInstruction(input: PlanTurnInput): {
   return { text, active: true };
 }
 
+/**
+ * Aplica parent_pinned dinâmico — se persona.profile.parent_pinned_ids incluir
+ * o id do item, marca parent_pinned=true antes de scorar. Assim o scorer (Bloco 1)
+ * já respeita (PARENT_PINNED_SCORE=1000 vence tudo). Plan Bloco 4 requisito (c).
+ */
+function applyPinnedDecisions(pool: ContentItem[], persona: PlanTurnInput["persona"]): ContentItem[] {
+  const profile = (persona.profile ?? {}) as Record<string, unknown>;
+  const pinnedIds = Array.isArray(profile["parent_pinned_ids"])
+    ? new Set(profile["parent_pinned_ids"] as string[])
+    : null;
+  const rejectedIds = Array.isArray(profile["parent_rejected_ids"])
+    ? new Set(profile["parent_rejected_ids"] as string[])
+    : null;
+  if (!pinnedIds && !rejectedIds) return pool;
+  return pool
+    .filter((item) => !(rejectedIds?.has(item.id)))
+    .map((item) => {
+      if (pinnedIds?.has(item.id)) {
+        return { ...item, parent_pinned: true, pinned_until: item.pinned_until ?? null };
+      }
+      return item;
+    });
+}
+
 export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   // 1. Scoring determinístico do pool.
   const rawPool = loadSeedPool(seedPath());
-  const eligible = buildPool(rawPool, {
+  const withPinnedMarks = applyPinnedDecisions(rawPool, input.persona);
+  const eligible = buildPool(withPinnedMarks, {
     age: input.persona.age,
     sessionMode: "1v1", // Bloco 6 adotará 'joint' para dyad
   });
@@ -142,23 +171,40 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     now: new Date().toISOString(),
     casel_focus: caselTargets[0] as ScoredContentItem["item"]["casel_target"][number] | undefined,
   });
-  const topK = scored.slice(0, TOP_K_POOL);
+  let topK = scored.slice(0, TOP_K_POOL);
 
-  // 2. LLM consulta para rationale + contextHints.
-  const useMock =
+  // 2. Triagem parental (Bloco 4 #17, paper §6 camada 2).
+  //    Se persona.profile.parental_profile existir E estiver mínimo,
+  //    passa topK pelo triageForParents (rule-based ou Haiku).
+  const useMockLlm =
     process.env["USE_MOCK_LLM"] === "true" ||
     !process.env["ANTHROPIC_API_KEY"];
+  const parentalProfile = extractParentalProfile(input.persona);
+  let triageMode: "rule_based" | "haiku" | "skipped" = "skipped";
+  let triageRejectedIds: string[] = [];
+  if (isParentalProfileMinimal(parentalProfile)) {
+    const haikuCaller = useMockLlm ? undefined : callHaiku;
+    const triageResult = await triageForParents(
+      { pool: topK, profile: parentalProfile!, max_approved: TOP_K_POOL },
+      haikuCaller,
+    );
+    topK = triageResult.approved;
+    triageMode = triageResult.triage_mode;
+    triageRejectedIds = triageResult.rejected.map((r) => r.item.id);
+  }
+
+  // 3. LLM consulta para rationale + contextHints.
   const systemPrompt = buildSystemPrompt(input);
   const userMessage = `Emita o JSON com rationale + hints.`;
-  const raw = useMock
+  const raw = useMockLlm
     ? await callLlmMock(systemPrompt, userMessage)
     : await callLlm(systemPrompt, userMessage);
   const rationale = parseRationale(raw);
 
-  // 3. Composição do mixin withGardnerProgram se ativo.
+  // 4. Composição do mixin withGardnerProgram se ativo.
   const gardnerInstruction = buildGardnerInstruction(input);
 
-  // 4. Injeta status_gates + casel_focus + gardner meta em contextHints.
+  // 5. Injeta status_gates + casel_focus + gardner meta + triage meta em contextHints.
   const contextHints: Record<string, unknown> = {
     ...rationale.contextHints,
     status_gates: allGates(statusMatrix),
@@ -174,6 +220,12 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       contextHints["gardner_pause_reason"] = gardnerInstruction.pauseReason;
     }
   }
+  if (triageMode !== "skipped") {
+    contextHints["parental_triage_mode"] = triageMode;
+    if (triageRejectedIds.length > 0) {
+      contextHints["parental_triage_rejected_ids"] = triageRejectedIds;
+    }
+  }
 
   return {
     strategicRationale: rationale.strategicRationale,
@@ -183,5 +235,13 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   };
 }
 
+/** Extrai `parental_profile` da persona (fixture pattern v1). */
+function extractParentalProfile(persona: PlanTurnInput["persona"]): ParentalProfile | undefined {
+  const profile = (persona.profile ?? {}) as Record<string, unknown>;
+  const raw = profile["parental_profile"];
+  if (!raw || typeof raw !== "object") return undefined;
+  return raw as ParentalProfile;
+}
+
 /** Exposto para testes. */
-export { buildGardnerInstruction };
+export { buildGardnerInstruction, extractParentalProfile };
