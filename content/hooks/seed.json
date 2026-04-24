@@ -1,0 +1,1702 @@
+[
+  {
+    "id": "ling_inuit_snow",
+    "type": "curiosity_hook",
+    "domain": "linguistics",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Os Inuit do Ártico têm mais de 50 palavras diferentes pra neve. Cada tipo pode salvar ou matar.",
+    "bridge": "Quantas palavras você tem pra RAIVA? Irritado, furioso, frustrado... Se só tem 1, como sabe o que tá sentindo?",
+    "quest": "Tenta encontrar 5 palavras diferentes pro que sente AGORA. Não vale repetir.",
+    "sacrifice_type": "reflect",
+    "country": "🇨🇦 Ártico"
+  },
+  {
+    "id": "ling_pirahã_numbers",
+    "type": "curiosity_hook",
+    "domain": "linguistics",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O povo Pirahã da Amazônia brasileira não tem números. Nem 1, 2, 3. Só \"pouco\", \"mais\" e \"muito\".",
+    "bridge": "Se não tivesse números, como decidiria se algo é \"justo\"? Como dividiria comida com o Kei?",
+    "quest": "Tenta dividir algo com alguém SEM usar números. Só \"isso parece justo?\" Conta como foi.",
+    "sacrifice_type": "reflect",
+    "country": "🇧🇷 Amazônia"
+  },
+  {
+    "id": "ling_japanese_silence",
+    "type": "curiosity_hook",
+    "domain": "linguistics",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "No japonês, existem palavras pra tipos diferentes de silêncio. 沈黙 (chinmoku) é silêncio pesado. 静けさ (shizukesa) é silêncio bonito.",
+    "bridge": "Qual silêncio você sente mais? O pesado ou o bonito? Quando cada um aparece?",
+    "quest": "Amanhã presta atenção nos silêncios. Anota: quantos foram pesados? Quantos foram bonitos?",
+    "sacrifice_type": "reflect",
+    "country": "🇯🇵 Japão"
+  },
+  {
+    "id": "ling_greek_love",
+    "type": "curiosity_hook",
+    "domain": "linguistics",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Os gregos antigos tinham 7 palavras pra amor. Eros (paixão), philia (amizade), storge (família), agape (universal), ludus (brincadeira), pragma (duradouro), philautia (próprio).",
+    "bridge": "E você — que tipo de amor sente pelo Kei? Pelo pai? Pelo Dragon Ball? É o mesmo amor?",
+    "quest": "Classifica 3 amores da tua vida nos tipos gregos. Me conta qual é cada um.",
+    "sacrifice_type": "reflect",
+    "country": "🇬🇷 Grécia"
+  },
+  {
+    "id": "ling_whistled_language",
+    "type": "curiosity_hook",
+    "domain": "linguistics",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na ilha de La Gomera (Espanha), as pessoas se comunicam ASSOBIANDO. O silbo gomero alcança 5km entre montanhas. É língua oficial.",
+    "bridge": "Se só pudesse comunicar com assovio, o que seria mais difícil de dizer? Amor? Raiva? Medo?",
+    "quest": "Tenta comunicar algo pro Kei sem palavras. Só gestos ou sons. Ele entendeu? O que foi mais difícil?",
+    "sacrifice_type": "reflect",
+    "country": "🇪🇸 Canárias"
+  },
+  {
+    "id": "ling_untranslatable",
+    "type": "curiosity_hook",
+    "domain": "linguistics",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Cada idioma tem palavras que NÃO existem em nenhum outro. Saudade (PT), Hygge (DK), Wabi-sabi (JP), Ubuntu (ZU). São pedaços da alma daquele povo.",
+    "bridge": "Se você inventasse uma palavra que não existe em nenhum idioma, qual emoção ela descreveria?",
+    "quest": "Inventa 1 palavra pra uma emoção que não tem nome. Me conta a palavra e o que significa.",
+    "sacrifice_type": "create",
+    "country": "🌍 Global"
+  },
+  {
+    "id": "ling_turkish_evidentiality",
+    "type": "curiosity_hook",
+    "domain": "linguistics",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Em turco, toda frase OBRIGA a dizer se você viu com seus olhos ou se alguém contou. Não dá pra fofoca sem avisar que é fofoca.",
+    "bridge": "Se o português obrigasse a dizer \"eu vi\" ou \"me contaram\" em cada frase, como isso mudaria a escola?",
+    "quest": "Hoje, quando contar algo pra alguém, adiciona: \"eu vi\" ou \"me contaram\". Faz diferença?",
+    "sacrifice_type": "reflect",
+    "country": "🇹🇷 Turquia"
+  },
+  {
+    "id": "bio_octopus_hearts",
+    "type": "curiosity_hook",
+    "domain": "biology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O polvo tem 3 corações. 2 bombeiam sangue pras guelras, 1 pro resto. Quando nada, o coração principal PARA. Por isso prefere andar.",
+    "bridge": "Se você tivesse 3 corações — 1 pra família, 1 pra amigos, 1 pra você — qual bate mais forte?",
+    "quest": "Desenha ou descreve: qual dos 3 \"corações\" tá mais cansado essa semana?",
+    "sacrifice_type": "reflect",
+    "country": "🌊 Oceano"
+  },
+  {
+    "id": "bio_trees_communicate",
+    "type": "curiosity_hook",
+    "domain": "biology",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Árvores se comunicam pelo subsolo. Quando uma é atacada por inseto, manda sinal químico pelas raízes e as vizinhas produzem veneno pra se defender. Chamam de \"wood wide web\".",
+    "bridge": "As árvores avisam as vizinhas do perigo. Você — avisa quando alguém perto tá em perigo? Ou espera?",
+    "quest": "Essa semana, se perceber que alguém tá com dificuldade, avisa ou ajuda ANTES que peça.",
+    "sacrifice_type": "reflect",
+    "country": "🌳 Floresta"
+  },
+  {
+    "id": "bio_dolphin_names",
+    "type": "curiosity_hook",
+    "domain": "biology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Golfinhos têm NOME. Cada golfinho cria um assovio único que é SÓ dele. Os outros chamam pelo assovio. Se o golfinho morre, os amigos repetem o assovio dele por dias.",
+    "bridge": "Os golfinhos fazem luto repetindo o nome do amigo. Quando você perde alguém ou algo importante, como expressa?",
+    "quest": "Pensa em algo que perdeu (pessoa, momento, fase). O que faria pra \"assobiar o nome\" dele?",
+    "sacrifice_type": "expose",
+    "country": "🌊 Oceano"
+  },
+  {
+    "id": "bio_elephant_mirror",
+    "type": "curiosity_hook",
+    "domain": "biology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Elefantes se reconhecem no espelho. Só 5 espécies fazem isso: humanos, grandes primatas, golfinhos, orcas e elefantes. Autoconsciência é RARA na natureza.",
+    "bridge": "Se olhar no espelho agora, o que vê ALÉM do rosto? Quem é a pessoa ali?",
+    "quest": "Fica 30 segundos olhando no espelho. Não pra aparência — pra se perguntar \"quem é essa pessoa?\" Me conta.",
+    "sacrifice_type": "reflect",
+    "country": "🐘 África"
+  },
+  {
+    "id": "bio_ant_sacrifice",
+    "type": "curiosity_hook",
+    "domain": "biology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Quando uma formiga velha sente que vai morrer, ela SAI do formigueiro sozinha pra não contaminar as outras. Sacrifício pelo grupo.",
+    "bridge": "A formiga se sacrifica pelo grupo. No Dragon Ball, Vegeta fez a mesma coisa contra o Buu. Quando é certo se sacrificar? E quando é demais?",
+    "quest": "Pensa numa vez que abriu mão de algo por alguém. Valeu a pena? Faria de novo?",
+    "sacrifice_type": "reflect",
+    "country": "🐜 Global"
+  },
+  {
+    "id": "bio_caterpillar_dissolve",
+    "type": "curiosity_hook",
+    "domain": "biology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Dentro do casulo, a lagarta se dissolve COMPLETAMENTE em sopa. Vira líquido. Não \"cresce asas\" — se destrói e reconstrói do zero como borboleta.",
+    "bridge": "Às vezes pra mudar, precisa se dissolver primeiro. Já sentiu que tava \"derretendo\" antes de virar algo novo?",
+    "quest": "Pensa numa mudança grande que viveu. Teve uma fase de \"casulo\" — confuso, perdido — antes de melhorar?",
+    "sacrifice_type": "expose",
+    "country": "🦋 Global"
+  },
+  {
+    "id": "bio_crow_grudge",
+    "type": "curiosity_hook",
+    "domain": "biology",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Corvos reconhecem rostos humanos e GUARDAM RANCOR. Se você maltratar um corvo, ele conta pros amigos e todos te atacam. Por ANOS.",
+    "bridge": "Corvos guardam rancor por anos. E você? Tem algo que ainda guarda? O peso de carregar isso vale a pena?",
+    "quest": "Se tivesse que SOLTAR 1 rancor essa semana, qual seria? Não precisa perdoar — só soltar.",
+    "sacrifice_type": "reflect",
+    "country": "🐦‍⬛ Global"
+  },
+  {
+    "id": "phys_gut_brain",
+    "type": "curiosity_hook",
+    "domain": "physiology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Seu intestino tem 500 MILHÕES de neurônios. Mais que a medula espinal. Por isso chamam de \"segundo cérebro\". Quando sente \"frio na barriga\", é real — é o intestino pensando.",
+    "bridge": "Já sentiu algo na barriga antes de uma decisão? Medo, ansiedade, empolgação? Seu intestino tava te AVISANDO.",
+    "quest": "Presta atenção na barriga amanhã antes de uma decisão. Ela \"disse\" algo? Registra.",
+    "sacrifice_type": "observe",
+    "country": "🧠 Corpo"
+  },
+  {
+    "id": "phys_tears_different",
+    "type": "curiosity_hook",
+    "domain": "physiology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Lágrimas de tristeza, raiva e alegria têm composição química DIFERENTE. Sob o microscópio, parecem paisagens distintas.",
+    "bridge": "Seu corpo sabe a diferença entre choro de raiva e choro de alegria. E você — sabe?",
+    "quest": "Da última vez que chorou (ou quase), era que tipo de lágrima? Raiva? Alívio? Frustração? Alegria?",
+    "sacrifice_type": "reflect",
+    "country": "💧 Corpo"
+  },
+  {
+    "id": "phys_heartbeat_sync",
+    "type": "curiosity_hook",
+    "domain": "physiology",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Quando duas pessoas conversam olhando nos olhos, seus batimentos cardíacos SINCRONIZAM em poucos minutos. Sem tocar. Sem perceber.",
+    "bridge": "Seu coração sincroniza com quem tá na sua frente. Isso significa que conversa é conexão FÍSICA, não só mental.",
+    "quest": "Conversa com alguém por 5 min olhando nos olhos. Sem celular. Sente algo diferente?",
+    "sacrifice_type": "act",
+    "country": "❤️ Corpo"
+  },
+  {
+    "id": "phys_smile_muscles",
+    "type": "curiosity_hook",
+    "domain": "physiology",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Franzir a testa usa 43 músculos. Sorrir usa 17. Mas aqui é o surpreendente: se FORÇAR o sorriso por 30 segundos, o cérebro libera serotonina. O corpo engana a mente.",
+    "bridge": "O corpo muda o humor. Não precisa SENTIR felicidade pra sorrir — sorrir GERA felicidade.",
+    "quest": "Quando tiver um momento ruim essa semana, força o sorriso por 30 seg. Funcionou? Me conta.",
+    "sacrifice_type": "act",
+    "country": "😄 Corpo"
+  },
+  {
+    "id": "phys_breath_control",
+    "type": "curiosity_hook",
+    "domain": "physiology",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Respiração é a ÚNICA função autônoma que você controla conscientemente. Batimento cardíaco, digestão, tudo é automático. Menos a respiração. É a porta entre o consciente e o inconsciente.",
+    "bridge": "Respirar é seu ÚNICO controle sobre o corpo automático. Os monges sabem disso há 3000 anos.",
+    "quest": "Quando sentir raiva ou ansiedade: 4 seg inspira, 4 seg segura, 4 seg expira. 3 vezes. Funcionou?",
+    "sacrifice_type": "act",
+    "country": "🌬️ Corpo"
+  },
+  {
+    "id": "phys_brain_prune",
+    "type": "curiosity_hook",
+    "domain": "physiology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na adolescência, seu cérebro PODA conexões neurais. Elimina as que não usa e fortalece as que usa. É como uma árvore que corta galhos fracos pra crescer os fortes.",
+    "bridge": "Seu cérebro AGORA tá decidindo quais habilidades manter e quais cortar. O que você pratica hoje, fica. O que ignora, vai embora.",
+    "quest": "Se seu cérebro só pudesse manter 3 habilidades, quais você escolheria? Por quê?",
+    "sacrifice_type": "reflect",
+    "country": "🧠 Corpo"
+  },
+  {
+    "id": "phys_star_atoms",
+    "type": "curiosity_hook",
+    "domain": "physics",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Todo átomo do seu corpo foi fabricado DENTRO de uma estrela que explodiu. Você é literalmente feito de poeira de estrela.",
+    "bridge": "Se você é feito de estrela, o que faz com essa matéria? A estrela deu a vida pra você existir.",
+    "quest": "Olha pro céu à noite. Pensa: \"eu sou feito daquilo\". O que sente?",
+    "sacrifice_type": "reflect",
+    "country": "⭐ Universo"
+  },
+  {
+    "id": "phys_time_relative",
+    "type": "curiosity_hook",
+    "domain": "physics",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O tempo passa mais DEVAGAR perto de algo pesado. No topo de uma montanha, você envelhece mais rápido que no vale. GPS dos satélites precisa corrigir isso senão erra 10km por dia.",
+    "bridge": "O tempo não é igual pra todo mundo. Pra quem sofre, 1 minuto dura 1 hora. Pra quem se diverte, 1 hora dura 1 minuto. Sua emoção distorce o tempo.",
+    "quest": "Amanhã, presta atenção: quando o tempo passou rápido? Quando arrastou? O que sentiu em cada momento?",
+    "sacrifice_type": "observe",
+    "country": "🌍 Universo"
+  },
+  {
+    "id": "phys_observer_effect",
+    "type": "curiosity_hook",
+    "domain": "physics",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na física quântica, observar uma partícula MUDA o comportamento dela. O ato de olhar altera o resultado. Os físicos chamam de \"efeito observador\".",
+    "bridge": "Observar muda a realidade. Quando você presta atenção em alguém, a pessoa muda o comportamento. Você já é influência.",
+    "quest": "Observa alguém com atenção por 1 minuto (sem ser creepy). A pessoa muda o comportamento? Como?",
+    "sacrifice_type": "observe",
+    "country": "⚛️ Física"
+  },
+  {
+    "id": "phys_butterfly_effect",
+    "type": "curiosity_hook",
+    "domain": "physics",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O bater de asas de uma borboleta no Brasil pode teoricamente causar um tornado no Texas. Pequenas ações têm consequências imensas.",
+    "bridge": "Uma palavra gentil pode mudar o dia de alguém. Uma palavra cruel também. Você é a borboleta.",
+    "quest": "Escolhe 1 ação pequena positiva pra fazer hoje. Observa: gerou algum efeito cascata?",
+    "sacrifice_type": "reflect",
+    "country": "🦋 Global"
+  },
+  {
+    "id": "geo_mariana_trench",
+    "type": "curiosity_hook",
+    "domain": "geography",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O ponto mais fundo do oceano (Fossa das Marianas, 11km) é mais profundo que o Everest é alto. Se colocasse o Everest lá dentro, ainda sobraria 2km de água em cima.",
+    "bridge": "Você vê a superfície das pessoas. Mas o que tá por baixo pode ser mais profundo do que imagina.",
+    "quest": "Pensa numa pessoa que parece \"rasa\". Pergunta algo que nunca perguntou. O que descobriu?",
+    "sacrifice_type": "reflect",
+    "country": "🌊 Pacífico"
+  },
+  {
+    "id": "geo_iceland_no_army",
+    "type": "curiosity_hook",
+    "domain": "geography",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "A Islândia não tem exército. Nenhum. Zero soldados. É o país mais pacífico do mundo há 14 anos seguidos.",
+    "bridge": "Um país INTEIRO decidiu que não precisa de força bruta pra ser seguro. O que usam em vez disso? Confiança.",
+    "quest": "Se sua turma/família fosse um \"país sem exército\", como resolveriam conflitos? Que regra criariam?",
+    "sacrifice_type": "reflect",
+    "country": "🇮🇸 Islândia"
+  },
+  {
+    "id": "geo_bhutan_happiness",
+    "type": "curiosity_hook",
+    "domain": "geography",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O Butão não mede PIB. Mede FIB: Felicidade Interna Bruta. O governo é obrigado a fazer o povo FELIZ, não rico.",
+    "bridge": "Se sua vida fosse medida por felicidade e não por notas, qual seria seu \"FIB\" hoje? De 1 a 10?",
+    "quest": "Faz seu \"FIB pessoal\" — mede 5 coisas: saúde, amizade, família, diversão, aprendizado. Qual nota dá pra cada?",
+    "sacrifice_type": "reflect",
+    "country": "🇧🇹 Butão"
+  },
+  {
+    "id": "geo_amazon_lungs",
+    "type": "curiosity_hook",
+    "domain": "geography",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "A Amazônia produz 20% do oxigênio do mundo. Mas absorve quase tudo que produz. O verdadeiro pulmão do planeta é o fitoplâncton do oceano — microorganismos invisíveis.",
+    "bridge": "O que mais importa é invisível. As pessoas que mais ajudam nem sempre são as mais visíveis.",
+    "quest": "Quem é o \"fitoplâncton\" da tua vida? Alguém que ajuda sem aparecer? Agradece essa pessoa.",
+    "sacrifice_type": "reflect",
+    "country": "🇧🇷 Amazônia"
+  },
+  {
+    "id": "geo_finland_school",
+    "type": "curiosity_hook",
+    "domain": "geography",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na Finlândia, escola começa aos 7 anos (não 4 ou 5). Sem dever de casa até os 16. Recreio de 15 min a cada 45 min de aula. E é o melhor sistema educacional do mundo.",
+    "bridge": "Menos pressão = mais aprendizado. Descanso não é preguiça — é estratégia.",
+    "quest": "Experimenta: estuda 25 min, descansa 5. Repete 3 vezes. Foi melhor ou pior que estudar 1h direto?",
+    "sacrifice_type": "reflect",
+    "country": "🇫🇮 Finlândia"
+  },
+  {
+    "id": "hist_christmas_truce",
+    "type": "curiosity_hook",
+    "domain": "history",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na 1ª Guerra Mundial, soldados inimigos pararam de lutar no Natal de 1914. Saíram das trincheiras, jogaram futebol juntos, trocaram presentes. No dia seguinte, voltaram a se matar.",
+    "bridge": "Por 1 dia, inimigos viram que o outro lado era gente. Se a trégua durasse mais, talvez a guerra parasse. Empatia é perigosa — pra quem quer guerra.",
+    "quest": "Tem alguém que você \"trata como inimigo\"? Imagina jogar futebol com essa pessoa. O que mudaria?",
+    "sacrifice_type": "reflect",
+    "country": "🇪🇺 Europa"
+  },
+  {
+    "id": "hist_rosa_parks",
+    "type": "curiosity_hook",
+    "domain": "history",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Rosa Parks não planejou mudar o mundo. Ela só estava cansada. Sentou no ônibus e disse não. Uma decisão de 3 segundos mudou a história dos EUA.",
+    "bridge": "Uma decisão de 3 segundos. \"Não.\" Às vezes coragem é simplesmente não se mover.",
+    "quest": "Quando foi a última vez que disse NÃO pra algo que achava errado? O que sentiu?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 EUA"
+  },
+  {
+    "id": "hist_samurai_poetry",
+    "type": "curiosity_hook",
+    "domain": "history",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Samurais eram obrigados a escrever poesia. Um guerreiro que não sabia expressar emoções era considerado INCOMPLETO. Espada sem poesia era barbárie.",
+    "bridge": "Os guerreiros mais fortes do Japão escreviam poesia. Força sem sensibilidade é só violência.",
+    "quest": "Escreve 1 frase — só 1 — sobre como se sente agora. Samurai faria isso antes da batalha.",
+    "sacrifice_type": "create",
+    "country": "🇯🇵 Japão"
+  },
+  {
+    "id": "hist_mandela_forgave",
+    "type": "curiosity_hook",
+    "domain": "history",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Mandela ficou 27 anos preso. Quando saiu, CONVIDOU seu carcereiro pro almoço de posse. O homem que o trancou assistiu ele virar presidente.",
+    "bridge": "Mandela perdoou quem o prendeu por 27 anos. Não porque o carcereiro merecia — porque Mandela se recusava a carregar aquele peso.",
+    "quest": "Carregar rancor é como beber veneno e esperar que o outro morra. Tem algo que pode soltar essa semana?",
+    "sacrifice_type": "reflect",
+    "country": "🇿🇦 África do Sul"
+  },
+  {
+    "id": "hist_viking_democracy",
+    "type": "curiosity_hook",
+    "domain": "history",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Os Vikings tinham parlamento (Althing) desde o ano 930. Todos tinham voz — inclusive mulheres podiam divorciar. Mil anos antes da maioria dos países.",
+    "bridge": "Vikings: brutos? Tinham democracia antes de quase todo mundo. Não julgue pela aparência.",
+    "quest": "Pensa em alguém que parece \"bruto\" ou \"difícil\". Que lado escondido pode ter?",
+    "sacrifice_type": "reflect",
+    "country": "🇮🇸 Islândia"
+  },
+  {
+    "id": "hist_paper_vs_sword",
+    "type": "curiosity_hook",
+    "domain": "history",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Genghis Khan destruiu impérios com espada. Mas seu império durou 160 anos. O sistema postal que ele criou durou 700. A caneta sobreviveu à espada.",
+    "bridge": "O que você CONSTRÓI dura mais que o que você DESTRÓI.",
+    "quest": "Essa semana: 1 ação de construir vs 1 que queria destruir (reclamar, brigar). Qual fez mais efeito?",
+    "sacrifice_type": "reflect",
+    "country": "🇲🇳 Mongólia"
+  },
+  {
+    "id": "psych_marshmallow",
+    "type": "curiosity_hook",
+    "domain": "psychology",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "No teste do marshmallow (Stanford), crianças que esperaram 15 min pra comer o segundo doce tiveram notas melhores, salários maiores e menos problemas 30 ANOS depois.",
+    "bridge": "Esperar é difícil. Mas a habilidade de esperar prevê sucesso mais que inteligência.",
+    "quest": "Escolhe algo que quer (doce, jogo, celular). Espera 10 min antes de pegar. O que sentiu enquanto esperava?",
+    "sacrifice_type": "act",
+    "country": "🇺🇸 Stanford"
+  },
+  {
+    "id": "psych_bystander",
+    "type": "curiosity_hook",
+    "domain": "psychology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "38 pessoas assistiram Kitty Genovese ser atacada em Nova York (1964). Ninguém ligou pra polícia. Cada um achou que o outro ia ligar. Chamam de \"efeito espectador\".",
+    "bridge": "Quanto mais gente vê, menos cada um age. Porque \"alguém vai fazer\". Esse \"alguém\" é você.",
+    "quest": "Essa semana, se vir algo errado, seja o \"alguém\". Não espere que outro resolva. Me conta o que aconteceu.",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 EUA"
+  },
+  {
+    "id": "psych_dunbar_150",
+    "type": "curiosity_hook",
+    "domain": "psychology",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O cérebro humano consegue manter no máximo ~150 amizades reais (número de Dunbar). Depois disso, são conhecidos, não amigos.",
+    "bridge": "Você tem quantas amizades REAIS? Não seguidores — pessoas que ligariam se sumisse.",
+    "quest": "Lista 5 pessoas que ligariam se você sumisse por 1 semana. Essas são suas amizades reais.",
+    "sacrifice_type": "reflect",
+    "country": "🧠 Global"
+  },
+  {
+    "id": "psych_halo_effect",
+    "type": "curiosity_hook",
+    "domain": "psychology",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Se alguém é bonito, seu cérebro automaticamente assume que é inteligente, bom e confiável. Sem evidência nenhuma. Chama \"efeito halo\".",
+    "bridge": "Seu cérebro te engana. Julga pela aparência antes de pensar. E você faz isso sem perceber.",
+    "quest": "Pensa em alguém que achou \"legal\" ou \"chato\" antes de conhecer. Tava certo? O que levou ao julgamento?",
+    "sacrifice_type": "reflect",
+    "country": "🧠 Global"
+  },
+  {
+    "id": "cult_bowing_japan",
+    "type": "curiosity_hook",
+    "domain": "culture",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "No Japão, a profundidade da curvatura (お辞儀) mostra o nível de respeito. 15° = casual. 30° = agradecimento. 45° = pedido de desculpa profundo. O corpo fala antes da boca.",
+    "bridge": "Seu corpo comunica antes da boca. Braços cruzados = defesa. Olhar desviado = desconforto. Que \"curvatura\" o seu corpo faz sem você perceber?",
+    "quest": "Amanhã presta atenção na postura de 3 pessoas. O corpo delas tá dizendo o quê?",
+    "sacrifice_type": "observe",
+    "country": "🇯🇵 Japão"
+  },
+  {
+    "id": "cult_ethiopian_feeding",
+    "type": "curiosity_hook",
+    "domain": "culture",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na Etiópia, o ato de amor mais forte é GURSHA: alimentar alguém com a MÃO. Quanto maior o bocado, maior o amor. Recusar é ofensa grave.",
+    "bridge": "Na Etiópia, amor é dar comida com a mão. Cada cultura mostra amor diferente. Como SUA família mostra amor?",
+    "quest": "Faz algo pela família que na sua cultura significa \"eu te amo\" sem dizer a palavra. O que é?",
+    "sacrifice_type": "reflect",
+    "country": "🇪🇹 Etiópia"
+  },
+  {
+    "id": "cult_maori_haka",
+    "type": "curiosity_hook",
+    "domain": "culture",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O Haka dos Maori não é dança de guerra. É expressão de EMOÇÃO — raiva, luto, alegria, respeito. O time de rugby All Blacks faz antes de cada jogo. Alguns choram durante.",
+    "bridge": "Homens chorando enquanto dançam com fúria. Força e emoção juntas. Quem disse que não pode?",
+    "quest": "Se tivesse uma dança que expressasse TUDO que sente agora, como seria? Descreve (ou faz e filma).",
+    "sacrifice_type": "reflect",
+    "country": "🇳🇿 Nova Zelândia"
+  },
+  {
+    "id": "cult_swedish_fika",
+    "type": "curiosity_hook",
+    "domain": "culture",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na Suécia, FIKA é pausa obrigatória pra café com colegas. Até empresas bilionárias param tudo. Não é preguiça — é onde as melhores ideias nascem.",
+    "bridge": "Parar não é perder tempo. É criar espaço pra pensar. As melhores ideias vêm quando para.",
+    "quest": "Faz um \"fika\" — 10 min de pausa com alguém. Sem celular. Só conversa e algo pra beber.",
+    "sacrifice_type": "act",
+    "country": "🇸🇪 Suécia"
+  },
+  {
+    "id": "cult_navajo_laughter",
+    "type": "curiosity_hook",
+    "domain": "culture",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Os Navajo (EUA) fazem uma cerimônia quando o bebê ri pela primeira vez. A pessoa que fez o bebê rir dá uma FESTA. O primeiro riso é sagrado.",
+    "bridge": "O primeiro riso é tão importante que vira festa. Quando foi a última vez que você fez alguém RIR? Não sorrir — GARGALHAR?",
+    "quest": "Faz alguém gargalhar essa semana. Não vale cócegas. Conta como conseguiu.",
+    "sacrifice_type": "act",
+    "country": "🇺🇸 Navajo"
+  },
+  {
+    "id": "math_friendship_paradox",
+    "type": "curiosity_hook",
+    "domain": "mathematics",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Estatisticamente, seus amigos têm MAIS amigos que você. Não é insegurança — é matemática. Chama \"paradoxo da amizade\".",
+    "bridge": "Parece que todo mundo é mais popular que você? É só matemática. A quantidade de amigos não define a qualidade.",
+    "quest": "Prefere: 50 amigos superficiais ou 3 amigos de verdade? Por quê?",
+    "sacrifice_type": "reflect",
+    "country": "📊 Matemática"
+  },
+  {
+    "id": "math_exponential_kindness",
+    "type": "curiosity_hook",
+    "domain": "mathematics",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Se 1 pessoa ajuda 3, e cada uma ajuda mais 3, em 10 rodadas são 59.049 pessoas ajudadas. Gentileza é exponencial.",
+    "bridge": "Uma gentileza não morre em você. Se passar pra frente, vira avalanche.",
+    "quest": "Faz 1 gentileza e pede: \"passa pra frente\". Depois me conta se a pessoa passou.",
+    "sacrifice_type": "act",
+    "country": "📊 Matemática"
+  },
+  {
+    "id": "myth_sisyphus",
+    "type": "curiosity_hook",
+    "domain": "mythology",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Sísifo foi condenado a empurrar uma pedra montanha acima PRA SEMPRE. Cada vez que chegava no topo, a pedra rolava de volta. O filósofo Camus disse: \"é preciso imaginar Sísifo feliz.\"",
+    "bridge": "Tem coisas na vida que nunca \"acabam\" — arrumar quarto, estudar, treinar. A questão não é terminar. É encontrar sentido no processo.",
+    "quest": "Qual é a tua \"pedra\"? Algo que faz todo dia e parece nunca acabar? Consegue encontrar algo bom NESSE processo?",
+    "sacrifice_type": "reflect",
+    "country": "🇬🇷 Grécia"
+  },
+  {
+    "id": "myth_kintsugi_philosophy",
+    "type": "curiosity_hook",
+    "domain": "mythology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "No Japão, quando uma tigela quebra, reparam com OURO. Não escondem a rachadura — celebram. O objeto quebrado vale MAIS que o inteiro. Chama 金継ぎ kintsugi.",
+    "bridge": "Suas rachaduras não são defeito. São história. O que te quebrou pode ser exatamente o que te faz mais valioso.",
+    "quest": "Pensa numa \"rachadura\" tua — algo que te machucou. Se cobrisse de ouro, como ficaria? Me conta.",
+    "sacrifice_type": "expose",
+    "country": "🇯🇵 Japão"
+  },
+  {
+    "id": "myth_phoenix",
+    "type": "curiosity_hook",
+    "domain": "mythology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "A fênix existe em TODAS as culturas. Grécia (phoenix), Egito (bennu), China (fenghuang), Japão (鳳凰 hōō), Índia (garuda), Rússia (zhar-ptitsa). Toda civilização precisou acreditar em renascimento.",
+    "bridge": "Toda cultura inventou um pássaro que morre e renasce. Porque toda cultura precisa acreditar que recomeçar é possível.",
+    "quest": "Já \"morreu e renasceu\" em algo? Mudou de escola, perdeu amigo, fase ruim que passou? Conta esse renascimento.",
+    "sacrifice_type": "reflect",
+    "country": "🌍 Global"
+  },
+  {
+    "id": "myth_odin_eye",
+    "type": "curiosity_hook",
+    "domain": "mythology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Odin, o deus mais poderoso dos Vikings, ARRANCOU O PRÓPRIO OLHO e jogou num poço em troca de sabedoria. O deus mais forte escolheu saber mais em vez de ver mais.",
+    "bridge": "Odin trocou visão por sabedoria. O que você aceitaria PERDER pra ganhar algo que realmente importa?",
+    "quest": "Se tivesse que trocar 1 habilidade por outra, qual daria e qual ganharia? Por quê?",
+    "sacrifice_type": "reflect",
+    "country": "🇳🇴 Nórdico"
+  },
+  {
+    "id": "myth_izanagi_izanami",
+    "type": "curiosity_hook",
+    "domain": "mythology",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na mitologia japonesa, Izanagi foi buscar a esposa Izanami no mundo dos mortos. Ela pediu: \"não olhe pra mim.\" Ele olhou. Perdeu ela pra sempre. Curiosidade matou o amor.",
+    "bridge": "Às vezes respeitar o limite do outro é mais importante que satisfazer sua curiosidade. Mesmo quando QUER olhar.",
+    "quest": "Alguém já te pediu pra não fazer algo e você fez mesmo assim? O que aconteceu?",
+    "sacrifice_type": "reflect",
+    "country": "🇯🇵 Japão"
+  },
+  {
+    "id": "myth_anansi_spider",
+    "type": "curiosity_hook",
+    "domain": "mythology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Anansi, a aranha da mitologia africana (Gana), é o deus das HISTÓRIAS. Ele derrotou seres muito maiores com ESPERTEZA, nunca com força. Todas as histórias do mundo pertencem a ele.",
+    "bridge": "O menor vence o maior com inteligência. Não precisa ser forte — precisa ser esperto. E esperto começa com observar.",
+    "quest": "Pensa num problema que parece \"grande demais\". Qual seria a solução \"Anansi\" — esperta, não forte?",
+    "sacrifice_type": "reflect",
+    "country": "🇬🇭 Gana"
+  },
+  {
+    "id": "myth_maui_sun",
+    "type": "curiosity_hook",
+    "domain": "mythology",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Maui (Polinésia) achou que o dia era curto demais. Então LAÇOU O SOL e obrigou ele a andar mais devagar. Desde então, os dias são mais longos.",
+    "bridge": "Maui não aceitou que \"é assim\". Viu um problema e agiu. Mesmo contra o sol.",
+    "quest": "Tem algo que \"é assim e pronto\" na tua vida que você gostaria de laçar e mudar? O que é?",
+    "sacrifice_type": "reflect",
+    "country": "🇳🇿 Polinésia"
+  },
+  {
+    "id": "theo_golden_rule",
+    "type": "curiosity_hook",
+    "domain": "theology",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "TODA religião do mundo tem a mesma regra. Cristianismo: \"ama o próximo.\" Islã: \"nenhum é crente até desejar pro irmão.\" Budismo: \"não machuque com o que te machucaria.\" Judaísmo: \"o que é odioso pra você, não faça ao outro.\" Confúcio: \"não imponha aos outros o que não quer pra si.\"",
+    "bridge": "7 bilhões de pessoas, milhares de religiões, e TODAS concordam em 1 coisa. Deve ser importante.",
+    "quest": "Pensa em 1 ação que fez pro outro essa semana. Passaria na \"regra de ouro\"? Gostaria que fizessem com você?",
+    "sacrifice_type": "reflect",
+    "country": "🌍 Global"
+  },
+  {
+    "id": "theo_zen_empty_cup",
+    "type": "curiosity_hook",
+    "domain": "theology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Um professor de Zen encheu a xícara do aluno até transbordar. O aluno gritou: \"tá cheio!\" O mestre disse: \"Como você. Enquanto tiver cheio de opiniões, não cabe mais nada.\"",
+    "bridge": "Pra aprender, precisa esvaziar. Se já \"sabe tudo\", nada novo entra.",
+    "quest": "Sobre que assunto você tá \"com a xícara cheia\"? Tenta ouvir alguém que pensa DIFERENTE sem interromper.",
+    "sacrifice_type": "reflect",
+    "country": "🇯🇵 Zen"
+  },
+  {
+    "id": "theo_sufi_elephant",
+    "type": "curiosity_hook",
+    "domain": "theology",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Parábola sufi: 5 cegos tocam um elefante. Um toca a perna e diz \"é uma árvore\". Outro toca a tromba: \"é uma cobra\". Outro o lado: \"é uma parede\". Todos certos. Todos errados.",
+    "bridge": "Cada pessoa vê UMA parte da verdade. Achar que SUA parte é o todo = briga garantida.",
+    "quest": "Lembra de uma discussão recente. Qual era a \"parte do elefante\" de cada lado?",
+    "sacrifice_type": "reflect",
+    "country": "🕌 Islã (Sufi)"
+  },
+  {
+    "id": "theo_jewish_tikkun",
+    "type": "curiosity_hook",
+    "domain": "theology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "No judaísmo, TIKKUN OLAM significa \"consertar o mundo\". A ideia é que o mundo foi criado PROPOSITALMENTE incompleto — pra que humanos participem da criação.",
+    "bridge": "O mundo não tá quebrado. Tá INCOMPLETO. E cada pessoa tem uma peça pra colocar.",
+    "quest": "Qual \"peça\" você pode colocar no mundo essa semana? Algo pequeno que melhore algo pra alguém.",
+    "sacrifice_type": "reflect",
+    "country": "🇮🇱 Judaísmo"
+  },
+  {
+    "id": "theo_indigenous_seven",
+    "type": "curiosity_hook",
+    "domain": "theology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Os Haudenosaunee (Iroqueses) tomam toda decisão pensando no impacto 7 GERAÇÕES à frente. Não \"o que é bom pra mim agora\" — \"o que é bom pros meus tataranetos.\"",
+    "bridge": "Se toda decisão sua afetasse seus tataranetos, o que mudaria HOJE?",
+    "quest": "Pensa numa decisão que tomou recentemente. Passaria no \"teste das 7 gerações\"?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 Iroqueses"
+  },
+  {
+    "id": "symb_enso",
+    "type": "curiosity_hook",
+    "domain": "symbology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O ENSŌ (円相) é um círculo pintado com 1 pincelada no Zen. Nunca é perfeito. A abertura no círculo representa: \"tá incompleto — e tá tudo bem.\"",
+    "bridge": "O símbolo mais bonito do Zen é um círculo IMPERFEITO. A beleza tá na falha.",
+    "quest": "Desenha um círculo com 1 traço só. Sem levantar a mão. Olha o resultado. Manda foto.",
+    "sacrifice_type": "create",
+    "country": "🇯🇵 Zen"
+  },
+  {
+    "id": "symb_yin_yang",
+    "type": "curiosity_hook",
+    "domain": "symbology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "No Yin-Yang, o ponto branco dentro do preto e o preto dentro do branco significam: dentro da escuridão sempre tem luz. Dentro da luz, sempre tem sombra. NADA é 100%.",
+    "bridge": "Mesmo no pior dia, tem algo bom. Mesmo no melhor dia, tem algo difícil. Tudo é mistura.",
+    "quest": "No teu dia de hoje: qual foi o \"ponto branco no preto\"? E o \"ponto preto no branco\"?",
+    "sacrifice_type": "reflect",
+    "country": "🇨🇳 China"
+  },
+  {
+    "id": "symb_ouroboros",
+    "type": "curiosity_hook",
+    "domain": "symbology",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O Ouroboros (serpente que engole a própria cauda) aparece no Egito, Grécia, Índia, Norse, Azteca — civilizações que NUNCA se encontraram. Todas viram a mesma coisa: fim e começo são a mesma coisa.",
+    "bridge": "Toda civilização percebeu que fim é começo. Quando algo termina — amizade, fase, ano — outro começa.",
+    "quest": "O que terminou recentemente na tua vida? O que COMEÇOU por causa desse fim?",
+    "sacrifice_type": "reflect",
+    "country": "🌍 Global"
+  },
+  {
+    "id": "symb_colors_culture",
+    "type": "curiosity_hook",
+    "domain": "symbology",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Branco = pureza no Ocidente, luto no Japão e China. Vermelho = perigo no Ocidente, sorte na China, sagrado na Índia. A mesma cor, significados OPOSTOS.",
+    "bridge": "Nada tem significado fixo. Tudo depende de onde você tá olhando.",
+    "quest": "Pensa em algo que pra você é \"óbvio\". Agora imagina alguém de outro país. Seria óbvio pra ele também?",
+    "sacrifice_type": "reflect",
+    "country": "🌍 Global"
+  },
+  {
+    "id": "mil_sun_tzu_win",
+    "type": "curiosity_hook",
+    "domain": "military",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Sun Tzu (Arte da Guerra, 500 AC): \"A suprema arte da guerra é vencer o inimigo SEM LUTAR.\" O maior general da história achava que a melhor batalha é a que não acontece.",
+    "bridge": "O maior estrategista do mundo achava que brigar é FALHA. Vencer sem brigar é vitória de verdade.",
+    "quest": "Pensa num conflito recente. Tinha como resolver SEM brigar? Qual teria sido a jogada \"Sun Tzu\"?",
+    "sacrifice_type": "reflect",
+    "country": "🇨🇳 China"
+  },
+  {
+    "id": "mil_spartans_300",
+    "type": "curiosity_hook",
+    "domain": "military",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "300 espartanos seguraram 300.000 persas por 3 dias em Termópilas. Não venceram — mas deram tempo pro resto da Grécia se preparar. Perderam a batalha, salvaram a civilização.",
+    "bridge": "Às vezes \"perder\" é estratégia. Você perde a discussão mas salva o relacionamento. Perde o jogo mas ganha respeito.",
+    "quest": "Já perdeu algo de propósito pra ganhar algo maior? Ou conhece alguém que fez? Me conta.",
+    "sacrifice_type": "reflect",
+    "country": "🇬🇷 Grécia"
+  },
+  {
+    "id": "mil_navajo_codetalkers",
+    "type": "curiosity_hook",
+    "domain": "military",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na 2ª Guerra, os EUA usaram o idioma NAVAJO como código militar. Japão nunca decifrou. A língua que tentaram APAGAR das crianças nas escolas virou a arma que salvou a guerra.",
+    "bridge": "O que tentaram destruir virou a maior força. Tua \"diferença\" — idioma, cultura, jeito — pode ser exatamente o que te faz poderoso.",
+    "quest": "O que as pessoas acham \"estranho\" em você? E se isso fosse sua arma secreta? Como usaria?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 Navajo"
+  },
+  {
+    "id": "mil_ghandi_salt",
+    "type": "curiosity_hook",
+    "domain": "military",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Gandhi derrotou o Império Britânico — o maior do mundo — sem 1 arma. Andou 390km até o mar pra pegar SAL. Ilegalmente. O império inteiro tremeu com um velho andando.",
+    "bridge": "O ato mais poderoso não precisa de força. Precisa de convicção. 1 pessoa que não recua muda o mundo.",
+    "quest": "Qual é o teu \"sal\"? Algo pequeno que defende mesmo quando é difícil?",
+    "sacrifice_type": "reflect",
+    "country": "🇮🇳 Índia"
+  },
+  {
+    "id": "mil_medics_both_sides",
+    "type": "curiosity_hook",
+    "domain": "military",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Médicos militares são obrigados a tratar TODOS os feridos — inclusive inimigos. No campo de batalha, o médico não tem lado. Só tem humano.",
+    "bridge": "Mesmo na guerra, existe uma regra: todo humano merece cuidado. Até o \"inimigo\".",
+    "quest": "Já ajudou alguém que \"não gosta\" de você? Ou alguém que não te ajudaria? Como foi?",
+    "sacrifice_type": "reflect",
+    "country": "🌍 Genebra"
+  },
+  {
+    "id": "biz_nintendo_cards",
+    "type": "curiosity_hook",
+    "domain": "business",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "A Nintendo começou em 1889 fazendo CARTAS DE BARALHO. Tentou taxi, hotel, comida instantânea — tudo fracassou. Só acertou videogame 100 anos depois.",
+    "bridge": "Nintendo fracassou por 100 anos antes de encontrar o caminho. Cada fracasso descartou o que NÃO era. Sobrou o que era.",
+    "quest": "Pensa em algo que \"fracassou\". O que aprendeu com esse fracasso que não aprenderia se desse certo?",
+    "sacrifice_type": "reflect",
+    "country": "🇯🇵 Japão"
+  },
+  {
+    "id": "biz_ikea_names",
+    "type": "curiosity_hook",
+    "domain": "business",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Todo produto da IKEA tem nome sueco com sistema: estantes = profissões masculinas, tecidos = nomes femininos, tapetes = cidades da Dinamarca. O fundador era disléxico e não conseguia lembrar códigos numéricos.",
+    "bridge": "A \"dificuldade\" dele virou o sistema mais famoso de nomenclatura do mundo. O defeito virou método.",
+    "quest": "Qual \"defeito\" seu poderia virar método? Algo que atrapalha mas que, visto de outro ângulo, funciona.",
+    "sacrifice_type": "reflect",
+    "country": "🇸🇪 Suécia"
+  },
+  {
+    "id": "biz_post_it_accident",
+    "type": "curiosity_hook",
+    "domain": "business",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Post-it foi um FRACASSO. O cientista queria cola forte — fez cola fraca. Ia jogar fora. Um colega usou pra marcar página do hinário na igreja. O \"erro\" virou produto bilionário.",
+    "bridge": "O \"erro\" só é erro se você não olhar de outro ângulo. Cola fraca = post-it. Fracasso = aprendizado.",
+    "quest": "Pensa num erro recente. Tem outro ângulo pra olhar? Aquele \"erro\" serve pra alguma coisa?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 EUA / 3M"
+  },
+  {
+    "id": "biz_patagonia_dont_buy",
+    "type": "curiosity_hook",
+    "domain": "business",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "A Patagonia publicou anúncio na Black Friday dizendo \"NÃO COMPRE ESTA JAQUETA\". As vendas AUMENTARAM 30%. Honestidade vendia mais que marketing.",
+    "bridge": "Quando alguém é honesto sobre fraquezas, a confiança AUMENTA. Fingir que é perfeito afasta.",
+    "quest": "Fala 1 coisa honesta sobre você pra alguém — algo que normalmente esconderia. O que muda na reação?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 EUA"
+  },
+  {
+    "id": "biz_toyota_andon",
+    "type": "curiosity_hook",
+    "domain": "business",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Na Toyota, QUALQUER funcionário pode parar a fábrica INTEIRA puxando uma corda (Andon cord). O mais novo, o mais baixo. Se viu problema, para tudo. Ninguém é punido por puxar.",
+    "bridge": "Na melhor fábrica do mundo, qualquer um pode dizer \"PARA\". Porque esconder problema é PIOR que parar.",
+    "quest": "Na escola ou em casa, você \"puxa a corda\" quando vê problema? Ou fica quieto? O que aconteceria se falasse?",
+    "sacrifice_type": "reflect",
+    "country": "🇯🇵 Japão"
+  },
+  {
+    "id": "chem_diamond_pencil",
+    "type": "curiosity_hook",
+    "domain": "chemistry",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Diamante e grafite do lápis são feitos do MESMO átomo: carbono. A diferença é como os átomos se organizam. Mesma matéria-prima, resultado oposto.",
+    "bridge": "Mesmos ingredientes, organização diferente, resultado oposto. Duas pessoas com as mesmas oportunidades podem virar coisas completamente diferentes. O que faz a diferença é a ESTRUTURA.",
+    "quest": "Você e o Kei são \"feitos do mesmo carbono\" (mesma família). O que faz vocês serem diferentes? Organização ou matéria?",
+    "sacrifice_type": "reflect",
+    "country": "⚗️ Química"
+  },
+  {
+    "id": "chem_water_anomaly",
+    "type": "curiosity_hook",
+    "domain": "chemistry",
+    "casel_target": [
+      "SA"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Água é a ÚNICA substância que expande quando congela. Se não fosse assim, lagos congelariam DE BAIXO PRA CIMA e matariam todos os peixes. A anomalia da água salvou a vida na Terra.",
+    "bridge": "A \"anomalia\" — o diferente, o que não se encaixa — é exatamente o que salva. Ser \"estranho\" pode ser o que protege todo mundo.",
+    "quest": "Qual é sua \"anomalia\"? Algo diferente de todo mundo que talvez seja exatamente o que te faz necessário.",
+    "sacrifice_type": "reflect",
+    "country": "💧 Química"
+  },
+  {
+    "id": "chem_rust_fire",
+    "type": "curiosity_hook",
+    "domain": "chemistry",
+    "casel_target": [
+      "SM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 10,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Ferrugem e fogo são a MESMA reação química (oxidação). A diferença é a velocidade. Ferrugem é fogo em câmera lenta. Fogo é ferrugem em fast forward.",
+    "bridge": "Raiva explodida = fogo. Raiva guardada = ferrugem. A mesma emoção. Velocidades diferentes. As duas destroem.",
+    "quest": "Você é mais \"fogo\" (explode rápido) ou \"ferrugem\" (guarda por dentro)? Os dois são a mesma coisa. Qual faz mais estrago em você?",
+    "sacrifice_type": "reflect",
+    "country": "⚗️ Química"
+  },
+  {
+    "id": "chem_catalyst",
+    "type": "curiosity_hook",
+    "domain": "chemistry",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Um catalisador acelera uma reação química SEM se consumir. Ele faz acontecer, mas sai intacto. Não vira produto — vira possibilitador.",
+    "bridge": "Tem pessoas que são catalisadores: fazem as coisas acontecerem sem precisar de crédito. Quem é o catalisador na tua vida?",
+    "quest": "Identifica 1 \"catalisador\" na tua vida — alguém que faz acontecer sem aparecer. Agradece essa pessoa.",
+    "sacrifice_type": "reflect",
+    "country": "⚗️ Química"
+  },
+  {
+    "id": "ideo_veil_ignorance",
+    "type": "curiosity_hook",
+    "domain": "ideology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O filósofo Rawls propôs: \"imagine que vai nascer de novo mas NÃO SABE se será rico ou pobre, homem ou mulher, branco ou negro. Que regras criaria pra essa sociedade?\" Chamou de \"véu da ignorância\".",
+    "bridge": "Se não soubesse quem seria, criaria regras JUSTAS pra todo mundo. Porque poderia ser qualquer um.",
+    "quest": "Se fosse criar 3 regras pra escola sem saber se seria o melhor aluno, o pior, o popular ou o excluído — quais seriam?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 Filosofia"
+  },
+  {
+    "id": "ideo_tragedy_commons",
+    "type": "curiosity_hook",
+    "domain": "ideology",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Se todo mundo pode usar um campo de pasto, cada um coloca mais vacas até DESTRUIR o campo. Chamam de \"tragédia dos comuns\". Egoísmo individual = destruição coletiva.",
+    "bridge": "Wi-Fi da escola é lento? Todo mundo usando ao mesmo tempo. Banheiro sujo? Ninguém cuida porque \"é de todos\". Quando é de todos, é de ninguém.",
+    "quest": "O que é \"de todos\" na sua vida que tá sendo destruído porque ninguém cuida? O que faria pra mudar?",
+    "sacrifice_type": "reflect",
+    "country": "🌍 Economia"
+  },
+  {
+    "id": "ideo_prisoners_dilemma",
+    "type": "curiosity_hook",
+    "domain": "ideology",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Dilema do prisioneiro: 2 presos podem trair ou cooperar. Se ambos cooperam, 1 ano pra cada. Se 1 trai, sai livre e o outro pega 10. Se ambos traem, 5 cada. A lógica diz: traia. Mas quem coopera se dá melhor a longo prazo.",
+    "bridge": "Trair parece vantagem no curto prazo. Cooperar vence no longo prazo. Toda amizade é esse dilema.",
+    "quest": "Já \"traiu\" a confiança de alguém pra ganhar algo? Valeu a pena no longo prazo?",
+    "sacrifice_type": "reflect",
+    "country": "🎮 Teoria dos Jogos"
+  },
+  {
+    "id": "ideo_overton_window",
+    "type": "curiosity_hook",
+    "domain": "ideology",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 8,
+    "verified": true,
+    "base_score": 7,
+    "fact": "A \"Janela de Overton\" é a faixa de ideias que a sociedade aceita num momento. O que é \"radical\" hoje pode ser \"óbvio\" amanhã. Abolir escravidão era \"radical\" em 1800.",
+    "bridge": "O que TODO MUNDO acha \"normal\" nem sempre é certo. O que TODO MUNDO acha \"louco\" nem sempre é errado.",
+    "quest": "Pensa em algo que hoje é \"normal\" mas que você acha errado. Por que ninguém questiona?",
+    "sacrifice_type": "reflect",
+    "country": "🌍 Política"
+  },
+  {
+    "id": "comp_bug_moth",
+    "type": "curiosity_hook",
+    "domain": "computing",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "O primeiro \"bug\" de computador foi uma MARIPOSA real presa no relé do Harvard Mark II em 1947. Grace Hopper colou no logbook: \"first actual case of bug being found.\" Mariposa virou metáfora mundial.",
+    "bridge": "Um probleminha pequeno (mariposa) pode travar um sistema inteiro. Pequenas coisas ignoradas viram grandes problemas.",
+    "quest": "Qual é a \"mariposa\" na tua vida agora? Algo pequeno que tá ignorando mas pode travar tudo se não resolver?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 EUA"
+  },
+  {
+    "id": "comp_ai_bias",
+    "type": "curiosity_hook",
+    "domain": "computing",
+    "casel_target": [
+      "SOC"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Uma IA de contratação da Amazon aprendeu a rejeitar mulheres porque foi treinada com 10 anos de currículos — de homens. A IA não era machista. Os DADOS eram.",
+    "bridge": "Você é treinado pelos dados da sua vida: família, escola, amigos. Se os dados são enviesados, suas decisões também são. Sem perceber.",
+    "quest": "Pensa num preconceito que tem (todo mundo tem). De onde veio? Dos seus \"dados de treinamento\" (família, mídia, amigos)?",
+    "sacrifice_type": "reflect",
+    "country": "🇺🇸 EUA"
+  },
+  {
+    "id": "comp_undo_life",
+    "type": "curiosity_hook",
+    "domain": "computing",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Ctrl+Z (desfazer) foi inventado em 1974. Antes disso, cada erro no computador era PERMANENTE. Imagina: todo erro irreversível. Exatamente como na vida real.",
+    "bridge": "Na vida não tem Ctrl+Z. O que disse, disse. O que fez, fez. Por isso pensar antes > corrigir depois.",
+    "quest": "Se tivesse Ctrl+Z na vida, o que desfaria da última semana? Agora pensa: como evitar precisar de Ctrl+Z?",
+    "sacrifice_type": "reflect",
+    "country": "💻 Computação"
+  },
+  {
+    "id": "comp_open_source",
+    "type": "curiosity_hook",
+    "domain": "computing",
+    "casel_target": [
+      "REL"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 9,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Linux roda 90% dos servidores do mundo, 100% dos supercomputadores, e o Android de bilhões de celulares. Foi criado por 1 estudante finlandês de 21 anos — e dado DE GRAÇA. Linus Torvalds ficou rico SEM vender.",
+    "bridge": "Ele deu de graça e recebeu mais do que se vendesse. Generosidade pode ser a estratégia mais inteligente.",
+    "quest": "O que você sabe fazer que poderia ENSINAR pra alguém de graça? O que ganharia com isso?",
+    "sacrifice_type": "reflect",
+    "country": "🇫🇮 Finlândia"
+  },
+  {
+    "id": "comp_recursion",
+    "type": "curiosity_hook",
+    "domain": "computing",
+    "casel_target": [
+      "DM"
+    ],
+    "age_range": [
+      7,
+      14
+    ],
+    "surprise": 7,
+    "verified": true,
+    "base_score": 7,
+    "fact": "Em programação, RECURSÃO é uma função que chama ELA MESMA. Parece loop infinito, mas com 1 condição de parada, resolve problemas impossíveis. Google inteiro é construído com recursão.",
+    "bridge": "Pra resolver problemas grandes, divide em versões menores do MESMO problema. Até chegar num que sabe resolver.",
+    "quest": "Pensa num problema grande que tem. Qual seria a \"versão menor\" desse mesmo problema? E a menor ainda? Até chegar numa que consiga resolver.",
+    "sacrifice_type": "reflect",
+    "country": "💻 Computação"
+  }
+]
