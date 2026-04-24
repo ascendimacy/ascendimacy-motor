@@ -21,9 +21,29 @@ import {
   getEmittedCardsByChild,
   getEmittedCardsBySession,
   getEmittedCardsInRange,
+  getNextSequence,
 } from "./cards-repo.js";
-import type { EmittedCard } from "@ascendimacy/shared";
+import type {
+  EmittedCard,
+  CardArchetype,
+  GardnerChannel,
+  CaselDimension,
+  StatusValue,
+  ScoredContentItem,
+} from "@ascendimacy/shared";
+import { MockCardImageProvider } from "@ascendimacy/shared";
 import { getNow } from "./clock.js";
+import {
+  detectAchievement,
+  selectArchetypeForSignal,
+  proposeCardSpec,
+  triageCardSpec,
+  generateCardImage,
+  emitCard,
+  type AchievementSignal,
+} from "./card-generation.js";
+import { loadArchetypes } from "./archetype-loader.js";
+import type { ParentalProfile } from "@ascendimacy/shared";
 
 const inventory = loadInventory();
 
@@ -151,6 +171,121 @@ server.registerTool("card_list_in_range", {
 }, async ({ childId, fromIso, toIso }: { childId: string; fromIso: string; toIso: string }) => {
   const cards = getEmittedCardsInRange(getDbInstance(), childId, fromIso, toIso);
   return { content: [{ type: "text" as const, text: JSON.stringify(cards) }] };
+});
+
+server.registerTool("detect_achievement", {
+  description: "Detecta sinal de conquista a partir de signals do turno (Bloco 5a auto-hook).",
+  inputSchema: {
+    childId: z.string(),
+    sessionId: z.string(),
+    now: z.string().optional(),
+    currentMatrix: z.record(z.string(), z.string()).optional(),
+    previousMatrix: z.record(z.string(), z.string()).optional(),
+    gardnerObserved: z.array(z.string()).optional(),
+    caselTouched: z.array(z.string()).optional(),
+    sacrificeSpent: z.number().optional(),
+    selectedContent: z.record(z.string(), z.unknown()).optional(),
+  } as any,
+}, async (args: {
+  childId: string;
+  sessionId: string;
+  now?: string;
+  currentMatrix?: Record<string, StatusValue>;
+  previousMatrix?: Record<string, StatusValue>;
+  gardnerObserved?: GardnerChannel[];
+  caselTouched?: CaselDimension[];
+  sacrificeSpent?: number;
+  selectedContent?: ScoredContentItem;
+}) => {
+  const signal = detectAchievement({
+    child_id: args.childId,
+    session_id: args.sessionId,
+    now: getNow(args.now),
+    current_matrix: args.currentMatrix,
+    previous_matrix: args.previousMatrix,
+    gardner_observed: args.gardnerObserved,
+    casel_touched: args.caselTouched,
+    sacrifice_spent: args.sacrificeSpent,
+    selected_content: args.selectedContent,
+  });
+  return { content: [{ type: "text" as const, text: JSON.stringify(signal) }] };
+});
+
+server.registerTool("emit_card_for_signal", {
+  description: "Pipeline completo: archetype → propose → triage → image → sign → emit → save. Respeita scaffold guard em env != 'test'.",
+  inputSchema: {
+    signal: z.record(z.string(), z.unknown()),
+    childName: z.string().optional(),
+    parentalProfile: z.record(z.string(), z.unknown()).optional(),
+  } as any,
+}, async (args: {
+  signal: AchievementSignal;
+  childName?: string;
+  parentalProfile?: ParentalProfile;
+}) => {
+  const env = process.env["NODE_ENV"] ?? "production";
+  const secret = process.env["EBROTA_CARD_SECRET"] ?? "ebrota-default-test-secret-min-8";
+
+  const archetypes: CardArchetype[] = loadArchetypes();
+  const archetype = selectArchetypeForSignal(args.signal, archetypes);
+  if (!archetype) {
+    return { content: [{ type: "text" as const, text: JSON.stringify({ skipped: true, skip_reason: "no_archetype_available" }) }] };
+  }
+
+  // Scaffold guard upfront — evita gastar Haiku/imagem se vai bloquear.
+  if (archetype.is_scaffold && env !== "test") {
+    console.warn(
+      `[emit_card_for_signal] skip — archetype '${archetype.id}' is scaffold; blocked in env='${env}'. (Bloco 5b Content Engine pendente)`,
+    );
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({ skipped: true, skip_reason: "scaffold_in_non_test", env, archetype_id: archetype.id }),
+      }],
+    };
+  }
+
+  const sequence = getNextSequence(getDbInstance(), args.signal.child_id);
+  const spec = proposeCardSpec(args.signal, archetype, sequence);
+
+  const triage = await triageCardSpec(spec, args.parentalProfile);
+  if (!triage.approved) {
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({ skipped: true, skip_reason: "triage_rejected", reject_reason: triage.reject_reason }),
+      }],
+    };
+  }
+
+  const provider = new MockCardImageProvider();
+  const image = await generateCardImage(spec, provider);
+  const now = getNow();
+  try {
+    const card = emitCard({
+      spec,
+      approved_at: now,
+      emitted_at: now,
+      image,
+      secret,
+      env,
+      child_name: args.childName ?? spec.child_id,
+    });
+    saveEmittedCard(getDbInstance(), card);
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({ ok: true, card_id: card.card_id, archetype_id: archetype.id, scaffold: archetype.is_scaffold }),
+      }],
+    };
+  } catch (err) {
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({ skipped: true, skip_reason: "emit_failed", error: String(err) }),
+      }],
+    };
+  }
 });
 
 server.registerTool("log_event", {

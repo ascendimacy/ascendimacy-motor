@@ -186,6 +186,50 @@ export async function runTurn(
     (selectedItem as { gardner_channels?: import("@ascendimacy/shared").GardnerChannel[] } | undefined)?.gardner_channels;
   const caselTargetsTouched = (selectedItem as { casel_target?: import("@ascendimacy/shared").CaselDimension[] } | undefined)?.casel_target;
 
+  // ─── Bloco 5a auto-hook — detectAchievement + emit (motor#17) ───────
+  // Runs APÓS execute_playbook. Se signal não-null, dispara pipeline.
+  // Latency budget: < 100ms extra (detect ~5ms; emit_card ~20-50ms via mocks).
+  let emittedCardId: string | undefined;
+  let cardEmissionSkipReason: string | undefined;
+  const t4 = Date.now();
+  try {
+    const detectResult = await clients.motorExecucao.callTool({
+      name: "detect_achievement",
+      arguments: {
+        childId: persona.id,
+        sessionId,
+        currentMatrix: state.statusMatrix ?? {},
+        previousMatrix: state.statusMatrix ?? {}, // sem snapshot pré-turno em v1
+        gardnerObserved: gardnerChannelsObserved ?? [],
+        caselTouched: caselTargetsTouched ?? [],
+        sacrificeSpent: 0, // sem campo dedicado em selectedContent v1
+        selectedContent: drota.selectedContent ?? {},
+      },
+    });
+    const signal = parseToolText<unknown>(detectResult);
+    if (signal && typeof signal === "object" && (signal as { kind?: unknown }).kind) {
+      const personaProfile = (persona.profile ?? {}) as Record<string, unknown>;
+      const parentalProfile = personaProfile["parental_profile"];
+      const emitResult = await clients.motorExecucao.callTool({
+        name: "emit_card_for_signal",
+        arguments: {
+          signal,
+          childName: persona.name,
+          parentalProfile: parentalProfile && typeof parentalProfile === "object" ? parentalProfile : undefined,
+        },
+      });
+      const emitOutput = parseToolText<{ ok?: boolean; card_id?: string; skipped?: boolean; skip_reason?: string }>(emitResult);
+      if (emitOutput.ok && emitOutput.card_id) {
+        emittedCardId = emitOutput.card_id;
+      } else if (emitOutput.skipped) {
+        cardEmissionSkipReason = emitOutput.skip_reason ?? "skipped_unknown";
+      }
+    }
+  } catch (err) {
+    cardEmissionSkipReason = `auto_hook_error:${String(err).slice(0, 100)}`;
+  }
+  const cardHookMs = Date.now() - t4;
+
   appendTurn(trace, {
     turnNumber: state.turn,
     sessionId,
@@ -203,7 +247,11 @@ export async function runTurn(
     sessionMode: state.sessionMode,
     jointPartnerChildId: state.jointPartnerChildId,
     jointPartnerName: state.jointPartnerName,
+    emittedCardId,
+    cardEmissionSkipReason,
   });
+  void cardHookMs; // expose latency hint via flags se quiser; v1 só registra
+
 
   const tracePath = saveTrace(trace, tracesDir);
   return { finalResponse: drota.linguisticMaterialization, tracePath };
