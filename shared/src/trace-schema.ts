@@ -97,6 +97,12 @@ export interface TurnTrace {
     confidence?: number;
     reason?: string;
   };
+
+  // ─── v0.3.2 — Bloco 5a auto-hook (motor#17) ──────────────────────────
+  /** card_id se detectAchievement disparou e emit_card_for_signal persistiu. */
+  emittedCardId?: string;
+  /** Razão pra skip (scaffold guard, triagem rejeitou, signal nulo, etc). */
+  cardEmissionSkipReason?: string;
 }
 
 export interface SessionTrace {
