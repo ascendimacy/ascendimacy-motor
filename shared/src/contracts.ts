@@ -24,6 +24,11 @@ export interface PlanTurnOutput {
    */
   contentPool: ScoredContentItem[];
   contextHints: Record<string, unknown>;
+  /**
+   * Composed pelo planejador quando mixin ativo (ex: withGardnerProgram).
+   * Repassado para `EvaluateAndSelectInput.instruction_addition` (Bloco 2b).
+   */
+  instruction_addition?: string;
 }
 
 export interface EvaluateAndSelectInput {

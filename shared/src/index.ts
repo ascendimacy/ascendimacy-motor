@@ -5,3 +5,4 @@ export * from "./content-item.js";
 export * from "./scorer.js";
 export * from "./tree-node.js";
 export * from "./status-matrix.js";
+export * from "./mixins/with-gardner-program.js";

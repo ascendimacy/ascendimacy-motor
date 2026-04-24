@@ -44,6 +44,7 @@ server.registerTool(
         turn: z.number(),
         eventLog: z.array(z.unknown()),
         statusMatrix: z.record(z.string(), z.string()).optional(),
+        gardnerProgram: z.record(z.string(), z.unknown()).optional(),
       }),
       incomingMessage: z.string(),
     } as any,
