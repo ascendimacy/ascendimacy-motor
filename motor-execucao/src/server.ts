@@ -16,6 +16,13 @@ import {
   PARENT_DECISION_STATUSES,
 } from "./parent-decisions.js";
 import type { ParentDecisionStatus } from "./parent-decisions.js";
+import {
+  saveEmittedCard,
+  getEmittedCardsByChild,
+  getEmittedCardsBySession,
+  getEmittedCardsInRange,
+} from "./cards-repo.js";
+import type { EmittedCard } from "@ascendimacy/shared";
 
 const inventory = loadInventory();
 
@@ -105,6 +112,44 @@ server.registerTool("parent_decision_list", {
 }, async ({ sessionId }: { sessionId: string }) => {
   const decisions = listParentDecisions(getDbInstance(), sessionId);
   return { content: [{ type: "text" as const, text: JSON.stringify(decisions) }] };
+});
+
+server.registerTool("card_save", {
+  description: "Persiste EmittedCard em kids_emitted_cards (idempotente pelo card_id). Caller monta o card via pipeline shared.",
+  inputSchema: {
+    card: z.record(z.string(), z.unknown()),
+  } as any,
+}, async ({ card }: { card: EmittedCard }) => {
+  saveEmittedCard(getDbInstance(), card);
+  return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true, card_id: card.card_id }) }] };
+});
+
+server.registerTool("card_list_by_child", {
+  description: "Lista todos os cards emitidos de uma criança, ordem emitted_at.",
+  inputSchema: { childId: z.string() } as any,
+}, async ({ childId }: { childId: string }) => {
+  const cards = getEmittedCardsByChild(getDbInstance(), childId);
+  return { content: [{ type: "text" as const, text: JSON.stringify(cards) }] };
+});
+
+server.registerTool("card_list_by_session", {
+  description: "Lista cards emitidos em uma sessão.",
+  inputSchema: { sessionId: z.string() } as any,
+}, async ({ sessionId }: { sessionId: string }) => {
+  const cards = getEmittedCardsBySession(getDbInstance(), sessionId);
+  return { content: [{ type: "text" as const, text: JSON.stringify(cards) }] };
+});
+
+server.registerTool("card_list_in_range", {
+  description: "Lista cards de uma criança emitidos em [fromIso, toIso). Usado pelo weekly-report.",
+  inputSchema: {
+    childId: z.string(),
+    fromIso: z.string(),
+    toIso: z.string(),
+  } as any,
+}, async ({ childId, fromIso, toIso }: { childId: string; fromIso: string; toIso: string }) => {
+  const cards = getEmittedCardsInRange(getDbInstance(), childId, fromIso, toIso);
+  return { content: [{ type: "text" as const, text: JSON.stringify(cards) }] };
 });
 
 server.registerTool("log_event", {

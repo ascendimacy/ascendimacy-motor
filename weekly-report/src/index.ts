@@ -16,7 +16,7 @@ import { renderMarkdown } from "./markdown.js";
 import { renderPdf } from "./pdf.js";
 
 export * from "./types.js";
-export { aggregate, aggregateCards, compareStatusMatrices, detectIgnitions, extractAspirations } from "./aggregate.js";
+export { aggregate, aggregateCards, compareStatusMatrices, detectIgnitions, extractAspirations, summarizeEmittedCard } from "./aggregate.js";
 export { computeMetrics } from "./metrics.js";
 export { renderMarkdown } from "./markdown.js";
 export { renderPdf } from "./pdf.js";

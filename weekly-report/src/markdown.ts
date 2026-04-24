@@ -8,6 +8,7 @@ import type {
   StatusComparison,
   IgnitionEvent,
   CardSummary,
+  EmittedCardSummary,
   AspirationSignal,
 } from "./types.js";
 
@@ -147,10 +148,34 @@ function renderMetrics(data: WeeklyReportData): string {
   ].join("\n");
 }
 
+function renderEmittedCards(ems: EmittedCardSummary[] | undefined): string {
+  const list = ems ?? [];
+  if (list.length === 0) {
+    return `## 🏆 Cartas recebidas\n\nNenhuma carta emitida nesta semana.\n`;
+  }
+  const lines = [`## 🏆 Cartas recebidas (${list.length})`, ``];
+  for (const c of list) {
+    lines.push(`### ${c.title} · ${c.rarity.toUpperCase()}`);
+    lines.push(``);
+    lines.push(`![${c.title}](${c.image_url})`);
+    lines.push(``);
+    lines.push(`> ${c.narrative}`);
+    lines.push(``);
+    lines.push(`**Verso:** ${c.gardner_channel_icon} · ${c.casel_dimension} · serial \`${c.serial_number}\``);
+    lines.push(``);
+    lines.push(`**Cheat code:** \`${c.cheat_code}\``);
+    lines.push(``);
+    lines.push(`[QR / verificar autenticidade](${c.qr_payload})`);
+    lines.push(``);
+  }
+  return lines.join("\n");
+}
+
 export function renderMarkdown(data: WeeklyReportData): string {
   return [
     renderHeader(data),
     renderProgram(data),
+    renderEmittedCards(data.emitted_cards),
     renderCards(data.cards),
     renderStatus(data.status_comparison),
     renderIgnitions(data.ignitions),

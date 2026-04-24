@@ -68,6 +68,24 @@ export interface OperationalMetrics {
   total_screen_seconds: number;
 }
 
+/** Resumo de um EmittedCard para o relatório semanal (Bloco 5a). */
+export interface EmittedCardSummary {
+  card_id: string;
+  archetype_id: string;
+  title: string;
+  narrative: string;
+  image_url: string;
+  rarity: string;
+  cheat_code: string;
+  serial_number: string;
+  qr_payload: string;
+  casel_dimension: string;
+  gardner_channel_icon: string;
+  issued_at: string;
+  approved_at: string;
+  emitted_at: string;
+}
+
 export interface WeeklyReportData {
   child_name: string;
   child_age: number | null;
@@ -79,6 +97,8 @@ export interface WeeklyReportData {
     paused_reason?: string;
   };
   cards: CardSummary[];
+  /** Cards emitidos na semana (Bloco 5a). */
+  emitted_cards: EmittedCardSummary[];
   status_comparison: StatusComparison[];
   ignitions: IgnitionEvent[];
   aspirations: AspirationSignal[];
@@ -90,4 +110,6 @@ export interface WeeklyReportOptions {
   previous_matrix?: StatusMatrix;
   /** Range de datas; se omitido, tenta derivar dos traces. */
   week_range?: WeekRange;
+  /** EmittedCards da semana (opcional — vem do caller que consulta motor-execucao). */
+  emitted_cards?: import("@ascendimacy/shared").EmittedCard[];
 }

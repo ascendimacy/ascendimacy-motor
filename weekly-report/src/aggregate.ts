@@ -9,10 +9,12 @@ import type {
   StatusValue,
   GardnerChannel,
   CaselDimension,
+  EmittedCard,
 } from "@ascendimacy/shared";
 import { isStatusValue } from "@ascendimacy/shared";
 import type {
   CardSummary,
+  EmittedCardSummary,
   IgnitionEvent,
   StatusComparison,
   AspirationSignal,
@@ -223,6 +225,26 @@ function deriveWeekRange(traces: SessionTrace[]): WeekRange {
   };
 }
 
+/** Converte EmittedCard em summary pro relatório. */
+export function summarizeEmittedCard(card: EmittedCard): EmittedCardSummary {
+  return {
+    card_id: card.card_id,
+    archetype_id: card.archetype_id,
+    title: card.spec_snapshot.archetype.name,
+    narrative: card.front.narrative,
+    image_url: card.front.image_url,
+    rarity: card.spec_snapshot.archetype.rarity,
+    cheat_code: card.back.cheat_code,
+    serial_number: card.back.serial_number,
+    qr_payload: card.back.qr_payload,
+    casel_dimension: card.back.casel_dimension,
+    gardner_channel_icon: card.back.gardner_channel_icon,
+    issued_at: card.issued_at,
+    approved_at: card.approved_at,
+    emitted_at: card.emitted_at,
+  };
+}
+
 /** Entrypoint: SessionTrace[] + opts → WeeklyReportData. */
 export function aggregate(
   traces: SessionTrace[],
@@ -230,12 +252,14 @@ export function aggregate(
   opts: WeeklyReportOptions = {},
 ): WeeklyReportData {
   const childAge = traces.find((t) => t.personaAge !== undefined)?.personaAge ?? null;
+  const emittedCards = (opts.emitted_cards ?? []).map(summarizeEmittedCard);
   return {
     child_name: childName,
     child_age: childAge,
     week: opts.week_range ?? deriveWeekRange(traces),
     program_status: latestProgramStatus(traces),
     cards: aggregateCards(traces),
+    emitted_cards: emittedCards,
     status_comparison: compareStatusMatrices(traces, opts.previous_matrix),
     ignitions: detectIgnitions(traces),
     aspirations: extractAspirations(traces),
