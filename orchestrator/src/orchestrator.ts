@@ -139,12 +139,37 @@ export async function runTurn(
     output: exec as unknown as Record<string, unknown>,
   });
 
+  // v0.3: enriquece o turn com snapshots e resumos.
+  const selectedItem = drota.selectedContent?.item;
+  const selectedSummary = selectedItem
+    ? {
+        id: String(selectedItem.id),
+        type: String(selectedItem.type),
+        score: Number(drota.selectedContent.score ?? 0),
+        domain: String(selectedItem.domain ?? ""),
+        surprise: Number(selectedItem.surprise ?? 0),
+        sacrifice_type: (selectedItem as { sacrifice_type?: string }).sacrifice_type,
+      }
+    : undefined;
+
+  const gardnerChannelsObserved =
+    (selectedItem as { gardner_channels?: import("@ascendimacy/shared").GardnerChannel[] } | undefined)?.gardner_channels;
+  const caselTargetsTouched = (selectedItem as { casel_target?: import("@ascendimacy/shared").CaselDimension[] } | undefined)?.casel_target;
+
   appendTurn(trace, {
     turnNumber: state.turn,
     sessionId,
+    timestamp: new Date().toISOString(),
     incomingMessage: message,
     entries: turnEntries,
     finalResponse: drota.linguisticMaterialization,
+    statusSnapshot: state.statusMatrix,
+    gardnerProgramSnapshot: state.gardnerProgram,
+    selectedContent: selectedSummary,
+    gardnerChannelsObserved,
+    caselTargetsTouched,
+    instructionAdditionApplied: (plan.instruction_addition ?? "") || undefined,
+    flags: { anomalies: [], warnings: [] },
   });
 
   const tracePath = saveTrace(trace, tracesDir);

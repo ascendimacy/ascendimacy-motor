@@ -3,8 +3,12 @@ import { join } from "node:path";
 import type { SessionTrace, TurnTrace } from "@ascendimacy/shared";
 import { createSessionTrace } from "@ascendimacy/shared";
 
-export function initTrace(sessionId: string, persona: string): SessionTrace {
-  return createSessionTrace(sessionId, persona);
+export function initTrace(
+  sessionId: string,
+  persona: string,
+  personaAge?: number,
+): SessionTrace {
+  return createSessionTrace(sessionId, persona, personaAge);
 }
 
 export function appendTurn(trace: SessionTrace, turn: TurnTrace): void {

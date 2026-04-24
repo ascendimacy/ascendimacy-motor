@@ -1,0 +1,47 @@
+{
+  "sessionId": "ryo-example-0001",
+  "persona": "ryo",
+  "personaAge": 13,
+  "startedAt": "2026-04-20T10:00:00.000Z",
+  "turns": [
+    {
+      "turnNumber": 0,
+      "sessionId": "ryo-example-0001",
+      "timestamp": "2026-04-20T10:00:00.000Z",
+      "incomingMessage": "oi",
+      "entries": [],
+      "finalResponse": "Olá Ryo! Sabia que os Inuit têm 50+ palavras pra neve?",
+      "statusSnapshot": {
+        "emotional": "baia",
+        "social_with_ebrota": "baia",
+        "social_with_parent": "baia",
+        "social_with_sibling": "baia"
+      },
+      "gardnerProgramSnapshot": {
+        "current_week": 1,
+        "current_day": 1,
+        "current_phase": "exploration_in_strength",
+        "paused": false,
+        "phases_completed": 0,
+        "consecutive_missed_milestones": 0,
+        "updated_at": "2026-04-20T10:00:00.000Z"
+      },
+      "selectedContent": {
+        "id": "ling_inuit_snow",
+        "type": "curiosity_hook",
+        "score": 9,
+        "domain": "linguistics",
+        "surprise": 9,
+        "sacrifice_type": "reflect"
+      },
+      "gardnerChannelsObserved": ["linguistic", "intrapersonal"],
+      "caselTargetsTouched": ["SA", "SM"],
+      "sacrificeSpent": 1,
+      "screenSeconds": 180,
+      "instructionAdditionApplied": "[programa dual-helix | semana 1/5 | dia 1]\nForça da semana: linguistic. Fraqueza a trabalhar: musical.\nFase 1 — exploração na força (off-screen)...",
+      "statusTransitions": [],
+      "flags": { "anomalies": [], "warnings": [] }
+    }
+  ],
+  "meta": { "schemaVersion": "0.3.0", "motorVersion": "0.3.0" }
+}
