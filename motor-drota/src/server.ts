@@ -10,7 +10,7 @@ import type {
 import { rankPool } from "./evaluate.js";
 import { selectFromPool, sanitizeMaterialization } from "./select.js";
 import { callLlm, callLlmMock } from "./llm-client.js";
-import { logDebugEvent } from "@ascendimacy/shared";
+import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
 
 const server = new McpServer({
   name: "motor-drota",
@@ -229,9 +229,13 @@ server.registerTool(
     }
 
     const selected = selectFromPool(ranked);
+    // motor#22: provider-aware mock detection.
+    const drotaProvider = getProviderForStep("drota");
+    const drotaKeyMissing = drotaProvider === "anthropic"
+      ? !process.env["ANTHROPIC_API_KEY"]
+      : !process.env["INFOMANIAK_API_KEY"];
     const useMock =
-      process.env["USE_MOCK_LLM"] === "true" ||
-      !process.env["INFOMANIAK_API_KEY"];
+      process.env["USE_MOCK_LLM"] === "true" || drotaKeyMissing;
     const systemPrompt = buildDrotaPrompt(input, selected);
     const userMessage = `Materialize o content selecionado em JSON.`;
 
