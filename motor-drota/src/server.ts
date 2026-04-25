@@ -10,6 +10,7 @@ import type {
 import { rankPool } from "./evaluate.js";
 import { selectFromPool, sanitizeMaterialization } from "./select.js";
 import { callLlm, callLlmMock } from "./llm-client.js";
+import { logDebugEvent } from "@ascendimacy/shared";
 
 const server = new McpServer({
   name: "motor-drota",
@@ -233,18 +234,21 @@ server.registerTool(
       !process.env["INFOMANIAK_API_KEY"];
     const systemPrompt = buildDrotaPrompt(input, selected);
     const userMessage = `Materialize o content selecionado em JSON.`;
-    const raw = useMock
+
+    const t0 = Date.now();
+    const llmResult = useMock
       ? await callLlmMock(systemPrompt, userMessage)
       : await callLlm(systemPrompt, userMessage);
+    const llmLatency = Date.now() - t0;
 
     let parsed: {
       selectionRationale?: string;
       linguisticMaterialization?: string;
     } = {};
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(llmResult.content);
     } catch {
-      parsed = { linguisticMaterialization: raw };
+      parsed = { linguisticMaterialization: llmResult.content };
     }
 
     const materialization = sanitizeMaterialization(
@@ -256,6 +260,38 @@ server.registerTool(
       selectionRationale: parsed.selectionRationale ?? "auto-select top pool",
       linguisticMaterialization: materialization,
     };
+
+    // motor#19: debug log (no-op se ASC_DEBUG_MODE off)
+    logDebugEvent({
+      side: "motor",
+      step: "drota",
+      user_id: input.persona.id,
+      session_id: input.sessionId,
+      turn_number: input.state.turn,
+      model: process.env["MOTOR_DROTA_MODEL"] ?? "mistral24b",
+      provider: "infomaniak",
+      tokens: llmResult.tokens,
+      latency_ms: llmLatency,
+      prompt: systemPrompt + "\n\n[USER]\n" + userMessage,
+      response: llmResult.content,
+      reasoning: llmResult.reasoning,
+      snapshots_pre: {
+        drota: {
+          received_pool_size: input.contentPool.length,
+          pool_rank_order: ranked.slice(0, 5).map((s) => s.item.id),
+          selected_item_id: selected.item.id,
+          mock_llm: useMock,
+        },
+      },
+      snapshots_post: {
+        drota: {
+          selected_item_id: selected.item.id,
+          materialization_length: materialization.length,
+          sanitize_pass_applied: true,
+        },
+      },
+      outcome: "ok",
+    });
 
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
