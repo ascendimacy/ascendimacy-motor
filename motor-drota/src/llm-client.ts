@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getLlmTimeoutMs, getLlmMaxRetries } from "@ascendimacy/shared";
 
 let client: OpenAI | null = null;
 
@@ -31,14 +32,22 @@ export async function callLlm(systemPrompt: string, userMessage: string): Promis
   const isReasoningModel = /kimi|deepseek-r|o1|o3|reason/i.test(model);
   const maxTokens = isReasoningModel ? 4096 : 2048;
 
-  const response = await c.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
-    ],
-    max_tokens: maxTokens,
-  });
+  // motor#20: timeout + retries explícitos.
+  // OpenAI SDK retries 408/409/429/5xx automaticamente.
+  const response = await c.chat.completions.create(
+    {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: maxTokens,
+    },
+    {
+      timeout: getLlmTimeoutMs("drota"),
+      maxRetries: getLlmMaxRetries("drota"),
+    },
+  );
 
   const msg = response.choices[0]?.message;
   const content = msg?.content ?? "";
