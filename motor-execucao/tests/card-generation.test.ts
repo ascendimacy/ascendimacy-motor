@@ -110,6 +110,55 @@ describe("detectAchievement", () => {
     });
     expect(r?.kind).toBe("status_to_pasto");
   });
+
+  // ─── crossing kind (Bloco 7 prep — recovery transition) ───
+  it("detecta crossing quando dim passou de brejo→baia", () => {
+    const r = detectAchievement({
+      child_id: "ryo",
+      session_id: "s1",
+      now: NOW,
+      previous_matrix: { emotional: "brejo" },
+      current_matrix: { emotional: "baia" },
+    });
+    expect(r?.kind).toBe("crossing");
+    expect(r?.achievement_summary).toContain("emotional");
+    expect(r?.achievement_summary).toContain("brejo→baia");
+  });
+
+  it("baia→pasto retorna status_to_pasto (precedência sobre crossing)", () => {
+    const r = detectAchievement({
+      child_id: "ryo",
+      session_id: "s1",
+      now: NOW,
+      previous_matrix: { emotional: "baia" },
+      current_matrix: { emotional: "pasto" },
+    });
+    expect(r?.kind).toBe("status_to_pasto");
+  });
+
+  it("brejo→pasto retorna status_to_pasto (jump direto, não crossing)", () => {
+    const r = detectAchievement({
+      child_id: "ryo",
+      session_id: "s1",
+      now: NOW,
+      previous_matrix: { emotional: "brejo" },
+      current_matrix: { emotional: "pasto" },
+    });
+    expect(r?.kind).toBe("status_to_pasto");
+  });
+
+  it("crossing perde pra ignition se ambos qualificam", () => {
+    const r = detectAchievement({
+      child_id: "ryo",
+      session_id: "s1",
+      now: NOW,
+      previous_matrix: { emotional: "brejo" },
+      current_matrix: { emotional: "baia" },
+      gardner_observed: ["linguistic", "logical_mathematical", "spatial"],
+      casel_touched: ["SA", "DM"],
+    });
+    expect(r?.kind).toBe("ignition");
+  });
 });
 
 describe("selectArchetypeForSignal", () => {

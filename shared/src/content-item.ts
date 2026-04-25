@@ -78,6 +78,14 @@ export interface ContentItemBase {
    */
   group_compatible?: boolean;
 
+  /**
+   * Quantidade de "sacrifício" (esforço/exposição) que o item pede.
+   * Range típico: 5-25. Items com valor ≥ SACRIFICE_HIGH_THRESHOLD (15)
+   * disparam signal `sacrifice_high` em detectAchievement quando
+   * selecionados. Bloco 7 prep — antes era hardcoded 0.
+   */
+  sacrifice_amount?: number;
+
   /** Dinâmico por criança — resultante do histórico de uso. */
   times_used?: number;
   last_used_at?: string | null;
