@@ -6,6 +6,7 @@ import {
   CASEL_FOCUS_BONUS,
   TREE_TOP_DOMAIN_BONUS,
   RECENT_DOMAIN_PENALTY,
+  USED_IN_SESSION_PENALTY,
   DECAY_BY_TYPE,
 } from "../src/scorer.js";
 import type { ChildScoringProfile, ScoringContext } from "../src/scorer.js";
@@ -243,5 +244,57 @@ describe("scorePool", () => {
     expect(scored[0].item.id).toBe("fits");
     expect(scored[scored.length - 1].item.id).toBe("too_old");
     expect(scored[scored.length - 1].score).toBe(0);
+  });
+});
+
+// motor#23 — penalidade por reuso intra-session
+describe("scoreItem — used_in_session penalty (motor#23)", () => {
+  it("aplica -100 quando item.id em used_in_session", () => {
+    const item = hook({ id: "h1", surprise: 7, base_score: 7 });
+    const r = scoreItem(item, baseChild, { ...baseCtx, used_in_session: ["h1"] });
+    expect(r.reasons).toContain(`used_in_session_penalty=-${USED_IN_SESSION_PENALTY}`);
+    expect(r.score).toBeLessThan(0);
+  });
+
+  it("não aplica quando item.id NÃO está em used_in_session", () => {
+    const item = hook({ id: "h1", base_score: 7 });
+    const r = scoreItem(item, baseChild, { ...baseCtx, used_in_session: ["h_other"] });
+    expect(r.reasons.find((x) => x.includes("used_in_session"))).toBeUndefined();
+    expect(r.score).toBeGreaterThan(0);
+  });
+
+  it("não aplica quando used_in_session é undefined", () => {
+    const item = hook({ id: "h1" });
+    const r = scoreItem(item, baseChild, baseCtx);
+    expect(r.reasons.find((x) => x.includes("used_in_session"))).toBeUndefined();
+  });
+
+  it("scorePool: items usados rebatem para o fundo do ranking", () => {
+    const pool = [
+      hook({ id: "used", surprise: 10, base_score: 8 }), // teria score alto
+      hook({ id: "fresh1", surprise: 5, base_score: 5 }),
+      hook({ id: "fresh2", surprise: 4, base_score: 4 }),
+    ];
+    const scored = scorePool(pool, baseChild, {
+      ...baseCtx,
+      used_in_session: ["used"],
+    });
+    expect(scored[0].item.id).toBe("fresh1"); // fresh com score baixo > used penalizado
+    expect(scored[scored.length - 1].item.id).toBe("used");
+    expect(scored[scored.length - 1].score).toBeLessThan(0);
+  });
+
+  it("multiple items used: todos penalizados", () => {
+    const pool = [
+      hook({ id: "a", base_score: 10 }),
+      hook({ id: "b", base_score: 8 }),
+      hook({ id: "c", base_score: 5 }),
+    ];
+    const scored = scorePool(pool, baseChild, {
+      ...baseCtx,
+      used_in_session: ["a", "b"],
+    });
+    expect(scored[0].item.id).toBe("c"); // único não usado
+    expect(scored.filter((s) => s.score < 0).map((s) => s.item.id).sort()).toEqual(["a", "b"]);
   });
 });
