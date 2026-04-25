@@ -1,125 +1,180 @@
+/**
+ * Planejador LLM client — motor#21 dual-provider (Anthropic + Infomaniak).
+ *
+ * Provider escolhido per-callsite via env:
+ *   PLANEJADOR_PROVIDER=anthropic|infomaniak (default: infomaniak)
+ *   PLANEJADOR_MODEL=...                     (default: moonshotai/Kimi-K2.5)
+ *   HAIKU_TRIAGE_PROVIDER=...
+ *   HAIKU_TRIAGE_MODEL=...                   (default: mistral3)
+ *
+ * Spec: ascendimacy-ops/docs/specs/2026-04-24-debug-mode.md (router extension).
+ */
+
 import Anthropic from "@anthropic-ai/sdk";
-import { isDebugModeEnabled, getLlmTimeoutMs, getLlmMaxRetries } from "@ascendimacy/shared";
+import OpenAI from "openai";
+import {
+  isDebugModeEnabled,
+  getLlmTimeoutMs,
+  getLlmMaxRetries,
+  getProviderForStep,
+  getModelForStep,
+  getMaxTokensForStep,
+  shouldEnableThinking,
+  getThinkingBudgetTokens,
+  type LlmProvider,
+} from "@ascendimacy/shared";
 
-let client: Anthropic | null = null;
+let anthropicClient: Anthropic | null = null;
+let openaiClient: OpenAI | null = null;
 
-function getClient(): Anthropic {
-  if (!client) {
-    client = new Anthropic({ apiKey: process.env["ANTHROPIC_API_KEY"] });
+function getAnthropic(): Anthropic {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({ apiKey: process.env["ANTHROPIC_API_KEY"] });
   }
-  return client;
+  return anthropicClient;
+}
+
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env["INFOMANIAK_API_KEY"] ?? "mock",
+      baseURL: process.env["INFOMANIAK_BASE_URL"] ?? "https://api.infomaniak.com/1/ai",
+    });
+  }
+  return openaiClient;
 }
 
 export interface LlmCallResult {
   content: string;
   reasoning?: string;
   tokens: { in: number; out: number; reasoning: number };
+  /** Provider efetivamente usado (útil pra debug log). */
+  provider: LlmProvider;
+  /** Model efetivamente usado. */
+  model: string;
 }
 
-/**
- * callLlm — planejador (Sonnet 4.6).
- *
- * motor#19: bump max_tokens 200→2048 (pré-reasoning-model era apertado).
- * Extended thinking habilitado em debug mode (budget 1024).
- */
-export async function callLlm(
+async function callAnthropic(
+  step: string,
   systemPrompt: string,
   userMessage: string,
 ): Promise<LlmCallResult> {
-  const c = getClient();
-  const model = process.env["PLANEJADOR_MODEL"] ?? "claude-sonnet-4-6";
-  const debug = isDebugModeEnabled();
+  const c = getAnthropic();
+  const model = getModelForStep(step, "anthropic");
+  const maxTokens = getMaxTokensForStep(step, model);
+  const thinking = shouldEnableThinking(step, "anthropic", isDebugModeEnabled());
 
   const params: Anthropic.MessageCreateParams = {
     model,
-    max_tokens: 2048,
+    max_tokens: maxTokens,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   };
-
-  if (debug) {
+  if (thinking) {
     (params as Anthropic.MessageCreateParams & { thinking?: unknown }).thinking = {
       type: "enabled",
-      budget_tokens: 1024,
+      budget_tokens: getThinkingBudgetTokens(),
     };
   }
 
-  // motor#20: timeout + retries explícitos pra evitar hang (Kimi-like 54min travamento).
-  // SDK Anthropic retries 408/409/429/5xx + network errors automaticamente.
   const response = await c.messages.create(params, {
-    timeout: getLlmTimeoutMs("planejador"),
-    maxRetries: getLlmMaxRetries("planejador"),
+    timeout: getLlmTimeoutMs(step),
+    maxRetries: getLlmMaxRetries(step),
   });
 
   let content = "";
   let reasoning: string | undefined;
   for (const block of response.content) {
-    if (block.type === "text") {
-      content += block.text;
-    } else if ((block as { type: string }).type === "thinking") {
+    if (block.type === "text") content += block.text;
+    else if ((block as { type: string }).type === "thinking") {
       reasoning = (block as { thinking?: string }).thinking;
     }
   }
   if (!content) {
-    throw new Error("Unexpected response: no text block from LLM");
+    throw new Error("Unexpected response: no text block from Anthropic");
   }
-  const usage = response.usage as {
-    input_tokens: number;
-    output_tokens: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  };
+  const usage = response.usage as { input_tokens: number; output_tokens: number };
   return {
     content,
     reasoning,
-    tokens: {
-      in: usage.input_tokens,
-      out: usage.output_tokens,
-      reasoning: 0, // thinking_tokens não separado no SDK atual; fica embutido em output
+    tokens: { in: usage.input_tokens, out: usage.output_tokens, reasoning: 0 },
+    provider: "anthropic",
+    model,
+  };
+}
+
+async function callInfomaniak(
+  step: string,
+  systemPrompt: string,
+  userMessage: string,
+): Promise<LlmCallResult> {
+  const c = getOpenAI();
+  const model = getModelForStep(step, "infomaniak");
+  const maxTokens = getMaxTokensForStep(step, model);
+
+  const response = await c.chat.completions.create(
+    {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: maxTokens,
     },
+    {
+      timeout: getLlmTimeoutMs(step),
+      maxRetries: getLlmMaxRetries(step),
+    },
+  );
+
+  const msg = response.choices[0]?.message;
+  const content = msg?.content ?? "";
+  const reasoning = (msg as { reasoning?: string } | undefined)?.reasoning;
+  const usage = response.usage;
+  return {
+    content: content || "{}",
+    reasoning,
+    tokens: {
+      in: usage?.prompt_tokens ?? 0,
+      out: usage?.completion_tokens ?? 0,
+      reasoning: 0,
+    },
+    provider: "infomaniak",
+    model,
   };
 }
 
 /**
- * Haiku chamado pra triagem parental (Bloco 4 #17). Reuso do client global.
- * Modelo default `claude-haiku-4-5-20251001`. Curto (512 tokens) — rerank only.
+ * callLlm — motor#21 dispatcher pelo provider escolhido pra `planejador`.
+ */
+export async function callLlm(
+  systemPrompt: string,
+  userMessage: string,
+): Promise<LlmCallResult> {
+  const provider = getProviderForStep("planejador");
+  if (provider === "anthropic") {
+    return callAnthropic("planejador", systemPrompt, userMessage);
+  }
+  return callInfomaniak("planejador", systemPrompt, userMessage);
+}
+
+/**
+ * callHaiku — triage rerank Haiku (Bloco 4 #17).
  *
- * motor#19: bump 150→512; thinking OFF (safety-critical, determinístico-ish).
+ * Default agora é Infomaniak/mistral3 (small fast). Opt-in pra Anthropic Haiku
+ * via HAIKU_TRIAGE_PROVIDER=anthropic.
  */
 export async function callHaiku(
   systemPrompt: string,
   userMessage: string,
 ): Promise<LlmCallResult> {
-  const c = getClient();
-  const model = process.env["HAIKU_MODEL"] ?? "claude-haiku-4-5-20251001";
-  const response = await c.messages.create(
-    {
-      model,
-      max_tokens: 512,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    },
-    {
-      timeout: getLlmTimeoutMs("haiku-triage"),
-      maxRetries: getLlmMaxRetries("haiku-triage"),
-    },
-  );
-  let content = "";
-  for (const block of response.content) {
-    if (block.type === "text") content += block.text;
+  const provider = getProviderForStep("haiku-triage");
+  if (provider === "anthropic") {
+    return callAnthropic("haiku-triage", systemPrompt, userMessage);
   }
-  if (!content) throw new Error("Unexpected response: no text block from Haiku");
-  const usage = response.usage as { input_tokens: number; output_tokens: number };
-  return {
-    content,
-    tokens: { in: usage.input_tokens, out: usage.output_tokens, reasoning: 0 },
-  };
+  return callInfomaniak("haiku-triage", systemPrompt, userMessage);
 }
 
-/**
- * Mock: planejador Bloco 2a devolve só rationale + hints.
- * Scoring de conteúdo é determinístico, fora do LLM.
- */
 export async function callLlmMock(
   _systemPrompt: string,
   _userMessage: string,
@@ -130,5 +185,7 @@ export async function callLlmMock(
       contextHints: { language: "pt-br", mood: "receptive", urgency: "low" },
     }),
     tokens: { in: 0, out: 0, reasoning: 0 },
+    provider: "infomaniak",
+    model: "mock",
   };
 }

@@ -1,40 +1,101 @@
+/**
+ * Motor-drota LLM client — motor#21 dual-provider (Anthropic + Infomaniak).
+ *
+ * Default: Infomaniak / Kimi K2.5. Override via env DROTA_PROVIDER + DROTA_MODEL.
+ *
+ * Spec: docs/specs/2026-04-24-debug-mode.md.
+ */
+
+import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { getLlmTimeoutMs, getLlmMaxRetries } from "@ascendimacy/shared";
+import {
+  isDebugModeEnabled,
+  getLlmTimeoutMs,
+  getLlmMaxRetries,
+  getProviderForStep,
+  getModelForStep,
+  getMaxTokensForStep,
+  shouldEnableThinking,
+  getThinkingBudgetTokens,
+  type LlmProvider,
+} from "@ascendimacy/shared";
 
-let client: OpenAI | null = null;
+let anthropicClient: Anthropic | null = null;
+let openaiClient: OpenAI | null = null;
 
-function getClient(): OpenAI {
-  if (!client) {
-    client = new OpenAI({
+function getAnthropic(): Anthropic {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({ apiKey: process.env["ANTHROPIC_API_KEY"] });
+  }
+  return anthropicClient;
+}
+
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
       apiKey: process.env["INFOMANIAK_API_KEY"] ?? "mock",
       baseURL: process.env["INFOMANIAK_BASE_URL"] ?? "https://api.infomaniak.com/1/ai",
     });
   }
-  return client;
+  return openaiClient;
 }
 
 export interface LlmCallResult {
   content: string;
   reasoning?: string;
   tokens: { in: number; out: number; reasoning: number };
+  provider: LlmProvider;
+  model: string;
 }
 
 /**
- * motor#19: bump max_tokens 512→2048 (4096 quando reasoning model detectado).
- * Captura campo `reasoning` expostos por modelos OpenAI-compat reasoning
- * (Kimi K2.5, DeepSeek-R1 via Infomaniak).
+ * motor#21 dispatcher. Default: Infomaniak / Kimi K2.5. Anthropic via DROTA_PROVIDER=anthropic.
  */
 export async function callLlm(systemPrompt: string, userMessage: string): Promise<LlmCallResult> {
-  const c = getClient();
-  const model = process.env["MOTOR_DROTA_MODEL"] ?? "mistral24b";
-  // Heurística simples: modelos reasoning drenam tokens em CoT. Se nome sugere
-  // reasoning, dobra o budget pra deixar espaço pro content visível.
-  const isReasoningModel = /kimi|deepseek-r|o1|o3|reason/i.test(model);
-  const maxTokens = isReasoningModel ? 4096 : 2048;
-
-  // motor#20: timeout + retries explícitos.
-  // OpenAI SDK retries 408/409/429/5xx automaticamente.
-  const response = await c.chat.completions.create(
+  const provider = getProviderForStep("drota");
+  if (provider === "anthropic") {
+    const c = getAnthropic();
+    const model = getModelForStep("drota", "anthropic");
+    const maxTokens = getMaxTokensForStep("drota", model);
+    const thinking = shouldEnableThinking("drota", "anthropic", isDebugModeEnabled());
+    const params: Anthropic.MessageCreateParams = {
+      model,
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    };
+    if (thinking) {
+      (params as Anthropic.MessageCreateParams & { thinking?: unknown }).thinking = {
+        type: "enabled",
+        budget_tokens: getThinkingBudgetTokens(),
+      };
+    }
+    const r = await c.messages.create(params, {
+      timeout: getLlmTimeoutMs("drota"),
+      maxRetries: getLlmMaxRetries("drota"),
+    });
+    let content = "";
+    let reasoning: string | undefined;
+    for (const block of r.content) {
+      if (block.type === "text") content += block.text;
+      else if ((block as { type: string }).type === "thinking") {
+        reasoning = (block as { thinking?: string }).thinking;
+      }
+    }
+    const usage = r.usage as { input_tokens: number; output_tokens: number };
+    return {
+      content: content || "{}",
+      reasoning,
+      tokens: { in: usage.input_tokens, out: usage.output_tokens, reasoning: 0 },
+      provider: "anthropic",
+      model,
+    };
+  }
+  // Infomaniak (default)
+  const c = getOpenAI();
+  const model = getModelForStep("drota", "infomaniak");
+  const maxTokens = getMaxTokensForStep("drota", model);
+  const r = await c.chat.completions.create(
     {
       model,
       messages: [
@@ -48,21 +109,20 @@ export async function callLlm(systemPrompt: string, userMessage: string): Promis
       maxRetries: getLlmMaxRetries("drota"),
     },
   );
-
-  const msg = response.choices[0]?.message;
+  const msg = r.choices[0]?.message;
   const content = msg?.content ?? "";
-  // `reasoning` é campo não-standard expostos por Infomaniak em modelos reasoning.
   const reasoning = (msg as { reasoning?: string } | undefined)?.reasoning;
-
-  const usage = response.usage;
+  const usage = r.usage;
   return {
     content: content || "{}",
     reasoning,
     tokens: {
       in: usage?.prompt_tokens ?? 0,
       out: usage?.completion_tokens ?? 0,
-      reasoning: 0, // Infomaniak não separa reasoning_tokens; fica embutido no completion
+      reasoning: 0,
     },
+    provider: "infomaniak",
+    model,
   };
 }
 
@@ -74,5 +134,7 @@ export async function callLlmMock(_systemPrompt: string, _userMessage: string): 
         "Olá! Que bom ter você aqui. Posso te apresentar algo que pode facilitar muito o seu dia?",
     }),
     tokens: { in: 0, out: 0, reasoning: 0 },
+    provider: "infomaniak",
+    model: "mock",
   };
 }
