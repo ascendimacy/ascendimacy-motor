@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { isDebugModeEnabled } from "@ascendimacy/shared";
+import { isDebugModeEnabled, getLlmTimeoutMs, getLlmMaxRetries } from "@ascendimacy/shared";
 
 let client: Anthropic | null = null;
 
@@ -44,7 +44,12 @@ export async function callLlm(
     };
   }
 
-  const response = await c.messages.create(params);
+  // motor#20: timeout + retries explícitos pra evitar hang (Kimi-like 54min travamento).
+  // SDK Anthropic retries 408/409/429/5xx + network errors automaticamente.
+  const response = await c.messages.create(params, {
+    timeout: getLlmTimeoutMs("planejador"),
+    maxRetries: getLlmMaxRetries("planejador"),
+  });
 
   let content = "";
   let reasoning: string | undefined;
@@ -87,12 +92,18 @@ export async function callHaiku(
 ): Promise<LlmCallResult> {
   const c = getClient();
   const model = process.env["HAIKU_MODEL"] ?? "claude-haiku-4-5-20251001";
-  const response = await c.messages.create({
-    model,
-    max_tokens: 512,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-  });
+  const response = await c.messages.create(
+    {
+      model,
+      max_tokens: 512,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    },
+    {
+      timeout: getLlmTimeoutMs("haiku-triage"),
+      maxRetries: getLlmMaxRetries("haiku-triage"),
+    },
+  );
   let content = "";
   for (const block of response.content) {
     if (block.type === "text") content += block.text;
