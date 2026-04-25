@@ -38,6 +38,14 @@ export const TREE_TOP_DOMAIN_BONUS = 5;
 /** Bônus por match do CASEL em foco com o target do item. */
 export const CASEL_FOCUS_BONUS = 3;
 
+/**
+ * motor#23: penalidade forte pra items já consumidos na sessão atual.
+ * Maior que qualquer bônus normal (base_score+surprise+casel ≈ 12-15) — efetivamente
+ * exclui o item enquanto outros disponíveis. Não 1000 (parent_pinned) pois ainda
+ * queremos permitir reuso se for última opção.
+ */
+export const USED_IN_SESSION_PENALTY = 100;
+
 export interface DomainRankEntry {
   score: number;
 }
@@ -73,6 +81,12 @@ export interface ScoringContext {
   casel_focus?: CaselDimension;
   /** Instante do turn (ISO). Injeção explícita → testes determinísticos. */
   now: string;
+  /**
+   * motor#23: items já selecionados nesta sessão (extraídos do event_log).
+   * Penalidade pesada (-100) pra evitar repetir mesma fala — descoberta no
+   * smoke-3d onde 12 chamadas drota selecionaram bio_dolphin_names todas.
+   */
+  used_in_session?: string[];
 }
 
 function daysBetween(laterIso: string, earlierIso: string): number {
@@ -172,6 +186,16 @@ export function scoreItem(
     const engagementBonus = engagement * 0.5;
     score += engagementBonus;
     reasons.push(`engagement_by_type=+${engagementBonus.toFixed(2)}`);
+  }
+
+  // motor#23: penalidade forte para items já usados nesta sessão.
+  // Antes desta fix, drota selecionava o mesmo item turn após turn (smoke-3d:
+  // 12 calls × bio_dolphin_names) porque scorer não considerava reuso intra-session.
+  // Penalidade de 100 pontos efetivamente exclui o item enquanto houver outros
+  // disponíveis (base_scores típicos = 5-10).
+  if (context.used_in_session?.includes(item.id)) {
+    score -= USED_IN_SESSION_PENALTY;
+    reasons.push(`used_in_session_penalty=-${USED_IN_SESSION_PENALTY}`);
   }
 
   return { item, score, reasons };

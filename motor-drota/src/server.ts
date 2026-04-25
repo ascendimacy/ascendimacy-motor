@@ -128,8 +128,8 @@ ${instructionAdditionBody}
 3. Respeite <context_hints>. Se contém 'avoid', 'evitar' ou 'alertas', esses padrões são PROIBIDOS na saída.
 4. 'status_gates' em contextHints lista dimensões bloqueadas. Se dimensão bloqueada aparece como casel_focus, adapte tom (reparador, não desafiador).
 5. NUNCA vaze identificadores técnicos (id do content, dot-notation, 'content_pool', 'playbook') na fala.
-6. Língua: "${language}". Gere na MESMA língua.
-7. ${isLimitedProficiency ? `PROFICIÊNCIA LIMITADA: vocabulário simples, frases curtas, zero jargon, erros típicos de não-nativo.` : `Gere em ${language} fluente, natural, adequado à idade e contexto.`}
+6. Língua: "${language}". Gere na MESMA língua que o sujeito.
+7. ${isLimitedProficiency ? `**'pt-br limitado'** descreve o **DESTINATÁRIO** (${persona.name}), NÃO o seu output. SEU output deve ser **pt-br limpo, gramaticalmente correto e simples**: frases curtas, vocabulário básico, zero jargon. **NÃO simule erros de não-nativo no seu output** — o destinatário precisa entender uma fala correta + simples.` : `Gere em ${language} fluente, natural, adequado à idade e contexto.`}
 8. Se <instruction_addition> não está vazio, incorpore-o naturalmente. Exemplos: "day 2 of 5 of chain X" → continuar arco multi-dia; "technique_hint: tribunal" → framear como debate.${
     isJoint
       ? `

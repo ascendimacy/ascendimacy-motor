@@ -179,9 +179,20 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   const statusMatrix = input.state.statusMatrix ?? defaultMatrix();
   const focusDim = pickFocusDimension(statusMatrix);
   const caselTargets = focusDim ? caselTargetsFor(focusDim) : [];
+  // motor#23: extrai items já consumidos nesta sessão do event_log pra
+  // penalizar reuso e forçar rotação (descoberta no smoke-3d-bumped onde
+  // 12 calls drota selecionaram o mesmo item).
+  const usedInSession: string[] = (input.state.eventLog ?? [])
+    .filter((e) => e.type === "playbook_executed")
+    .map((e) => {
+      const data = e.data as { selectedContentId?: string | null } | undefined;
+      return data?.selectedContentId;
+    })
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
   const scored = scorePool(eligible, child, {
     now: new Date().toISOString(),
     casel_focus: caselTargets[0] as ScoredContentItem["item"]["casel_target"][number] | undefined,
+    used_in_session: usedInSession,
   });
   let topK = scored.slice(0, TOP_K_POOL);
 
