@@ -185,10 +185,32 @@ export async function runTurn(
   const gardnerChannelsObserved =
     (selectedItem as { gardner_channels?: import("@ascendimacy/shared").GardnerChannel[] } | undefined)?.gardner_channels;
   const caselTargetsTouched = (selectedItem as { casel_target?: import("@ascendimacy/shared").CaselDimension[] } | undefined)?.casel_target;
+  // Bloco 7 prep — sacrifice_amount agora vem do item selecionado (antes hardcoded 0).
+  const sacrificeSpent = Number(
+    (selectedItem as { sacrifice_amount?: number } | undefined)?.sacrifice_amount ?? 0,
+  );
 
   // ─── Bloco 5a auto-hook — detectAchievement + emit (motor#17) ───────
   // Runs APÓS execute_playbook. Se signal não-null, dispara pipeline.
   // Latency budget: < 100ms extra (detect ~5ms; emit_card ~20-50ms via mocks).
+  //
+  // Bloco 7 prep (motor#18) — re-fetch state após execute_playbook pra capturar
+  // matrix atualizada pelo turn. Comparada com snapshot pré-turno (state.statusMatrix
+  // tirado lá no topo do runTurn) habilita detecção de transições status_to_pasto +
+  // crossing.
+  const prevStatusMatrix = state.statusMatrix ? { ...state.statusMatrix } : undefined;
+  let currentStatusMatrix = state.statusMatrix;
+  try {
+    const newStateResult = await clients.motorExecucao.callTool({
+      name: "get_state",
+      arguments: { sessionId },
+    });
+    const newState = parseToolText<import("@ascendimacy/shared").SessionState>(newStateResult);
+    currentStatusMatrix = newState.statusMatrix ?? currentStatusMatrix;
+  } catch {
+    // Se re-fetch falhar, mantém prev=curr (comportamento pré-#18).
+  }
+
   let emittedCardId: string | undefined;
   let cardEmissionSkipReason: string | undefined;
   const t4 = Date.now();
@@ -198,11 +220,11 @@ export async function runTurn(
       arguments: {
         childId: persona.id,
         sessionId,
-        currentMatrix: state.statusMatrix ?? {},
-        previousMatrix: state.statusMatrix ?? {}, // sem snapshot pré-turno em v1
+        currentMatrix: currentStatusMatrix ?? {},
+        previousMatrix: prevStatusMatrix ?? {},
         gardnerObserved: gardnerChannelsObserved ?? [],
         caselTouched: caselTargetsTouched ?? [],
-        sacrificeSpent: 0, // sem campo dedicado em selectedContent v1
+        sacrificeSpent,
         selectedContent: drota.selectedContent ?? {},
       },
     });

@@ -17,7 +17,12 @@
     "bridge": "Quantas palavras você tem pra RAIVA? Irritado, furioso, frustrado... Se só tem 1, como sabe o que tá sentindo?",
     "quest": "Tenta encontrar 5 palavras diferentes pro que sente AGORA. Não vale repetir.",
     "sacrifice_type": "reflect",
-    "country": "🇨🇦 Ártico"
+    "country": "🇨🇦 Ártico",
+    "gardner_channels": [
+      "linguistic",
+      "intrapersonal"
+    ],
+    "sacrifice_amount": 8
   },
   {
     "id": "ling_pirahã_numbers",
@@ -44,7 +49,8 @@
     "type": "curiosity_hook",
     "domain": "linguistics",
     "casel_target": [
-      "SA"
+      "SA",
+      "REL"
     ],
     "age_range": [
       7,
@@ -57,14 +63,22 @@
     "bridge": "Qual silêncio você sente mais? O pesado ou o bonito? Quando cada um aparece?",
     "quest": "Amanhã presta atenção nos silêncios. Anota: quantos foram pesados? Quantos foram bonitos?",
     "sacrifice_type": "reflect",
-    "country": "🇯🇵 Japão"
+    "country": "🇯🇵 Japão",
+    "gardner_channels": [
+      "linguistic",
+      "intrapersonal",
+      "musical"
+    ],
+    "sacrifice_amount": 6
   },
   {
     "id": "ling_greek_love",
     "type": "curiosity_hook",
     "domain": "linguistics",
     "casel_target": [
-      "SA"
+      "SA",
+      "REL",
+      "SOC"
     ],
     "age_range": [
       7,
@@ -77,7 +91,14 @@
     "bridge": "E você — que tipo de amor sente pelo Kei? Pelo pai? Pelo Dragon Ball? É o mesmo amor?",
     "quest": "Classifica 3 amores da tua vida nos tipos gregos. Me conta qual é cada um.",
     "sacrifice_type": "reflect",
-    "country": "🇬🇷 Grécia"
+    "country": "🇬🇷 Grécia",
+    "gardner_channels": [
+      "linguistic",
+      "interpersonal",
+      "intrapersonal",
+      "existential"
+    ],
+    "sacrifice_amount": 18
   },
   {
     "id": "ling_whistled_language",
@@ -144,7 +165,8 @@
     "type": "curiosity_hook",
     "domain": "biology",
     "casel_target": [
-      "SA"
+      "SA",
+      "SM"
     ],
     "age_range": [
       7,
@@ -157,14 +179,20 @@
     "bridge": "Se você tivesse 3 corações — 1 pra família, 1 pra amigos, 1 pra você — qual bate mais forte?",
     "quest": "Desenha ou descreve: qual dos 3 \"corações\" tá mais cansado essa semana?",
     "sacrifice_type": "reflect",
-    "country": "🌊 Oceano"
+    "country": "🌊 Oceano",
+    "gardner_channels": [
+      "naturalist",
+      "spatial",
+      "intrapersonal"
+    ],
+    "sacrifice_amount": 8
   },
   {
     "id": "bio_trees_communicate",
     "type": "curiosity_hook",
     "domain": "biology",
     "casel_target": [
-      "SOC"
+      "REL"
     ],
     "age_range": [
       7,
@@ -177,14 +205,21 @@
     "bridge": "As árvores avisam as vizinhas do perigo. Você — avisa quando alguém perto tá em perigo? Ou espera?",
     "quest": "Essa semana, se perceber que alguém tá com dificuldade, avisa ou ajuda ANTES que peça.",
     "sacrifice_type": "reflect",
-    "country": "🌳 Floresta"
+    "country": "🌳 Floresta",
+    "gardner_channels": [
+      "naturalist",
+      "interpersonal"
+    ],
+    "sacrifice_amount": 7
   },
   {
     "id": "bio_dolphin_names",
     "type": "curiosity_hook",
     "domain": "biology",
     "casel_target": [
-      "SA"
+      "SA",
+      "REL",
+      "SM"
     ],
     "age_range": [
       7,
@@ -197,7 +232,14 @@
     "bridge": "Os golfinhos fazem luto repetindo o nome do amigo. Quando você perde alguém ou algo importante, como expressa?",
     "quest": "Pensa em algo que perdeu (pessoa, momento, fase). O que faria pra \"assobiar o nome\" dele?",
     "sacrifice_type": "expose",
-    "country": "🌊 Oceano"
+    "country": "🌊 Oceano",
+    "gardner_channels": [
+      "linguistic",
+      "naturalist",
+      "interpersonal",
+      "intrapersonal"
+    ],
+    "sacrifice_amount": 16
   },
   {
     "id": "bio_elephant_mirror",
@@ -224,7 +266,8 @@
     "type": "curiosity_hook",
     "domain": "biology",
     "casel_target": [
-      "DM"
+      "REL",
+      "SOC"
     ],
     "age_range": [
       7,
@@ -237,7 +280,13 @@
     "bridge": "A formiga se sacrifica pelo grupo. No Dragon Ball, Vegeta fez a mesma coisa contra o Buu. Quando é certo se sacrificar? E quando é demais?",
     "quest": "Pensa numa vez que abriu mão de algo por alguém. Valeu a pena? Faria de novo?",
     "sacrifice_type": "reflect",
-    "country": "🐜 Global"
+    "country": "🐜 Global",
+    "gardner_channels": [
+      "naturalist",
+      "interpersonal",
+      "existential"
+    ],
+    "sacrifice_amount": 19
   },
   {
     "id": "bio_caterpillar_dissolve",
@@ -284,7 +333,8 @@
     "type": "curiosity_hook",
     "domain": "physiology",
     "casel_target": [
-      "SA"
+      "SA",
+      "SM"
     ],
     "age_range": [
       7,
@@ -297,7 +347,13 @@
     "bridge": "Já sentiu algo na barriga antes de uma decisão? Medo, ansiedade, empolgação? Seu intestino tava te AVISANDO.",
     "quest": "Presta atenção na barriga amanhã antes de uma decisão. Ela \"disse\" algo? Registra.",
     "sacrifice_type": "observe",
-    "country": "🧠 Corpo"
+    "country": "🧠 Corpo",
+    "gardner_channels": [
+      "bodily_kinesthetic",
+      "intrapersonal",
+      "naturalist"
+    ],
+    "sacrifice_amount": 10
   },
   {
     "id": "phys_tears_different",
@@ -444,7 +500,7 @@
     "type": "curiosity_hook",
     "domain": "physics",
     "casel_target": [
-      "SOC"
+      "SA"
     ],
     "age_range": [
       7,
@@ -457,7 +513,12 @@
     "bridge": "Observar muda a realidade. Quando você presta atenção em alguém, a pessoa muda o comportamento. Você já é influência.",
     "quest": "Observa alguém com atenção por 1 minuto (sem ser creepy). A pessoa muda o comportamento? Como?",
     "sacrifice_type": "observe",
-    "country": "⚛️ Física"
+    "country": "⚛️ Física",
+    "gardner_channels": [
+      "logical_mathematical",
+      "intrapersonal"
+    ],
+    "sacrifice_amount": 6
   },
   {
     "id": "phys_butterfly_effect",
@@ -644,7 +705,8 @@
     "type": "curiosity_hook",
     "domain": "history",
     "casel_target": [
-      "SM"
+      "REL",
+      "SOC"
     ],
     "age_range": [
       7,
@@ -657,7 +719,13 @@
     "bridge": "Mandela perdoou quem o prendeu por 27 anos. Não porque o carcereiro merecia — porque Mandela se recusava a carregar aquele peso.",
     "quest": "Carregar rancor é como beber veneno e esperar que o outro morra. Tem algo que pode soltar essa semana?",
     "sacrifice_type": "reflect",
-    "country": "🇿🇦 África do Sul"
+    "country": "🇿🇦 África do Sul",
+    "gardner_channels": [
+      "interpersonal",
+      "intrapersonal",
+      "existential"
+    ],
+    "sacrifice_amount": 22
   },
   {
     "id": "hist_viking_democracy",
@@ -704,7 +772,9 @@
     "type": "curiosity_hook",
     "domain": "psychology",
     "casel_target": [
-      "SM"
+      "SM",
+      "DM",
+      "SA"
     ],
     "age_range": [
       7,
@@ -717,7 +787,13 @@
     "bridge": "Esperar é difícil. Mas a habilidade de esperar prevê sucesso mais que inteligência.",
     "quest": "Escolhe algo que quer (doce, jogo, celular). Espera 10 min antes de pegar. O que sentiu enquanto esperava?",
     "sacrifice_type": "act",
-    "country": "🇺🇸 Stanford"
+    "country": "🇺🇸 Stanford",
+    "gardner_channels": [
+      "logical_mathematical",
+      "intrapersonal",
+      "interpersonal"
+    ],
+    "sacrifice_amount": 14
   },
   {
     "id": "psych_bystander",
@@ -844,7 +920,8 @@
     "type": "curiosity_hook",
     "domain": "culture",
     "casel_target": [
-      "SM"
+      "REL",
+      "SOC"
     ],
     "age_range": [
       7,
@@ -857,7 +934,12 @@
     "bridge": "Parar não é perder tempo. É criar espaço pra pensar. As melhores ideias vêm quando para.",
     "quest": "Faz um \"fika\" — 10 min de pausa com alguém. Sem celular. Só conversa e algo pra beber.",
     "sacrifice_type": "act",
-    "country": "🇸🇪 Suécia"
+    "country": "🇸🇪 Suécia",
+    "gardner_channels": [
+      "interpersonal",
+      "intrapersonal"
+    ],
+    "sacrifice_amount": 5
   },
   {
     "id": "cult_navajo_laughter",
@@ -944,7 +1026,9 @@
     "type": "curiosity_hook",
     "domain": "mythology",
     "casel_target": [
-      "SA"
+      "SA",
+      "SM",
+      "REL"
     ],
     "age_range": [
       7,
@@ -957,14 +1041,21 @@
     "bridge": "Suas rachaduras não são defeito. São história. O que te quebrou pode ser exatamente o que te faz mais valioso.",
     "quest": "Pensa numa \"rachadura\" tua — algo que te machucou. Se cobrisse de ouro, como ficaria? Me conta.",
     "sacrifice_type": "expose",
-    "country": "🇯🇵 Japão"
+    "country": "🇯🇵 Japão",
+    "gardner_channels": [
+      "spatial",
+      "intrapersonal",
+      "existential"
+    ],
+    "sacrifice_amount": 12
   },
   {
     "id": "myth_phoenix",
     "type": "curiosity_hook",
     "domain": "mythology",
     "casel_target": [
-      "SA"
+      "SA",
+      "SM"
     ],
     "age_range": [
       7,
@@ -977,7 +1068,13 @@
     "bridge": "Toda cultura inventou um pássaro que morre e renasce. Porque toda cultura precisa acreditar que recomeçar é possível.",
     "quest": "Já \"morreu e renasceu\" em algo? Mudou de escola, perdeu amigo, fase ruim que passou? Conta esse renascimento.",
     "sacrifice_type": "reflect",
-    "country": "🌍 Global"
+    "country": "🌍 Global",
+    "gardner_channels": [
+      "spatial",
+      "existential",
+      "intrapersonal"
+    ],
+    "sacrifice_amount": 9
   },
   {
     "id": "myth_odin_eye",
@@ -1084,7 +1181,8 @@
     "type": "curiosity_hook",
     "domain": "theology",
     "casel_target": [
-      "SA"
+      "SA",
+      "REL"
     ],
     "age_range": [
       7,
@@ -1097,7 +1195,12 @@
     "bridge": "Pra aprender, precisa esvaziar. Se já \"sabe tudo\", nada novo entra.",
     "quest": "Sobre que assunto você tá \"com a xícara cheia\"? Tenta ouvir alguém que pensa DIFERENTE sem interromper.",
     "sacrifice_type": "reflect",
-    "country": "🇯🇵 Zen"
+    "country": "🇯🇵 Zen",
+    "gardner_channels": [
+      "intrapersonal",
+      "existential"
+    ],
+    "sacrifice_amount": 17
   },
   {
     "id": "theo_sufi_elephant",

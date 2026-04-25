@@ -21,7 +21,6 @@ import type {
   CaselDimension,
   GardnerChannel,
   StatusMatrix,
-  StatusValue,
   ScoredContentItem,
   ParentalProfile,
 } from "@ascendimacy/shared";
@@ -38,13 +37,14 @@ import {
 /**
  * Sinal de conquista detectado — gatilho pra propor card.
  * Detecção é heurística: qualquer transição status → pasto conta;
- * ou sacrifice_spent alto; ou múltiplos canais Gardner ativados (ignition).
+ * ou sacrifice_spent alto; ou múltiplos canais Gardner ativados (ignition);
+ * ou crossing brejo→baia (Bloco 7 prep — recovery transition).
  */
 export interface AchievementSignal {
   child_id: string;
   session_id: string;
   timestamp: string;
-  kind: "status_to_pasto" | "ignition" | "sacrifice_high";
+  kind: "status_to_pasto" | "ignition" | "sacrifice_high" | "crossing";
   context_word: string;
   casel_dimension: CaselDimension;
   gardner_channel: GardnerChannel;
@@ -119,6 +119,17 @@ function classifyAchievement(input: DetectAchievementInput): AchievementSignal["
   if ((input.sacrifice_spent ?? 0) >= SACRIFICE_HIGH_THRESHOLD) {
     return "sacrifice_high";
   }
+  // 4. Crossing brejo→baia (recovery transition; Bloco 7 prep).
+  //    Precedência mais baixa pra não roubar status_to_pasto (qualquer→pasto)
+  //    nem ignition/sacrifice. Só ativa se nenhum dos 3 acima detectou.
+  if (input.previous_matrix && input.current_matrix) {
+    for (const [dim, nowValue] of Object.entries(input.current_matrix)) {
+      const prev = input.previous_matrix[dim];
+      if (prev === "brejo" && nowValue === "baia") {
+        return "crossing";
+      }
+    }
+  }
   return null;
 }
 
@@ -137,7 +148,20 @@ function buildSummary(kind: AchievementSignal["kind"], input: DetectAchievementI
       return `ignição multi-canal (${input.gardner_observed?.length ?? 0} Gardner × ${input.casel_touched?.length ?? 0} CASEL)`;
     case "sacrifice_high":
       return `sacrifício alto (${input.sacrifice_spent} pts) em ${selId ?? "content desconhecido"}`;
+    case "crossing": {
+      const dim = firstDimensionBrejoToBaia(input);
+      return `dimensão ${dim ?? "?"} atravessou brejo→baia (recovery)${selId ? ` via ${selId}` : ""}`;
+    }
   }
+}
+
+function firstDimensionBrejoToBaia(input: DetectAchievementInput): string | null {
+  if (!input.previous_matrix || !input.current_matrix) return null;
+  for (const [dim, val] of Object.entries(input.current_matrix)) {
+    const prev = input.previous_matrix[dim];
+    if (prev === "brejo" && val === "baia") return dim;
+  }
+  return null;
 }
 
 function firstDimensionToPasto(input: DetectAchievementInput): string | null {
@@ -181,6 +205,9 @@ export function selectArchetypeForSignal(
     status_to_pasto: "legendary",
     ignition: "epic",
     sacrifice_high: "rare",
+    // crossing reaproveita arch_crossing_v0 (legendary) — narrativa
+    // "atravessou de brejo pra baia, baia pra pasto" cobre ambos os kinds.
+    crossing: "legendary",
   };
   const targetRarity = rarityByKind[signal.kind];
   // Tenta match exato casel + rarity.
