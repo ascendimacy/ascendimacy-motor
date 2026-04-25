@@ -32,6 +32,7 @@ import {
   shouldPauseProgram,
   isParentalProfileMinimal,
   triageForParents,
+  logDebugEvent,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku } from "./llm-client.js";
 import { loadSeedPool, buildPool } from "./pool-builder.js";
@@ -193,7 +194,11 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   let triageMode: "rule_based" | "haiku" | "skipped" = "skipped";
   let triageRejectedIds: string[] = [];
   if (isParentalProfileMinimal(parentalProfile)) {
-    const haikuCaller = useMockLlm ? undefined : callHaiku;
+    // motor#19: callHaiku retorna LlmCallResult; HaikuCaller espera string.
+    // Wrap pra extrair só content (reasoning não é logado em Haiku hoje).
+    const haikuCaller = useMockLlm
+      ? undefined
+      : async (sys: string, user: string) => (await callHaiku(sys, user)).content;
     const triageResult = await triageForParents(
       { pool: topK, profile: parentalProfile!, max_approved: TOP_K_POOL },
       haikuCaller,
@@ -206,10 +211,46 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   // 3. LLM consulta para rationale + contextHints.
   const systemPrompt = buildSystemPrompt(input);
   const userMessage = `Emita o JSON com rationale + hints.`;
-  const raw = useMockLlm
+  const t0 = Date.now();
+  const llmResult = useMockLlm
     ? await callLlmMock(systemPrompt, userMessage)
     : await callLlm(systemPrompt, userMessage);
-  const rationale = parseRationale(raw);
+  const llmLatency = Date.now() - t0;
+  const rationale = parseRationale(llmResult.content);
+
+  // motor#19: debug log (no-op se ASC_DEBUG_MODE off)
+  logDebugEvent({
+    side: "motor",
+    step: "planejador",
+    user_id: input.persona.id,
+    session_id: input.sessionId,
+    turn_number: input.state.turn,
+    model: process.env["PLANEJADOR_MODEL"] ?? "claude-sonnet-4-6",
+    provider: "anthropic",
+    tokens: llmResult.tokens,
+    latency_ms: llmLatency,
+    prompt: systemPrompt + "\n\n[USER]\n" + userMessage,
+    response: llmResult.content,
+    reasoning: llmResult.reasoning,
+    snapshots_pre: {
+      planejador: {
+        persona_age: input.persona.age,
+        pool_pre_filter_size: rawPool.length,
+        pool_post_eligibility_size: eligible.length,
+        triage_mode: triageMode,
+        triage_rejected_ids: triageRejectedIds,
+        gardner_active: !!input.state.gardnerProgram?.current_week,
+      },
+    },
+    snapshots_post: {
+      planejador: {
+        rationale: rationale.strategicRationale,
+        context_hints_keys: Object.keys(rationale.contextHints),
+        top_k_pool_ids: topK.slice(0, 5).map((s) => s.item.id),
+      },
+    },
+    outcome: "ok",
+  });
 
   // 4. Composição do mixin withGardnerProgram se ativo.
   const gardnerInstruction = buildGardnerInstruction(input);

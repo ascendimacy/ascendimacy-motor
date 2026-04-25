@@ -5,6 +5,7 @@ import yaml from "js-yaml";
 import type { McpClients } from "./mcp-clients.js";
 import { initTrace, appendTurn, saveTrace } from "./trace-writer.js";
 import type { PersonaDef, AdquirenteDef, PlaybookIndex } from "@ascendimacy/shared";
+import { logDebugEvent } from "@ascendimacy/shared";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, "../../fixtures");
@@ -213,6 +214,7 @@ export async function runTurn(
 
   let emittedCardId: string | undefined;
   let cardEmissionSkipReason: string | undefined;
+  let signalKind: string | undefined;
   const t4 = Date.now();
   try {
     const detectResult = await clients.motorExecucao.callTool({
@@ -230,6 +232,7 @@ export async function runTurn(
     });
     const signal = parseToolText<unknown>(detectResult);
     if (signal && typeof signal === "object" && (signal as { kind?: unknown }).kind) {
+      signalKind = String((signal as { kind?: unknown }).kind);
       const personaProfile = (persona.profile ?? {}) as Record<string, unknown>;
       const parentalProfile = personaProfile["parental_profile"];
       const emitResult = await clients.motorExecucao.callTool({
@@ -246,11 +249,49 @@ export async function runTurn(
       } else if (emitOutput.skipped) {
         cardEmissionSkipReason = emitOutput.skip_reason ?? "skipped_unknown";
       }
+    } else {
+      cardEmissionSkipReason = "no_signal";
     }
   } catch (err) {
     cardEmissionSkipReason = `auto_hook_error:${String(err).slice(0, 100)}`;
   }
   const cardHookMs = Date.now() - t4;
+
+  // motor#19: debug log do auto-hook (no-op se ASC_DEBUG_MODE off)
+  logDebugEvent({
+    side: "motor",
+    step: "auto-hook",
+    user_id: persona.id,
+    session_id: sessionId,
+    turn_number: state.turn,
+    provider: null,
+    model: null,
+    latency_ms: cardHookMs,
+    snapshots_pre: {
+      ebrota: {
+        statusMatrix: prevStatusMatrix ?? {},
+        gardner_program: state.gardnerProgram ?? null,
+        turn: state.turn,
+        trust: state.trustLevel,
+        budget: state.budgetRemaining,
+        session_mode: state.sessionMode ?? "solo",
+        selected_content_id: selectedItem?.id ?? null,
+        gardner_channels: gardnerChannelsObserved ?? [],
+        casel_target: caselTargetsTouched ?? [],
+        sacrifice_amount: sacrificeSpent,
+      },
+    },
+    snapshots_post: {
+      ebrota: {
+        signal_kind: signalKind ?? null,
+        emitted_card_id: emittedCardId ?? null,
+        skip_reason: cardEmissionSkipReason ?? null,
+        statusMatrix: currentStatusMatrix ?? {},
+      },
+    },
+    outcome: emittedCardId ? "ok" : cardEmissionSkipReason?.startsWith("auto_hook_error") ? "error" : "skip",
+    error_class: cardEmissionSkipReason?.startsWith("auto_hook_error") ? cardEmissionSkipReason : null,
+  });
 
   appendTurn(trace, {
     turnNumber: state.turn,
