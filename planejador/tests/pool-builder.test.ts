@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { loadSeedPool, buildPool } from "../src/pool-builder.js";
-import type { ContentItem } from "@ascendimacy/shared";
+import { loadSeedPool, buildPool, slicePoolForDrota } from "../src/pool-builder.js";
+import type { ContentItem, ScoredContentItem } from "@ascendimacy/shared";
 
 const makeHook = (overrides: Partial<ContentItem> = {}): ContentItem =>
   ({
@@ -82,5 +82,108 @@ describe("buildPool — refusal tracking is Bloco 3+ (v2, §4.11)", () => {
     const pool = [makeHook({ id: "normal" })];
     const built = buildPool(pool, { age: 10 });
     expect(built.map((i) => i.id)).toEqual(["normal"]);
+  });
+});
+
+// motor#25 (handoff #24 Tarefa 1) — slicePoolForDrota
+describe("slicePoolForDrota — char budget + max items + filter score≤0", () => {
+  const makeScored = (id: string, score: number, charsHint = 200): ScoredContentItem => {
+    const padding = "x".repeat(Math.max(0, charsHint - 20));
+    return {
+      item: makeHook({ id, fact: padding, bridge: "b", quest: "q" }),
+      score,
+      reasons: [],
+    };
+  };
+
+  it("filtra items com score ≤ 0 (used_in_session penalty marcou)", () => {
+    const pool: ScoredContentItem[] = [
+      makeScored("ok1", 8),
+      makeScored("penalized", -90),
+      makeScored("ok2", 6),
+    ];
+    const slim = slicePoolForDrota(pool, { excludeUsedInSession: true });
+    expect(slim.map((s) => s.item.id)).toEqual(["ok1", "ok2"]);
+  });
+
+  it("excludeUsedInSession=false mantém items penalizados", () => {
+    const pool: ScoredContentItem[] = [
+      makeScored("ok1", 8),
+      makeScored("penalized", -90),
+    ];
+    const slim = slicePoolForDrota(pool, { excludeUsedInSession: false });
+    expect(slim.map((s) => s.item.id)).toEqual(["ok1", "penalized"]);
+  });
+
+  it("slice top-K (default 7)", () => {
+    const pool: ScoredContentItem[] = Array.from({ length: 12 }, (_, i) =>
+      makeScored(`item${i}`, 10 - i),
+    );
+    const slim = slicePoolForDrota(pool);
+    expect(slim).toHaveLength(7);
+    expect(slim.map((s) => s.item.id)).toEqual([
+      "item0",
+      "item1",
+      "item2",
+      "item3",
+      "item4",
+      "item5",
+      "item6",
+    ]);
+  });
+
+  it("maxItems custom override default", () => {
+    const pool: ScoredContentItem[] = Array.from({ length: 8 }, (_, i) =>
+      makeScored(`i${i}`, 10 - i),
+    );
+    const slim = slicePoolForDrota(pool, { maxItems: 3 });
+    expect(slim).toHaveLength(3);
+  });
+
+  it("maxTotalChars=2000 trunca items longos preservando id/type", () => {
+    // 7 items × 700 chars cada ≈ 4900 — excede 2000
+    const pool: ScoredContentItem[] = Array.from({ length: 7 }, (_, i) =>
+      makeScored(`big${i}`, 10 - i, 700),
+    );
+    const slim = slicePoolForDrota(pool, { maxTotalChars: 2000 });
+    expect(slim).toHaveLength(7); // não corta items, trunca campos
+    // ids preservados
+    expect(slim.map((s) => s.item.id)).toEqual([
+      "big0",
+      "big1",
+      "big2",
+      "big3",
+      "big4",
+      "big5",
+      "big6",
+    ]);
+    // pelo menos 1 item teve fact truncado (vai ter "..." no fim)
+    const trunced = slim.filter((s) => {
+      const f = (s.item as { fact?: string }).fact ?? "";
+      return f.endsWith("...");
+    });
+    expect(trunced.length).toBeGreaterThan(0);
+  });
+
+  it("maxTotalChars não corta quando pool é pequeno", () => {
+    const pool: ScoredContentItem[] = [
+      makeScored("small1", 10, 100),
+      makeScored("small2", 9, 100),
+    ];
+    const slim = slicePoolForDrota(pool, { maxTotalChars: 2000 });
+    // Itens não truncados — fact original preservado
+    expect((slim[0]!.item as { fact?: string }).fact?.endsWith("...")).toBeFalsy();
+  });
+
+  it("pool vazio → array vazio", () => {
+    expect(slicePoolForDrota([])).toEqual([]);
+  });
+
+  it("todos com score ≤ 0 → array vazio (com excludeUsedInSession)", () => {
+    const pool: ScoredContentItem[] = [
+      makeScored("a", -100),
+      makeScored("b", -100),
+    ];
+    expect(slicePoolForDrota(pool)).toEqual([]);
   });
 });

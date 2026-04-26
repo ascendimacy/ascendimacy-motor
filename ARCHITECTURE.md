@@ -628,6 +628,168 @@ npm run smoke   # rubric G1-G3 com mocks
 
 ---
 
+## 13. Componentes sensoriais (motor#25)
+
+Antes do motor#25, motor-drota tinha só um componente sensorial: Environment
+Assessor lendo state_vector escalar (mood, trust, engagement_signal categórico).
+Signals semânticos profundos — frame filosófico, frame rejection, meta-cognição,
+auto-aceitação, auto-deprecação — não tinham onde ser capturados. Quando Kei
+disse "não preciso ser borboleta" (frame filosófico de auto-aceitação claro),
+literalmente nenhum componente do motor enxergou.
+
+Motor#25 introduz **Signal Extractor** como segundo componente sensorial,
+rodando ANTES do Environment Assessor.
+
+### Pipeline sensorial (post-motor#25)
+
+```
+user_message
+    ↓
+[1. Signal Extractor]  ← NOVO motor#25
+    ↓ extract_signals MCP tool em motor-drota
+    ↓ output: { signals: SemanticSignal[], evidence?, confidence? }
+    ↓ persistido como event "signals_extracted" no event_log
+    ↓
+[2. Environment Assessor]  ← existente pré-#25
+    ↓ lê state_vector (mood, trust, engagement_signal)
+    ↓
+[3. evaluate_and_select pipeline]
+    ↓
+linguisticMaterialization
+```
+
+### Taxonomia v0 (15 signals — DA-PRE-PILOTO-01)
+
+Spec: `shared/src/semantic-signals.ts`. Lista canônica:
+
+| Categoria | Signals |
+|---|---|
+| Frame e meta-cognição | `philosophical_self_acceptance`, `frame_rejection`, `meta_cognitive_observation`, `frame_synthesis` |
+| Engajamento | `voluntary_topic_deepening`, `vulnerability_offering` |
+| Distress markers | `distress_marker_high`, `distress_marker_low` |
+| Deflexões | `deflection_thematic`, `deflection_silence` |
+| Mood drift | `mood_drift_up`, `mood_drift_down` |
+| Relacional | `peer_reference`, `authority_questioning`, `gatekeeper_resistance` |
+
+Expandir conforme aparecem gaps no piloto. **30 antes de validar é
+especificação no escuro.**
+
+### Provider routing
+
+Default: Infomaniak/Mistral3 (não-reasoning, ~5s/call). Razão: tarefa é
+classificação de signals em texto curto, não exige reasoning chain.
+Override via env `SIGNAL_EXTRACTOR_PROVIDER`/`SIGNAL_EXTRACTOR_MODEL`.
+
+Fail-soft: erro do extractor não trava o turn — retorna `signals: []`,
+`overall_confidence: 0`. Trigger Evaluator vê isso como "sem signals" e
+não emite transition_evaluated.
+
+**Raw response logging**: extractor sempre loga raw LLM output via
+`logDebugEvent` (step `signal-extractor`) com flag `parse_fallback_taken`
+nos snapshots_post — diferencia "modelo retornou vazio" de "parser engoliu
+output malformado". Descoberto durante validação Gate A do motor#25 que
+Mistral3 detectava signals corretamente mas formato JSON quebrava parsing.
+Ver `motorops/decision-trail/2026-04-26-005-signal-extractor-prompt-tightening.md`.
+
+### Read-only — não pondera scoring runtime
+
+**Crítico**: Signal Extractor SÓ CAPTURA. Não influencia scoring,
+selection, voice profile. Os signals alimentam:
+
+1. **Trigger Evaluator** (§14) — função de transição
+2. **MotorOps batch agg** (pós-piloto) — análise de padrões
+
+Auto-tuning baseado em signals fica pra v1 pós-piloto, depois de validar
+precision/recall com auditoria humana sobre traces reais.
+
+---
+
+## 14. Função de transição (motor#25)
+
+Antes do motor#25, ARCHITECTURE.md §6 e §9 falavam em statusMatrix com
+invariante `brejo → baia → pasto`, mas em nenhum lugar estava declarado
+**o que faz statusMatrix se mover**. Sem isso, "pastor" era palavra:
+motor não tinha critério para parar de empurrar archetypes da fase atual;
+Pedagógico não conseguia medir eficácia.
+
+Motor#25 introduz **schema declarativo per-perfil** em YAML, lido pelo
+Planejador a cada turn.
+
+### Filosofia (DA-PRE-PILOTO-02)
+
+**Declarativo bloqueante**. Função computacional vira tech debt explícito
+SE função estática mostrar-se insuficiente após 30d de piloto. Inverter
+essa ordem = caixa-preta dobrada.
+
+### Layout de arquivos
+
+```
+content/profiles/<profile_id>.transitions.yaml   ← schema declarativo
+shared/src/transitions-schema.ts                  ← Zod validator
+planejador/src/trigger-evaluator.ts               ← carrega + avalia
+```
+
+Profiles previstos: `kids`, `eprumo`, `drota-corp` (per ARCHITECTURE.md §1).
+v0 commitado: `kids.transitions.yaml`.
+
+### Schema YAML (kids v0)
+
+```yaml
+profile_id: kids
+schema_version: v0
+transitions:
+  brejo_to_baia:
+    required_signals:
+      - philosophical_self_acceptance
+      - voluntary_topic_deepening
+    minimum_window_turns: 2
+    confirmatory_signals: [...]
+    regression_to_brejo_if: [distress_marker_high, ...]
+
+  baia_to_pasto:
+    required_signals:
+      - meta_cognitive_observation
+      - frame_synthesis
+    minimum_window_turns: 5
+    ...
+```
+
+### Trigger Evaluator — fluxo
+
+`planejador/src/trigger-evaluator.ts` — função `evaluateAllTransitions`:
+
+1. Carrega `<profile_id>.transitions.yaml` (cached em memória)
+2. Coleta signals dos últimos 5 turns via `collectRecentSignals(eventLog)`
+3. Conta turns desde último `transition_evaluated.fired=true` event
+4. Avalia cada transição: required_signals match (OR default) + janela ok + sem regression
+5. Retorna lista `TransitionEvaluationResult[]` em `PlanTurnOutput.transitionEvaluations`
+
+Orchestrator loga cada como event `transition_evaluated` no event_log.
+
+### v0: read-only — NÃO move statusMatrix
+
+**Crítico em v0**: Trigger Evaluator SÓ EMITE EVENTOS. statusMatrix continua
+sob controle manual via `inject_status` (smoke-3d/nagareyama-30d) ou outro
+mecanismo externo.
+
+Auto-movimentação baseada em transição fired fica pra v1 pós-piloto, depois
+de validar precision/recall via auditoria humana de 30d de eventos
+`transition_evaluated`.
+
+### candidate_set entropy (handoff #25 B5)
+
+Em paralelo, plan_turn calcula Shannon entropy sobre archetype_ids do pool
+(`PlanTurnOutput.candidateSetEntropy`). Loga como event `candidate_set_emitted`.
+
+Razão: smoke-3d mostrou drota selecionando o mesmo item 12x antes do
+USED_IN_SESSION_PENALTY (motor#23). Com pool slim (motor#25 Tarefa 1) +
+entropy log, dá pra detectar "carrossel upstream" — se entropy é baixa,
+problema é do Planejador, não do drota.
+
+Threshold de "baixa entropy" calibra-se com piloto. v0: só registra.
+
+---
+
 ## Filosofia em 5 linhas
 
 > O motor não inventa: ancora.
@@ -643,9 +805,9 @@ npm run smoke   # rubric G1-G3 com mocks
 | Versão | Data | Mudança |
 |---|---|---|
 | 1.0 | 2026-04-25 | Versão inicial — cobre motor#1 → motor#23 + débitos motor#24 |
+| 1.1 | 2026-04-26 | motor#25 — handoff #24 (pool slim + prompt cache + parse fallback) + handoff #25 (Pastor foundations: Signal Extractor §13 + Trigger Evaluator §14 + candidate_set entropy + transitions.yaml v0 + 15 signals taxonomy) |
 
-Quando o motor#24 mergear, bump para 1.1 (atualizar §5, §6, §11). Quando
-motor#25+ adicionar capacidade nova (provider, content type, mecânica),
+Quando motor#26+ adicionar capacidade nova (provider, content type, mecânica),
 bump minor. Quando contratos MCP mudarem shape (não retrocompatível),
 bump major.
 

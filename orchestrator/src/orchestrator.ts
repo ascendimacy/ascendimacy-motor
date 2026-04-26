@@ -108,6 +108,59 @@ export async function runTurn(
     output: state as unknown as Record<string, unknown>,
   });
 
+  // motor#25 (handoff #25 B2): Signal Extractor — antes de plan_turn.
+  // Captura signals do user message + history tail. Loga signals_extracted
+  // event no event_log pra Trigger Evaluator consumir.
+  // Read-only — fail-soft, qualquer erro vira signals=[].
+  const tSig = Date.now();
+  try {
+    const signalsResult = await clients.motorDrota.callTool({
+      name: "extract_signals",
+      arguments: {
+        userMessage: message,
+        personaName: persona.name,
+        personaAge: persona.age,
+        trustLevel: state.trustLevel,
+        conversationHistoryTail: (state.eventLog ?? [])
+          .slice(-3)
+          .map((e) => ({
+            role: "assistant" as const,
+            content: ((e.data as { output?: string } | undefined)?.output ?? "").slice(0, 200),
+          })),
+      },
+    });
+    const sig = parseToolText<{
+      signals: string[];
+      evidence?: Record<string, string>;
+      overall_confidence?: number;
+    }>(signalsResult);
+    if (sig.signals && sig.signals.length > 0) {
+      // Loga event no motor-execucao pra Trigger Evaluator ler na próxima call
+      await clients.motorExecucao.callTool({
+        name: "log_event",
+        arguments: {
+          sessionId,
+          type: "signals_extracted",
+          data: {
+            signals: sig.signals,
+            evidence: sig.evidence ?? {},
+            overall_confidence: sig.overall_confidence ?? 0,
+          },
+        },
+      });
+      // Re-fetch state pra trigger-evaluator do plan_turn ver o novo event
+      const refreshed = await clients.motorExecucao.callTool({
+        name: "get_state",
+        arguments: { sessionId },
+      });
+      const refreshedState = parseToolText<import("@ascendimacy/shared").SessionState>(refreshed);
+      if (refreshedState.eventLog) state.eventLog = refreshedState.eventLog;
+    }
+  } catch {
+    // Fail-soft: signal extraction quebra não trava o turn
+  }
+  void (Date.now() - tSig); // keep latency hint local — debug log captura via debug-mode
+
   const t1 = Date.now();
   const planResult = await clients.planejador.callTool({
     name: "plan_turn",
@@ -121,6 +174,50 @@ export async function runTurn(
     input: { incomingMessage: message, poolSize: plan.contentPool.length },
     output: plan as unknown as Record<string, unknown>,
   });
+
+  // motor#25 (handoff #25 B4 + B5): loga transitionEvaluations + entropy events.
+  // Read-only — só registra. v0 não move statusMatrix.
+  if (plan.transitionEvaluations && plan.transitionEvaluations.length > 0) {
+    for (const ev of plan.transitionEvaluations) {
+      try {
+        await clients.motorExecucao.callTool({
+          name: "log_event",
+          arguments: {
+            sessionId,
+            type: "transition_evaluated",
+            data: {
+              transition_name: ev.transition_name,
+              fired: ev.fired,
+              required_matched: ev.required_matched,
+              confirmatory_matched: ev.confirmatory_matched,
+              regression_signals_present: ev.regression_signals_present,
+              reason: ev.reason,
+            },
+          },
+        });
+      } catch {
+        // Fail-soft
+      }
+    }
+  }
+  if (typeof plan.candidateSetEntropy === "number") {
+    try {
+      await clients.motorExecucao.callTool({
+        name: "log_event",
+        arguments: {
+          sessionId,
+          type: "candidate_set_emitted",
+          data: {
+            entropy_score: plan.candidateSetEntropy,
+            pool_size: plan.contentPool.length,
+            pool_ids: plan.contentPool.map((s) => s.item.id),
+          },
+        },
+      });
+    } catch {
+      // Fail-soft
+    }
+  }
 
   const t2 = Date.now();
   const drotaResult = await clients.motorDrota.callTool({
@@ -293,6 +390,10 @@ export async function runTurn(
     error_class: cardEmissionSkipReason?.startsWith("auto_hook_error") ? cardEmissionSkipReason : null,
   });
 
+  // motor#25: parse failure propagation pra TurnTrace.
+  const drotaSkipReason = (drota as { skipReason?: string }).skipReason;
+  const parseFailure = drotaSkipReason ? true : undefined;
+
   appendTurn(trace, {
     turnNumber: state.turn,
     sessionId,
@@ -312,6 +413,8 @@ export async function runTurn(
     jointPartnerName: state.jointPartnerName,
     emittedCardId,
     cardEmissionSkipReason,
+    parseFailure,
+    parseFailureReason: drotaSkipReason,
   });
   void cardHookMs; // expose latency hint via flags se quiser; v1 só registra
 

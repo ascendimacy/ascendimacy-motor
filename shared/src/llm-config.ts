@@ -19,6 +19,8 @@ export const LLM_TIMEOUT_DEFAULTS: Record<string, number> = {
   drota: 90_000,
   // Sonnet 4.6 persona-simulator
   "persona-sim": 30_000,
+  // motor#25 — Signal Extractor (Mistral3 default, classification curta)
+  "signal-extractor": 15_000,
 };
 
 /** MaxRetries default por step. */
@@ -28,6 +30,7 @@ export const LLM_MAX_RETRIES_DEFAULTS: Record<string, number> = {
   "haiku-bullying": 2,
   drota: 2, // reasoning model retry é caro, fail-fast é melhor
   "persona-sim": 3,
+  "signal-extractor": 2, // motor#25 — fail-fast, fallback rule-based existe
 };
 
 /**

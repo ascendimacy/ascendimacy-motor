@@ -147,3 +147,57 @@ describe("motor-drota.callLlm — motor#19 + motor#20", () => {
     expect((captured.options as { maxRetries: number }).maxRetries).toBe(2);
   });
 });
+
+// motor#25 (handoff #24 Tarefa 2) — prompt cache prefix
+describe("motor-drota.callLlm — cacheableSystemPrefix (motor#25)", () => {
+  it("Infomaniak: passa prefix concatenado ao system (default behavior, sem cache_control)", async () => {
+    mockResponse = {
+      choices: [{ message: { content: "{}" } }],
+      usage: { prompt_tokens: 100, completion_tokens: 50 },
+    };
+    const { callLlm } = await import("../src/llm-client.js");
+    await callLlm("DYNAMIC_BODY", "user msg", {
+      cacheableSystemPrefix: "STABLE_PREFIX",
+    });
+    const params = captured.params as { messages: Array<{ role: string; content: string }> };
+    // Sistema OpenAI-compat: prefix + body concatenados
+    expect(params.messages[0]!.role).toBe("system");
+    expect(params.messages[0]!.content).toContain("STABLE_PREFIX");
+    expect(params.messages[0]!.content).toContain("DYNAMIC_BODY");
+  });
+
+  it("Infomaniak: sem cacheableSystemPrefix, system = systemPrompt direto", async () => {
+    mockResponse = {
+      choices: [{ message: { content: "{}" } }],
+      usage: { prompt_tokens: 100, completion_tokens: 50 },
+    };
+    const { callLlm } = await import("../src/llm-client.js");
+    await callLlm("just system", "user");
+    const params = captured.params as { messages: Array<{ content: string }> };
+    expect(params.messages[0]!.content).toBe("just system");
+  });
+
+  it("captura cacheRead de prompt_tokens_details.cached_tokens (Infomaniak)", async () => {
+    mockResponse = {
+      choices: [{ message: { content: "{}" } }],
+      usage: {
+        prompt_tokens: 1000,
+        completion_tokens: 50,
+        prompt_tokens_details: { cached_tokens: 800 },
+      },
+    };
+    const { callLlm } = await import("../src/llm-client.js");
+    const r = await callLlm("s", "u");
+    expect(r.tokens.cacheRead).toBe(800);
+  });
+
+  it("cacheRead undefined quando provider não reporta cached_tokens", async () => {
+    mockResponse = {
+      choices: [{ message: { content: "{}" } }],
+      usage: { prompt_tokens: 100, completion_tokens: 50 },
+    };
+    const { callLlm } = await import("../src/llm-client.js");
+    const r = await callLlm("s", "u");
+    expect(r.tokens.cacheRead).toBeUndefined();
+  });
+});
