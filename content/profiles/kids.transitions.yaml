@@ -1,0 +1,53 @@
+# transitions.yaml — Função de transição declarativa para perfil Kids (motor#25)
+#
+# Spec: docs/handoffs/2026-04-26-cc-motor-pre-piloto-strategic-gaps.md §motor#25.
+# ARCHITECTURE.md §14 (adicionado neste PR).
+#
+# Filosofia (DA-PRE-PILOTO-02): declarativo bloqueante. Função computacional
+# vira tech debt explícito SE função estática mostrar-se insuficiente após
+# 30d de piloto. Inverter essa ordem = caixa-preta dobrada.
+#
+# Schema validado por shared/src/transitions-schema.ts (Zod).
+#
+# Status atual da statusMatrix Kids: brejo → baia → pasto.
+# Cada transição lista signals que devem aparecer (required), signals que
+# confirmam (confirmatory), e signals que regridem (regression_to).
+
+profile_id: kids
+schema_version: v0
+last_updated: 2026-04-26
+
+transitions:
+  # Subida brejo → baia: signal de auto-aceitação OU engajamento sustentado
+  brejo_to_baia:
+    required_signals:
+      - philosophical_self_acceptance
+      - voluntary_topic_deepening  # OR via: 3 turns de mood_drift_up
+    minimum_window_turns: 2  # mínimo 2 turns desde último brejo registrado
+    confirmatory_signals:
+      - voluntary_topic_deepening
+      - mood_drift_up
+    regression_to_brejo_if:
+      - distress_marker_high  # gatilho forte → volta pra brejo
+      - 2_consecutive_deflexions  # 2 deflection_thematic ou _silence em sequência
+
+  # Subida baia → pasto: meta-cognição OU síntese de framework próprio
+  baia_to_pasto:
+    required_signals:
+      - meta_cognitive_observation
+      - frame_synthesis  # OR via: aplicação voluntária a novo contexto
+    minimum_window_turns: 5  # mínimo 5 turns em baia antes de virar pasto
+    confirmatory_signals:
+      - voluntary_application_to_new_context  # signal especial: detectado por bot via tópico shift consciente
+      - peer_reference  # menciona aprendizado pra irmão/amigo
+    regression_to_baia_if:
+      - distress_marker_high
+      - explicit_request_for_simpler_framing  # "isso tá complicado demais"
+
+# Notas operacionais:
+# - Trigger Evaluator no Planejador roda APÓS cada turn
+# - Lê signals do event_log (extracted_signals events) das últimas N turns
+# - Avalia required → if match emite transition_evaluated event com decisão
+# - **NÃO move statusMatrix automaticamente em v0** — só EMITE evento.
+#   Movimentação real continua via inject_status (manual) ou mecanismo externo.
+#   Auto-movimentação fica pra v1 pós-piloto, depois de validar precision.

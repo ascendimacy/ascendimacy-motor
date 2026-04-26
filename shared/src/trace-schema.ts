@@ -103,6 +103,12 @@ export interface TurnTrace {
   emittedCardId?: string;
   /** Razão pra skip (scaffold guard, triagem rejeitou, signal nulo, etc). */
   cardEmissionSkipReason?: string;
+
+  // ─── v0.3.3 — motor#25 Tarefa 3 parse fallback ──────────────────────
+  /** True se output do drota LLM não foi JSON válido (refusal/explanation). */
+  parseFailure?: boolean;
+  /** Razão (parse_failure | json_invalid_after_extract). */
+  parseFailureReason?: string;
 }
 
 export interface SessionTrace {

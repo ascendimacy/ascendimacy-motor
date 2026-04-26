@@ -29,6 +29,17 @@ export interface PlanTurnOutput {
    * Repassado para `EvaluateAndSelectInput.instruction_addition` (Bloco 2b).
    */
   instruction_addition?: string;
+  /**
+   * motor#25: Trigger Evaluator results das transições do perfil avaliadas
+   * neste turn. Read-only — orchestrator loga cada como transition_evaluated
+   * event. Statusmatrix NÃO move automático (continua via inject_status).
+   */
+  transitionEvaluations?: import("./transitions-schema.js").TransitionEvaluationResult[];
+  /**
+   * motor#25: Shannon entropy do pool antes de retornar (signal de
+   * diversificação upstream do drota). Útil pra debug carrossel.
+   */
+  candidateSetEntropy?: number;
 }
 
 export interface EvaluateAndSelectInput {
@@ -50,6 +61,18 @@ export interface EvaluateAndSelectOutput {
   selectedContent: ScoredContentItem;
   selectionRationale: string;
   linguisticMaterialization: string;
+  /**
+   * motor#25 (handoff #24 Tarefa 3): preenchido quando parse do output do LLM
+   * falhou (ex: modelo abriu com "Could not generate response..." em vez de JSON).
+   * Hard fallback usa contentPool[0] e linguisticMaterialization vazia. Caller
+   * decide se aborta turn ou usa fallback.
+   *
+   * Valores: "parse_failure" (regex extract falhou), "json_invalid_after_extract"
+   * (regex achou {} mas parse fracassou).
+   */
+  skipReason?: string;
+  /** motor#25: head do raw output pra debug log quando skipReason populado. */
+  rawOutput?: string;
 }
 
 export interface ExecutePlaybookInput {

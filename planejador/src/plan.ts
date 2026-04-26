@@ -36,7 +36,8 @@ import {
   getProviderForStep,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku } from "./llm-client.js";
-import { loadSeedPool, buildPool } from "./pool-builder.js";
+import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
+import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
 
 /** Quantos items do pool passamos ao drota (top-K). */
@@ -315,12 +316,91 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     }
   }
 
+  // motor#25 (handoff #24 Tarefa 1): slim pool antes do drota.
+  // Filtra used_in_session (score≤0) + char budget 2000.
+  const slimPool = slicePoolForDrota(topK, {
+    maxItems: 7,
+    maxTotalChars: 2000,
+    excludeUsedInSession: true,
+  });
+
+  // motor#25 (handoff #25 B4): Trigger Evaluator — avalia transitions.yaml
+  // contra signals capturados nos últimos 5 turns. Read-only — orchestrator
+  // loga events transition_evaluated, statusMatrix NÃO move automático.
+  const profileId = inferProfileId(input.persona);
+  const eventLog = (input.state.eventLog ?? []) as Array<{
+    type: string;
+    data: Record<string, unknown>;
+  }>;
+  const recentSignals = collectRecentSignals(eventLog, 5);
+  const turnsSinceLastTransition = countTurnsSinceLastTransition(eventLog);
+  const transitionEvaluations =
+    recentSignals.length > 0
+      ? evaluateAllTransitions(profileId, recentSignals, turnsSinceLastTransition)
+      : [];
+
+  // motor#25 (handoff #25 B5): Shannon entropy do candidate set antes de retornar.
+  const candidateSetEntropy = shannonEntropy(slimPool.map((s) => s.item.id));
+
   return {
     strategicRationale: rationale.strategicRationale,
-    contentPool: topK,
+    contentPool: slimPool,
     contextHints,
     instruction_addition: gardnerInstruction.text,
+    transitionEvaluations: transitionEvaluations.length > 0 ? transitionEvaluations : undefined,
+    candidateSetEntropy,
   };
+}
+
+/**
+ * motor#25 — infere profileId pra Trigger Evaluator carregar transitions.yaml.
+ * v0: hard-coded "kids" (único perfil com transitions.yaml committed).
+ * Pós-piloto: persona.profile pode ter campo `profile_id` explícito.
+ */
+function inferProfileId(persona: PlanTurnInput["persona"]): string {
+  const profile = (persona.profile ?? {}) as Record<string, unknown>;
+  const explicit = profile["profile_id"];
+  if (typeof explicit === "string" && explicit.length > 0) return explicit;
+  return "kids";
+}
+
+/**
+ * motor#25 — conta turns desde último transition_evaluated event tipo "fired".
+ * Se nenhum, retorna o total de turns (assume estado inicial).
+ */
+function countTurnsSinceLastTransition(
+  eventLog: Array<{ type: string; data: Record<string, unknown> }>,
+): number {
+  let count = 0;
+  for (let i = eventLog.length - 1; i >= 0; i--) {
+    const ev = eventLog[i]!;
+    if (ev.type === "transition_evaluated") {
+      const data = ev.data as { fired?: boolean };
+      if (data.fired) return count;
+    }
+    if (ev.type === "playbook_executed") count++;
+  }
+  return count;
+}
+
+/**
+ * motor#25 (handoff #25 B5) — Shannon entropy de uma lista de strings.
+ * H(X) = -Σ p(x) * log2(p(x)). 0 = todos iguais; max = log2(n) com tudo único.
+ *
+ * Usado pra detectar "carrossel": se entropy baixa nos turns sucessivos =
+ * pool repetitivo. Read-only — só registra em event pra MotorOps.
+ */
+export function shannonEntropy(values: string[]): number {
+  if (values.length <= 1) return 0;
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  const total = values.length;
+  let h = 0;
+  for (const c of counts.values()) {
+    const p = c / total;
+    h -= p * Math.log2(p);
+  }
+  return h;
 }
 
 /** Extrai `parental_profile` da persona (fixture pattern v1). */

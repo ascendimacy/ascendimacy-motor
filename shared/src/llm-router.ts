@@ -26,6 +26,7 @@ export const LLM_STEPS = [
   "persona-sim",
   "haiku-triage",
   "haiku-bullying",
+  "signal-extractor", // motor#25 — captura signals semânticos antes de Environment Assessor
 ] as const;
 export type LlmStep = (typeof LLM_STEPS)[number];
 
@@ -39,6 +40,7 @@ export const DEFAULT_PROVIDERS: Record<LlmStep, LlmProvider> = {
   "persona-sim": "infomaniak",
   "haiku-triage": "infomaniak",
   "haiku-bullying": "infomaniak",
+  "signal-extractor": "infomaniak",
 };
 
 /**
@@ -52,6 +54,9 @@ export const DEFAULT_MODELS: Record<LlmStep, string> = {
   "persona-sim": "moonshotai/Kimi-K2.5",
   "haiku-triage": "mistral3",
   "haiku-bullying": "mistral3",
+  // Signal Extractor: Mistral3 default — não-reasoning, ~5s/call.
+  // Tarefa é classificação de signals em texto curto, não exige reasoning.
+  "signal-extractor": "mistral3",
 };
 
 /**
@@ -64,6 +69,7 @@ export const ANTHROPIC_FALLBACK_MODELS: Record<LlmStep, string> = {
   "persona-sim": "claude-sonnet-4-6",
   "haiku-triage": "claude-haiku-4-5-20251001",
   "haiku-bullying": "claude-haiku-4-5-20251001",
+  "signal-extractor": "claude-haiku-4-5-20251001",
 };
 
 function envKey(step: string, suffix: string): string {

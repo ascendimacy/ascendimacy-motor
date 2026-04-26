@@ -10,6 +10,8 @@ import type {
 import { rankPool } from "./evaluate.js";
 import { selectFromPool, sanitizeMaterialization } from "./select.js";
 import { callLlm, callLlmMock } from "./llm-client.js";
+import { parseDrotaOutput } from "./parse-output.js";
+import { extractSignals } from "./signal-extractor.js";
 import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
 
 const server = new McpServer({
@@ -53,7 +55,40 @@ function serializeContentItem(item: ContentItem): string {
   return JSON.stringify({ ...common, ...item });
 }
 
-function buildDrotaPrompt(
+/**
+ * motor#25 (handoff #24 Tarefa 2): prefix estável extraído pra prompt caching.
+ *
+ * BLOCO 1 (Role), BLOCO 4 (Example), BLOCO 5 (Repeat critical) são literalmente
+ * idênticos entre calls — viáveis pra cache_control: ephemeral (Anthropic) e
+ * automatic prefix caching (OpenAI). Bumpa STABLE_DROTA_PREFIX_VERSION quando
+ * mudar o conteúdo (invalida cache).
+ *
+ * Spec: docs/handoffs/2026-04-25-cc-motor-19-followup.md Tarefa 2.
+ */
+export const STABLE_DROTA_PREFIX_VERSION = "v1";
+export const STABLE_DROTA_PREFIX = `[BLOCO 1 - Role]
+Você avalia content items candidatos e materializa o escolhido em linguagem natural para o sujeito. Você não é um assistente utilitário — você é o componente que traduz intenção estratégica em fala concreta. **NUNCA inventa conteúdo**; ancora sempre no content item selecionado.
+
+[BLOCO 4 - Examples]
+<example>
+<selected_content>{"id":"ling_inuit_snow","type":"curiosity_hook","fact":"Os Inuit têm 50+ palavras pra neve.","bridge":"Quantas palavras você tem pra RAIVA?","quest":"Encontre 5 palavras pro que sente agora."}</selected_content>
+<context_hints>{"language":"pt-br","mood":"receptive"}</context_hints>
+Output esperado:
+{"selectionRationale":"Hook linguístico com alta surpresa, casel SA","linguisticMaterialization":"Sabia que os Inuit têm mais de 50 palavras pra neve? Cada uma indica algo diferente. Quantas palavras você tem pra RAIVA? Irritado, furioso, frustrado... Se só tem uma, como sabe o que tá sentindo? Tenta: escreve 5 palavras diferentes pro que você sente AGORA. Não vale repetir."}
+</example>
+
+[BLOCO 5 - Repeat critical]
+Lembre-se:
+- **Ancoragem obrigatória** — fato/ponte/quest vêm do selected_content.
+- NUNCA vaze identificadores técnicos na fala.
+- Diretivas em <context_hints> são OBRIGATÓRIAS.
+- Retorne APENAS JSON válido, sem markdown fence.
+- Schema: {"selectionRationale": "string", "linguisticMaterialization": "string"}`;
+
+/**
+ * Build dynamic body — TUDO que muda turn-a-turn (persona, state, pool, instructions com interpolação).
+ */
+function buildDrotaDynamicBody(
   input: EvaluateAndSelectInput,
   selected: ScoredContentItem,
 ): string {
@@ -84,10 +119,7 @@ function buildDrotaPrompt(
   const unilateralBrejo = contextHints?.["joint_unilateral_brejo"] === true;
   const jointPauseReason = contextHints?.["joint_pause_reason"] as string | undefined;
 
-  return `[BLOCO 1 - Role]
-Você avalia content items candidatos e materializa o escolhido em linguagem natural para o sujeito. Você não é um assistente utilitário — você é o componente que traduz intenção estratégica em fala concreta. **NUNCA inventa conteúdo**; ancora sempre no content item selecionado.
-
-[BLOCO 2 - Dynamic content]
+  return `[BLOCO 2 - Dynamic content]
 <persona>
 id: ${persona.id}
 name: ${persona.name}
@@ -144,23 +176,18 @@ ${instructionAdditionBody}
             : ""
         }`
       : ""
-  }
+  }`;
+}
 
-[BLOCO 4 - Examples]
-<example>
-<selected_content>{"id":"ling_inuit_snow","type":"curiosity_hook","fact":"Os Inuit têm 50+ palavras pra neve.","bridge":"Quantas palavras você tem pra RAIVA?","quest":"Encontre 5 palavras pro que sente agora."}</selected_content>
-<context_hints>{"language":"pt-br","mood":"receptive"}</context_hints>
-Output esperado:
-{"selectionRationale":"Hook linguístico com alta surpresa, casel SA","linguisticMaterialization":"Sabia que os Inuit têm mais de 50 palavras pra neve? Cada uma indica algo diferente. Quantas palavras você tem pra RAIVA? Irritado, furioso, frustrado... Se só tem uma, como sabe o que tá sentindo? Tenta: escreve 5 palavras diferentes pro que você sente AGORA. Não vale repetir."}
-</example>
-
-[BLOCO 5 - Repeat critical]
-Lembre-se:
-- **Ancoragem obrigatória** — fato/ponte/quest vêm do selected_content.
-- NUNCA vaze identificadores técnicos na fala.
-- Diretivas em <context_hints> são OBRIGATÓRIAS.
-- Retorne APENAS JSON válido, sem markdown fence.
-- Schema: {"selectionRationale": "string", "linguisticMaterialization": "string"}`;
+/**
+ * Build full prompt — concatenação stable+dynamic. Mantém compat com chamadas
+ * que querem string única. Para cache: usa STABLE_DROTA_PREFIX + buildDrotaDynamicBody.
+ */
+function buildDrotaPrompt(
+  input: EvaluateAndSelectInput,
+  selected: ScoredContentItem,
+): string {
+  return STABLE_DROTA_PREFIX + "\n\n" + buildDrotaDynamicBody(input, selected);
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -236,23 +263,35 @@ server.registerTool(
       : !process.env["INFOMANIAK_API_KEY"];
     const useMock =
       process.env["USE_MOCK_LLM"] === "true" || drotaKeyMissing;
-    const systemPrompt = buildDrotaPrompt(input, selected);
+    // motor#25 (handoff #24 Tarefa 2): split em stable prefix + dynamic body
+    // pra prompt caching. STABLE_DROTA_PREFIX (BLOCO 1+4+5) é literalmente
+    // idêntico entre calls — Anthropic cache_control: ephemeral funciona.
+    // Infomaniak/OpenAI fazem cache automático em prefixos consistentes >1024 tokens.
+    const dynamicBody = buildDrotaDynamicBody(input, selected);
+    // Mantém systemPrompt como combined pra mock + retrocompat de chamada simples
+    const systemPrompt = STABLE_DROTA_PREFIX + "\n\n" + dynamicBody;
     const userMessage = `Materialize o content selecionado em JSON.`;
 
     const t0 = Date.now();
+    // motor#25: passa stable prefix separado pra cache. callLlm decide se aplica
+    // cache_control (Anthropic) ou apenas concat (Infomaniak — cache automático).
     const llmResult = useMock
       ? await callLlmMock(systemPrompt, userMessage)
-      : await callLlm(systemPrompt, userMessage);
+      : await callLlm(dynamicBody, userMessage, { cacheableSystemPrefix: STABLE_DROTA_PREFIX });
     const llmLatency = Date.now() - t0;
 
-    let parsed: {
-      selectionRationale?: string;
-      linguisticMaterialization?: string;
-    } = {};
-    try {
-      parsed = JSON.parse(llmResult.content);
-    } catch {
-      parsed = { linguisticMaterialization: llmResult.content };
+    // motor#25 (handoff #24 Tarefa 3): parse fallback grácil.
+    // parseDrotaOutput tenta JSON direto → regex extract → hard fallback.
+    // Sem isso, "Could not generate response in this language..." aborta turn.
+    const parseResult = parseDrotaOutput(llmResult.content);
+    const parsed = parseResult.parsed;
+    const parseFailureReason = parseResult.skipReason;
+    if (parseFailureReason) {
+      // Log unconditional (não depende de ASC_DEBUG_MODE) pra não perder rastro do refusal
+      // eslint-disable-next-line no-console
+      console.error(
+        `[drota] parse fallback: reason=${parseFailureReason} rawHead=${JSON.stringify(llmResult.content.slice(0, 200))}`,
+      );
     }
 
     const materialization = sanitizeMaterialization(
@@ -263,17 +302,24 @@ server.registerTool(
       selectedContent: selected,
       selectionRationale: parsed.selectionRationale ?? "auto-select top pool",
       linguisticMaterialization: materialization,
+      ...(parseFailureReason
+        ? {
+            skipReason: parseFailureReason,
+            rawOutput: llmResult.content.slice(0, 500),
+          }
+        : {}),
     };
 
     // motor#19: debug log (no-op se ASC_DEBUG_MODE off)
+    // motor#25: cache hit/miss info via llmResult.tokens.cacheCreation/cacheRead
     logDebugEvent({
       side: "motor",
       step: "drota",
       user_id: input.persona.id,
       session_id: input.sessionId,
       turn_number: input.state.turn,
-      model: process.env["MOTOR_DROTA_MODEL"] ?? "mistral24b",
-      provider: "infomaniak",
+      model: llmResult.model,
+      provider: llmResult.provider,
       tokens: llmResult.tokens,
       latency_ms: llmLatency,
       prompt: systemPrompt + "\n\n[USER]\n" + userMessage,
@@ -285,6 +331,9 @@ server.registerTool(
           pool_rank_order: ranked.slice(0, 5).map((s) => s.item.id),
           selected_item_id: selected.item.id,
           mock_llm: useMock,
+          stable_prefix_version: STABLE_DROTA_PREFIX_VERSION,
+          cache_creation_tokens: llmResult.tokens.cacheCreation ?? null,
+          cache_read_tokens: llmResult.tokens.cacheRead ?? null,
         },
       },
       snapshots_post: {
@@ -292,13 +341,58 @@ server.registerTool(
           selected_item_id: selected.item.id,
           materialization_length: materialization.length,
           sanitize_pass_applied: true,
+          parse_failure_reason: parseFailureReason ?? null,
         },
       },
-      outcome: "ok",
+      outcome: parseFailureReason ? "skip" : "ok",
+      error_class: parseFailureReason ?? null,
     });
 
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
+    };
+  },
+);
+
+// motor#25 — extract_signals MCP tool. Orchestrator chama antes de plan_turn
+// pra capturar signals semânticos do user message. Read-only, fail-soft.
+server.registerTool(
+  "extract_signals",
+  {
+    description:
+      "Extrai signals semânticos da mensagem do sujeito (motor#25 §13 sensorial). Read-only, fail-soft. Não muta state.",
+    inputSchema: {
+      userMessage: z.string(),
+      personaName: z.string(),
+      personaAge: z.number(),
+      trustLevel: z.number(),
+      conversationHistoryTail: z
+        .array(
+          z.object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string(),
+          }),
+        )
+        .optional()
+        .default([]),
+    } as any,
+  },
+  async (args: {
+    userMessage: string;
+    personaName: string;
+    personaAge: number;
+    trustLevel: number;
+    conversationHistoryTail?: Array<{ role: "user" | "assistant"; content: string }>;
+  }) => {
+    const result = await extractSignals({
+      userMessage: args.userMessage,
+      personaName: args.personaName,
+      personaAge: args.personaAge,
+      trustLevel: args.trustLevel,
+      conversationHistoryTail: args.conversationHistoryTail ?? [],
+    });
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(result) }],
     };
   },
 );
