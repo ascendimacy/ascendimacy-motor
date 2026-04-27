@@ -1,4 +1,6 @@
 import type { ScoredContentItem } from "@ascendimacy/shared";
+import type { SessionState } from "@ascendimacy/shared";
+import { deductBudget } from "@ascendimacy/shared";
 
 const FORBIDDEN_WORDS = [
   "playbook",
@@ -13,13 +15,23 @@ const FORBIDDEN_WORDS = [
   "content_pool",
 ];
 
-/** Pick o top-1 de um pool ordenado. Assume já vem sorted desc; se não, re-sorta. */
-export function selectFromPool(pool: ScoredContentItem[]): ScoredContentItem {
+/**
+ * Pick o top-1 de um pool ordenado e deduz sacrifice_amount do budget.
+ * DT-BUDGET-02: deduction sincrona.
+ *
+ * @returns selected item + novo SessionState com budget deduzido.
+ */
+export function selectFromPool(
+  pool: ScoredContentItem[],
+  state: SessionState,
+): { selected: ScoredContentItem; newState: SessionState } {
   if (pool.length === 0) {
     throw new Error("selectFromPool: empty pool");
   }
   const sorted = [...pool].sort((a, b) => b.score - a.score);
-  return sorted[0]!;
+  const selected = sorted[0]!;
+  const newState = deductBudget(state, selected.item.sacrifice_amount ?? 0);
+  return { selected, newState };
 }
 
 export function sanitizeMaterialization(text: string): string {
