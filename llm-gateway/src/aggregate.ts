@@ -48,17 +48,30 @@ export interface TurnAgg {
   is_full: boolean; // tem ≥3 dos 3 steps obrigatórios
 }
 
-const REQUIRED_STEPS_FOR_FULL_TURN = ["planejador", "drota", "signal-extractor"] as const;
+/**
+ * Default = pipeline completo do motor's próprio orchestrator (motor#25).
+ * STS orchestrator pula signal-extractor → use ["planejador", "drota"] via
+ * AggregateOptions.requiredSteps quando rodando contra NDJSON do STS.
+ */
+const REQUIRED_STEPS_FOR_FULL_TURN_DEFAULT = ["planejador", "drota", "signal-extractor"] as const;
 
 export interface AggregateOptions {
   /** Latency threshold ms pra Métrica C. Default 15000. */
   e2eSlaMs?: number;
   /** Filtra apenas run_ids matching prefix (ex: "nagareyama-14d"). */
   runIdPrefix?: string;
+  /**
+   * Steps obrigatórios pra um turn ser "full" (motor#28f).
+   * Default = motor's own orchestrator pipeline (3 steps).
+   * STS context: passar ["planejador", "drota"] (sem signal-extractor).
+   */
+  requiredSteps?: string[];
 }
 
 export interface AggregateReport {
   range: { from: string | null; to: string | null };
+  /** Steps obrigatórios pra "full turn" (motor#28f). */
+  required_steps: string[];
   total_events: number;
   total_turns_observed: number;
   total_turns_full: number;
@@ -106,7 +119,10 @@ export function loadEventsFromDir(dir: string, runIdPrefix?: string): GatewayLog
   return out;
 }
 
-export function groupByRunId(events: GatewayLogEntry[]): Map<string, TurnAgg> {
+export function groupByRunId(
+  events: GatewayLogEntry[],
+  requiredSteps: readonly string[] = REQUIRED_STEPS_FOR_FULL_TURN_DEFAULT,
+): Map<string, TurnAgg> {
   const turns = new Map<string, TurnAgg>();
   for (const e of events) {
     let t = turns.get(e.run_id);
@@ -129,7 +145,7 @@ export function groupByRunId(events: GatewayLogEntry[]): Map<string, TurnAgg> {
     if (e.outcome === "error") t.any_error = true;
   }
   for (const t of turns.values()) {
-    t.is_full = REQUIRED_STEPS_FOR_FULL_TURN.every((s) => t.steps.has(s));
+    t.is_full = requiredSteps.every((s) => t.steps.has(s));
   }
   return turns;
 }
@@ -146,8 +162,9 @@ export function computeReport(
   opts: AggregateOptions = {},
 ): AggregateReport {
   const e2eSlaMs = opts.e2eSlaMs ?? 15_000;
+  const requiredSteps = opts.requiredSteps ?? [...REQUIRED_STEPS_FOR_FULL_TURN_DEFAULT];
 
-  const turns = groupByRunId(events);
+  const turns = groupByRunId(events, requiredSteps);
   const fullTurns = [...turns.values()].filter((t) => t.is_full);
 
   // Métrica B
@@ -206,6 +223,7 @@ export function computeReport(
 
   return {
     range: { from, to },
+    required_steps: [...requiredSteps],
     total_events: events.length,
     total_turns_observed: turns.size,
     total_turns_full: fullTurns.length,
@@ -240,11 +258,12 @@ export function formatReportMarkdown(report: AggregateReport): string {
   lines.push(`# llm-gateway aggregate report`);
   lines.push(``);
   lines.push(`**Range**: ${report.range.from ?? "n/a"} → ${report.range.to ?? "n/a"}`);
+  lines.push(`**Required steps for full turn**: ${report.required_steps.join(", ")}`);
   lines.push(``);
   lines.push(`## Volume`);
   lines.push(`- Total events: ${report.total_events}`);
   lines.push(`- Turns observed: ${report.total_turns_observed}`);
-  lines.push(`- Turns full (≥3 required steps): ${report.total_turns_full}`);
+  lines.push(`- Turns full (≥${report.required_steps.length} required steps): ${report.total_turns_full}`);
   lines.push(``);
   lines.push(`## Métrica B — turn-level success (≥90% = pass)`);
   const b = report.metric_b_turn_level;

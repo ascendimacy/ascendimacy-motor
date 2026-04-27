@@ -164,3 +164,51 @@ describe("computeReport — empty input edge case", () => {
     expect(r.metric_c_e2e_sla.rate).toBe(0);
   });
 });
+
+describe("computeReport — requiredSteps configurável (motor#28f)", () => {
+  // Fixture STS-style: turns têm planejador + drota apenas (sem signal-extractor)
+  const stsFixture: GatewayLogEntry[] = [
+    // S1 — sucesso pleno (2 steps STS, sem fallback, latency 35s)
+    ev({ run_id: "S1", step: "planejador", latency_ms: 15000 }),
+    ev({ run_id: "S1", step: "drota", latency_ms: 20000 }),
+    // S2 — sucesso pleno (2 steps STS, sem fallback, latency 12s — passa SLA)
+    ev({ run_id: "S2", step: "planejador", latency_ms: 5000 }),
+    ev({ run_id: "S2", step: "drota", latency_ms: 7000 }),
+  ];
+
+  it("STS context: requiredSteps=['planejador','drota'] → 2 turns FULL", () => {
+    const r = computeReport(stsFixture, { requiredSteps: ["planejador", "drota"] });
+    expect(r.required_steps).toEqual(["planejador", "drota"]);
+    expect(r.total_turns_full).toBe(2); // S1 + S2 full
+    expect(r.metric_b_turn_level.passed).toBe(2);
+    expect(r.metric_b_turn_level.rate).toBe(1.0);
+  });
+
+  it("STS context: Métrica C respeita threshold (S1 35s > 15s fail; S2 12s pass)", () => {
+    const r = computeReport(stsFixture, { requiredSteps: ["planejador", "drota"] });
+    expect(r.metric_c_e2e_sla.passed).toBe(1); // só S2
+    expect(r.metric_c_e2e_sla.rate).toBe(0.5);
+  });
+
+  it("default (sem opt) preserva comportamento — turn 2-step não conta como FULL", () => {
+    // Regression check: motor's own pipeline expects 3 steps
+    const r = computeReport(stsFixture);
+    expect(r.required_steps).toEqual([
+      "planejador",
+      "drota",
+      "signal-extractor",
+    ]);
+    expect(r.total_turns_full).toBe(0); // nenhum turn tem signal-extractor
+    expect(r.metric_b_turn_level.total).toBe(0);
+  });
+
+  it("requiredSteps customizado funciona com lista qualquer", () => {
+    const events: GatewayLogEntry[] = [
+      ev({ run_id: "X", step: "haiku-triage", latency_ms: 500 }),
+      ev({ run_id: "X", step: "drota", latency_ms: 2000 }),
+    ];
+    const r = computeReport(events, { requiredSteps: ["haiku-triage", "drota"] });
+    expect(r.total_turns_full).toBe(1);
+    expect(r.metric_b_turn_level.rate).toBe(1.0);
+  });
+});
