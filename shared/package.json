@@ -11,12 +11,15 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10.2"
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "pg": "^8.11.0"
   },
   "devDependencies": {
     "typescript": "*",
     "vitest": "*",
-    "@types/node": "*"
+    "@types/node": "*",
+    "@types/pg": "^8.11.0",
+    "node-pg-migrate": "^7.0.0"
   },
   "exports": {
     ".": {
