@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Motor canonico Ascendimacy - 3 servicos agênticos via MCP",
-  "workspaces": ["shared","planejador","motor-drota","motor-execucao","orchestrator","weekly-report"],
+  "workspaces": ["shared","planejador","motor-drota","motor-execucao","orchestrator","weekly-report","llm-gateway"],
   "scripts": {
     "build": "npm run build -ws",
     "test": "npm run test -ws",
