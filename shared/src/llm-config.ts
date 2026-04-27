@@ -21,6 +21,8 @@ export const LLM_TIMEOUT_DEFAULTS: Record<string, number> = {
   "persona-sim": 30_000,
   // motor#25 — Signal Extractor (Mistral3 default, classification curta)
   "signal-extractor": 15_000,
+  // motor#35 PART B — Mood Extractor (Mistral3 default, classification curta)
+  "mood-extractor": 15_000,
 };
 
 /** MaxRetries default por step. */
@@ -31,6 +33,7 @@ export const LLM_MAX_RETRIES_DEFAULTS: Record<string, number> = {
   drota: 2, // reasoning model retry é caro, fail-fast é melhor
   "persona-sim": 3,
   "signal-extractor": 2, // motor#25 — fail-fast, fallback rule-based existe
+  "mood-extractor": 2, // motor#35 PART B — fail-fast, fallback rule-based existe
 };
 
 /**
