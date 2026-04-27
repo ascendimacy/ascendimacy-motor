@@ -11,10 +11,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "@ascendimacy/shared": "*",
     "@modelcontextprotocol/sdk": "^1.10.2",
-    "openai": "^4.77.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
