@@ -27,6 +27,7 @@ export const LLM_STEPS = [
   "haiku-triage",
   "haiku-bullying",
   "signal-extractor", // motor#25 — captura signals semânticos antes de Environment Assessor
+  "mood-extractor", // motor#35 — extração de mood absoluto da criança (F1-mood PART B)
 ] as const;
 export type LlmStep = (typeof LLM_STEPS)[number];
 
@@ -41,6 +42,7 @@ export const DEFAULT_PROVIDERS: Record<LlmStep, LlmProvider> = {
   "haiku-triage": "infomaniak",
   "haiku-bullying": "infomaniak",
   "signal-extractor": "infomaniak",
+  "mood-extractor": "infomaniak",
 };
 
 /**
@@ -57,6 +59,9 @@ export const DEFAULT_MODELS: Record<LlmStep, string> = {
   // Signal Extractor: Mistral3 default — não-reasoning, ~5s/call.
   // Tarefa é classificação de signals em texto curto, não exige reasoning.
   "signal-extractor": "mistral3",
+  // Mood Extractor (motor#35 PART B): Mistral3 default — classificação curta
+  // ("humor 1-10 + rationale"), não-reasoning. Mesmo perfil do signal-extractor.
+  "mood-extractor": "mistral3",
 };
 
 /**
@@ -70,6 +75,7 @@ export const ANTHROPIC_FALLBACK_MODELS: Record<LlmStep, string> = {
   "haiku-triage": "claude-haiku-4-5-20251001",
   "haiku-bullying": "claude-haiku-4-5-20251001",
   "signal-extractor": "claude-haiku-4-5-20251001",
+  "mood-extractor": "claude-haiku-4-5-20251001",
 };
 
 function envKey(step: string, suffix: string): string {
