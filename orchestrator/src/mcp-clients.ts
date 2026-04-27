@@ -14,7 +14,42 @@ export interface McpClients {
 
 function buildEnv(): Record<string, string> {
   const env: Record<string, string> = {};
-  const keys = ["ANTHROPIC_API_KEY", "INFOMANIAK_API_KEY", "INFOMANIAK_BASE_URL", "PLANEJADOR_MODEL", "MOTOR_DROTA_MODEL", "USE_MOCK_LLM"];
+  const keys = [
+    // Provider credentials
+    "ANTHROPIC_API_KEY",
+    "INFOMANIAK_API_KEY",
+    "INFOMANIAK_BASE_URL",
+    // Step-specific provider/model overrides (motor#21)
+    "LLM_PROVIDER",
+    "PLANEJADOR_PROVIDER",
+    "PLANEJADOR_MODEL",
+    "DROTA_PROVIDER",
+    "DROTA_MODEL",
+    "MOTOR_DROTA_MODEL", // legacy
+    "SIGNAL_EXTRACTOR_PROVIDER",
+    "SIGNAL_EXTRACTOR_MODEL",
+    "HAIKU_TRIAGE_PROVIDER",
+    "HAIKU_TRIAGE_MODEL",
+    // Gateway config (motor#28)
+    "LLM_GATEWAY_RATE_INFOMANIAK",
+    "LLM_GATEWAY_RATE_ANTHROPIC",
+    "LLM_GATEWAY_PRIMARY_TIMEOUT_MS",
+    "LLM_GATEWAY_BUDGET_MS",
+    "LLM_GATEWAY_FALLBACK",
+    "LLM_GATEWAY_IPV4_FIRST",
+    "LLM_GATEWAY_LOG_SPAWN",
+    "MOTOR_LLM_GATEWAY_PATH",
+    // Anthropic thinking budget
+    "LLM_THINKING_BUDGET_TOKENS",
+    // Debug + run_id correlation (motor#19, motor#28 spec refino v1)
+    "ASC_DEBUG_MODE",
+    "ASC_DEBUG_RUN_ID",
+    "ASC_DEBUG_DIR",
+    "ASC_LLM_TIMEOUT_SECONDS",
+    "ASC_LLM_MAX_RETRIES",
+    // Mock toggle
+    "USE_MOCK_LLM",
+  ];
   for (const k of keys) {
     const v = process.env[k];
     if (v) env[k] = v;

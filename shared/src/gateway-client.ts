@@ -122,6 +122,13 @@ async function getClient(): Promise<Client> {
   _connecting = (async () => {
     const client = new Client({ name: "llm-gateway-client", version: "0.1.0" });
     const serverPath = resolveGatewayServerPath();
+    if (process.env["LLM_GATEWAY_LOG_SPAWN"] === "true") {
+      // motor#28d: stderr logging pra validar singleton (1 spawn por processo Node).
+      // Default off — não polui stderr em produção.
+      process.stderr.write(
+        `[gateway-client] spawning gateway pid=${process.pid} t=${Date.now()}\n`,
+      );
+    }
     await client.connect(
       new StdioClientTransport({
         command: process.execPath,
