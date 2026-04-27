@@ -1,5 +1,6 @@
 import type { StatusMatrix } from "./status-matrix.js";
 import type { GardnerProgramState } from "./mixins/with-gardner-program.js";
+import type { MoodScore, MoodWindow } from "./mood.js";
 
 export interface PersonaDef {
   id: string;
@@ -35,6 +36,20 @@ export interface SessionState {
   statusMatrix?: StatusMatrix;
   /** Estado do programa Gardner 5 semanas (Bloco 2b). */
   gardnerProgram?: GardnerProgramState;
+
+  // ─── F1 mood (motor#35) ──────────────────────────────────────────────
+
+  /**
+   * Mood absoluto da criança neste turn (1-10 integer). Producer:
+   * mood-extractor (LLM v0 + fallback rule-based, PR PART B).
+   * Default MOOD_DEFAULT (5) quando producer não rodou.
+   */
+  currentMood?: MoodScore;
+  /**
+   * Janela móvel pra comfort gate + prompt context. Computada via
+   * `computeMoodWindow(history, now)` no início do turn.
+   */
+  moodWindow?: MoodWindow;
 
   // ─── Bloco 6 — Dinâmicas em grupo (dyad) ─────────────────────────────
 
