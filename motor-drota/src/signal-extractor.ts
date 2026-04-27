@@ -12,39 +12,16 @@
  * tarefa é classificação de signals em texto curto, não exige reasoning chain.
  */
 
-import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
 import {
   SEMANTIC_SIGNALS,
   SIGNAL_DESCRIPTIONS,
   isSemanticSignal,
+  callGateway,
   getProviderForStep,
   getModelForStep,
-  getLlmTimeoutMs,
-  getLlmMaxRetries,
   type SemanticSignal,
   type SignalExtractionResult,
 } from "@ascendimacy/shared";
-
-let openaiClient: OpenAI | null = null;
-let anthropicClient: Anthropic | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env["INFOMANIAK_API_KEY"] ?? "mock",
-      baseURL: process.env["INFOMANIAK_BASE_URL"] ?? "https://api.infomaniak.com/1/ai",
-    });
-  }
-  return openaiClient;
-}
-
-function getAnthropic(): Anthropic {
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({ apiKey: process.env["ANTHROPIC_API_KEY"] });
-  }
-  return anthropicClient;
-}
 
 /**
  * Constrói o prompt do Signal Extractor.
@@ -144,8 +121,6 @@ export async function extractSignals(args: {
 
   const provider = getProviderForStep("signal-extractor");
   const model = getModelForStep("signal-extractor", provider);
-  const timeout = getLlmTimeoutMs("signal-extractor");
-  const maxRetries = getLlmMaxRetries("signal-extractor");
   const prompt = buildSignalExtractorPrompt(args);
 
   // Gate A fix (b): max_tokens 512→2048 (cobre reasoning models + non-reasoning).
@@ -153,35 +128,21 @@ export async function extractSignals(args: {
   // Kimi K2.5: reasoning chain ~500-1500 + content ~150 = total ~1500-2000.
   const maxTokens = 2048;
 
+  // motor#28b: chama via gateway. systemPrompt vazio + userMessage = prompt
+  // (signal-extractor envia prompt único como user, sem system separado).
   let raw: string;
   let llmError: unknown = null;
   try {
-    if (provider === "anthropic") {
-      const c = getAnthropic();
-      const r = await c.messages.create(
-        {
-          model,
-          max_tokens: maxTokens,
-          messages: [{ role: "user", content: prompt }],
-        },
-        { timeout, maxRetries },
-      );
-      raw = "";
-      for (const b of r.content) {
-        if (b.type === "text") raw += b.text;
-      }
-    } else {
-      const c = getOpenAI();
-      const r = await c.chat.completions.create(
-        {
-          model,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: maxTokens,
-        },
-        { timeout, maxRetries },
-      );
-      raw = r.choices[0]?.message?.content ?? "";
-    }
+    const out = await callGateway({
+      step: "signal-extractor",
+      provider,
+      model,
+      systemPrompt: "",
+      userMessage: prompt,
+      maxTokens,
+      run_id: process.env["ASC_DEBUG_RUN_ID"],
+    });
+    raw = out.content;
   } catch (err) {
     llmError = err;
     raw = "";
