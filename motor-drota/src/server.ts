@@ -255,7 +255,9 @@ server.registerTool(
       };
     }
 
-    const selected = selectFromPool(ranked);
+    // motor#36: select agora deduz budget; newState não propagado pra
+    // EvaluateAndSelectOutput (compat — caller pega budget de outras camadas).
+    const { selected } = selectFromPool(ranked, input.state);
     // motor#22: provider-aware mock detection.
     const drotaProvider = getProviderForStep("drota");
     const drotaKeyMissing = drotaProvider === "anthropic"

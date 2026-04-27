@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { rankPool } from "../src/evaluate.js";
 import { selectFromPool, sanitizeMaterialization } from "../src/select.js";
-import type { ScoredContentItem } from "@ascendimacy/shared";
+import type { ScoredContentItem, SessionState } from "@ascendimacy/shared";
+
+const stubState: SessionState = {
+  sessionId: "test-session",
+  trustLevel: 0.5,
+  budgetRemaining: 15,
+  eventLog: [],
+  turn: 1,
+};
 
 const makeScored = (id: string, score: number): ScoredContentItem => ({
   item: {
@@ -39,12 +47,19 @@ describe("rankPool", () => {
 describe("selectFromPool", () => {
   it("returns top-scored item", () => {
     const pool = [makeScored("a", 3), makeScored("b", 9)];
-    const selected = selectFromPool(pool);
+    const { selected } = selectFromPool(pool, stubState);
     expect(selected.item.id).toBe("b");
   });
 
   it("throws on empty pool", () => {
-    expect(() => selectFromPool([])).toThrow();
+    expect(() => selectFromPool([], stubState)).toThrow();
+  });
+
+  it("returns newState with budget deducted (motor#36)", () => {
+    const pool = [makeScored("a", 5)];
+    pool[0]!.item.sacrifice_amount = 3;
+    const { newState } = selectFromPool(pool, stubState);
+    expect(newState.budgetRemaining).toBeLessThan(stubState.budgetRemaining);
   });
 });
 
