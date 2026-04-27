@@ -6,6 +6,8 @@ export * from "./scorer.js";
 export * from "./tree-node.js";
 export * from "./status-matrix.js";
 export * from "./status-matrix-repo-memory.js";
+export * from "./mood.js";
+export * from "./mood-repo-memory.js";
 export * from "./mixins/with-gardner-program.js";
 export * from "./parental-profile.js";
 export * from "./parental-authorization.js";
