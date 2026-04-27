@@ -9,8 +9,14 @@ import {
   isStatusValue,
   isStatusMatrix,
   CANONICAL_DIMENSIONS,
+  hydrateFromDb,
+  persistTransition,
 } from "../src/status-matrix.js";
-import type { StatusMatrix } from "../src/status-matrix.js";
+import type {
+  StatusMatrix,
+  StatusMatrixEntry,
+} from "../src/status-matrix.js";
+import { inMemoryStatusMatrixRepo } from "../src/status-matrix-repo-memory.js";
 
 describe("StatusValue guards", () => {
   it("accepts brejo, baia, pasto", () => {
@@ -160,5 +166,140 @@ describe("caselTargetsFor", () => {
   });
   it("unknown → empty", () => {
     expect(caselTargetsFor("random")).toEqual([]);
+  });
+});
+
+describe("hydrateFromDb", () => {
+  it("returns empty matrix when user has no rows", async () => {
+    const repo = inMemoryStatusMatrixRepo();
+    const matrix = await hydrateFromDb("user-1", repo);
+    expect(matrix).toEqual({});
+  });
+
+  it("populates matrix from existing rows for the requested user", async () => {
+    const seed: StatusMatrixEntry[] = [
+      {
+        userId: "user-1",
+        dimension: "emotional",
+        status: "baia",
+        lastTransitionAt: "2026-04-27T10:00:00Z",
+      },
+      {
+        userId: "user-1",
+        dimension: "cognitive_math",
+        status: "pasto",
+        lastTransitionAt: "2026-04-27T10:00:00Z",
+      },
+      {
+        userId: "user-2",
+        dimension: "emotional",
+        status: "brejo",
+        lastTransitionAt: "2026-04-27T10:00:00Z",
+      },
+    ];
+    const repo = inMemoryStatusMatrixRepo(seed);
+    const matrix = await hydrateFromDb("user-1", repo);
+    expect(matrix.emotional).toBe("baia");
+    expect(matrix.cognitive_math).toBe("pasto");
+    expect(Object.keys(matrix)).toHaveLength(2);
+  });
+
+  it("isolates users — does not leak rows from other users", async () => {
+    const repo = inMemoryStatusMatrixRepo([
+      {
+        userId: "user-2",
+        dimension: "emotional",
+        status: "brejo",
+        lastTransitionAt: "2026-04-27T10:00:00Z",
+      },
+    ]);
+    const matrix = await hydrateFromDb("user-1", repo);
+    expect(matrix).toEqual({});
+  });
+});
+
+describe("persistTransition", () => {
+  const fixedNow = "2026-04-27T12:00:00Z";
+
+  it("upserts new entry on first transition (first_set)", async () => {
+    const repo = inMemoryStatusMatrixRepo();
+    const result = await persistTransition(
+      "user-1",
+      "emotional",
+      "baia",
+      repo,
+      { now: () => fixedNow },
+    );
+    expect(result.accepted).toBe(true);
+    expect(result.applied).toBe("baia");
+    expect(result.reason).toBe("first_set");
+
+    const matrix = await hydrateFromDb("user-1", repo);
+    expect(matrix.emotional).toBe("baia");
+  });
+
+  it("rejects brejo → pasto direct, persists baia (invariant)", async () => {
+    const repo = inMemoryStatusMatrixRepo([
+      {
+        userId: "user-1",
+        dimension: "emotional",
+        status: "brejo",
+        lastTransitionAt: "2026-04-27T10:00:00Z",
+      },
+    ]);
+    const result = await persistTransition(
+      "user-1",
+      "emotional",
+      "pasto",
+      repo,
+    );
+    expect(result.accepted).toBe(false);
+    expect(result.applied).toBe("baia");
+    expect(result.reason).toMatch(/invariant_skip/);
+
+    const matrix = await hydrateFromDb("user-1", repo);
+    expect(matrix.emotional).toBe("baia");
+  });
+
+  it("updates lastTransitionAt on each persist", async () => {
+    const repo = inMemoryStatusMatrixRepo();
+    await persistTransition("user-1", "emotional", "baia", repo, {
+      now: () => "2026-04-27T10:00:00Z",
+    });
+    await persistTransition("user-1", "emotional", "pasto", repo, {
+      now: () => "2026-04-27T11:30:00Z",
+    });
+    const rows = await repo.loadAll("user-1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("pasto");
+    expect(rows[0]?.lastTransitionAt).toBe("2026-04-27T11:30:00Z");
+  });
+
+  it("idempotent on no-op (current === target)", async () => {
+    const repo = inMemoryStatusMatrixRepo([
+      {
+        userId: "user-1",
+        dimension: "emotional",
+        status: "baia",
+        lastTransitionAt: "2026-04-27T10:00:00Z",
+      },
+    ]);
+    const result = await persistTransition(
+      "user-1",
+      "emotional",
+      "baia",
+      repo,
+    );
+    expect(result.accepted).toBe(true);
+    expect(result.reason).toBe("no_op");
+  });
+
+  it("persists multiple dimensions independently", async () => {
+    const repo = inMemoryStatusMatrixRepo();
+    await persistTransition("user-1", "emotional", "baia", repo);
+    await persistTransition("user-1", "cognitive_math", "pasto", repo);
+    const matrix = await hydrateFromDb("user-1", repo);
+    expect(matrix.emotional).toBe("baia");
+    expect(matrix.cognitive_math).toBe("pasto");
   });
 });
