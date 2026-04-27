@@ -22,3 +22,13 @@ export {
   type GatewayErrorCode,
 } from "./types.js";
 export { createGatewayServer } from "./server.js";
+export {
+  loadEventsFromDir,
+  groupByRunId,
+  computeReport,
+  formatReportMarkdown,
+  type GatewayLogEntry as GatewayLogEntryAggregate,
+  type AggregateReport,
+  type AggregateOptions,
+  type TurnAgg,
+} from "./aggregate.js";
