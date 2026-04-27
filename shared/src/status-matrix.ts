@@ -1,14 +1,14 @@
 /**
  * Status matrix — dimensões × valores (brejo/baia/pasto).
  *
- * Persistência: tabela `tree_nodes` com `zone='status'` e `key=<dimension>`
- * (override Jun 2026-04-24 sobre plano §4.7 v1 — ver plano v2 §2.C).
+ * Persistência (DT-STATUS-01, Jun 2026-04-27): tabela própria `status_matrix`
+ * (override sobre comentário anterior que sugeria zone=status em tree_nodes).
  *
  * Invariantes:
  *   - Nunca pular brejo → pasto direto (precisa passar por baia).
  *   - emotional=brejo bloqueia emit de challenge em qualquer outra dimensão.
  *
- * Spec: docs/handoffs/2026-04-24-cc-bloco2-plan.md §2.C + §4 (v2).
+ * Spec: ascendimacy-ops/docs/specs/2026-04-27-statevector-primitives-inventory-f1.md §5
  * Referência: ebrota/src/kids/tree.js (padrão), FOUNDATION §17 (conceito).
  */
 
@@ -179,6 +179,78 @@ function canonicalOrder(key: string): number {
   if (key.startsWith("cognitive_")) return 100;
   if (key.startsWith("linguistic_")) return 200;
   return 500;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Persistência — port (interface) + funções de hidratação/persistência
+//
+// Concrete adapter postgres fica em F1-bootstrap-db (sub-issue separada).
+// In-memory adapter pra tests/STS vive em status-matrix-repo-memory.ts.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Linha persistida da tabela `status_matrix`. */
+export interface StatusMatrixEntry {
+  userId: string;
+  dimension: string;
+  status: StatusValue;
+  /** ISO 8601 timestamp da última transição registrada. */
+  lastTransitionAt: string;
+}
+
+/**
+ * Port de persistência. Implementações concretas:
+ *   - InMemory (testes + STS): status-matrix-repo-memory.ts
+ *   - Postgres (produção): F1-bootstrap-db (a criar)
+ */
+export interface StatusMatrixRepo {
+  /** Carrega todas as entries de um user. Vazio se sem registros. */
+  loadAll(userId: string): Promise<StatusMatrixEntry[]>;
+  /** Insere ou atualiza. Chave composta (userId, dimension). */
+  upsert(entry: StatusMatrixEntry): Promise<void>;
+}
+
+/**
+ * Hidrata `StatusMatrix` lendo todas as rows de um user no repo.
+ * Retorna matrix vazia se user não tem registros (orchestrator de sessão
+ * decide se aplica `defaultMatrix()` por cima).
+ */
+export async function hydrateFromDb(
+  userId: string,
+  repo: StatusMatrixRepo,
+): Promise<StatusMatrix> {
+  const rows = await repo.loadAll(userId);
+  const matrix: StatusMatrix = {};
+  for (const row of rows) {
+    matrix[row.dimension] = row.status;
+  }
+  return matrix;
+}
+
+/**
+ * Aplica + persiste uma transição respeitando a invariante
+ * brejo → baia → pasto. Persiste o que `transition()` decidiu aplicar
+ * (que pode divergir do target solicitado se inválido).
+ *
+ * Retorna o `TransitionResult` pra inspeção/log do chamador.
+ */
+export async function persistTransition(
+  userId: string,
+  dimension: string,
+  target: StatusValue,
+  repo: StatusMatrixRepo,
+  options: { now?: () => string } = {},
+): Promise<TransitionResult> {
+  const now = options.now ?? (() => new Date().toISOString());
+  const existing = await repo.loadAll(userId);
+  const current = existing.find((e) => e.dimension === dimension)?.status;
+  const result = transition(current, target);
+  await repo.upsert({
+    userId,
+    dimension,
+    status: result.applied,
+    lastTransitionAt: now(),
+  });
+  return result;
 }
 
 /** Mapa dimensão → CASEL dimension(s) (plano §4.9 v2). */
