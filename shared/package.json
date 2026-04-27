@@ -10,6 +10,9 @@
     "test": "vitest run",
     "clean": "rm -rf dist"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.2"
+  },
   "devDependencies": {
     "typescript": "*",
     "vitest": "*",
