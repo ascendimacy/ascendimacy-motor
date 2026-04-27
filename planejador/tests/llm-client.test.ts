@@ -1,42 +1,31 @@
 /**
- * Tests planejador llm-client (motor#19 + motor#20 + motor#21).
+ * Tests planejador llm-client (motor#28c — gateway integration).
  *
- * motor#21: dual-provider (Anthropic + Infomaniak via OpenAI SDK).
- * Default: Infomaniak / Kimi K2.5. Override via PLANEJADOR_PROVIDER.
+ * ANTES (motor#21): mockava SDK Anthropic + OpenAI direto.
+ *
+ * AGORA (motor#28c): planejador é proxy fino sobre `callGateway`. Tests
+ * mockam `callGateway` e verificam:
+ *   - input correto passado ao gateway (step, provider, model, maxTokens)
+ *   - output do gateway mapeado certo pra LlmCallResult
+ *   - reasoning forwardado transparente
+ *   - thinking forwardado quando debug mode + provider=anthropic
+ *
+ * Timeout/maxRetries/retry/fallback ficam em llm-gateway/tests/router.test.ts.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { GatewayChatCompletionInput, GatewayChatCompletionOutput } from "@ascendimacy/shared";
 
-const captured: { aParams?: unknown; aOptions?: unknown; oParams?: unknown; oOptions?: unknown } = {};
-let mockAnthropicResponse: unknown = null;
-let mockOpenAIResponse: unknown = null;
+const captured: { req?: GatewayChatCompletionInput } = {};
+let mockResponse: GatewayChatCompletionOutput;
 
-vi.mock("@anthropic-ai/sdk", () => {
+vi.mock("@ascendimacy/shared", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@ascendimacy/shared")>();
   return {
-    default: class MockAnthropic {
-      messages = {
-        create: async (params: unknown, options?: unknown) => {
-          captured.aParams = params;
-          captured.aOptions = options;
-          return mockAnthropicResponse;
-        },
-      };
-    },
-  };
-});
-
-vi.mock("openai", () => {
-  return {
-    default: class MockOpenAI {
-      chat = {
-        completions: {
-          create: async (params: unknown, options?: unknown) => {
-            captured.oParams = params;
-            captured.oOptions = options;
-            return mockOpenAIResponse;
-          },
-        },
-      };
+    ...actual,
+    callGateway: async (req: GatewayChatCompletionInput) => {
+      captured.req = req;
+      return mockResponse;
     },
   };
 });
@@ -44,17 +33,22 @@ vi.mock("openai", () => {
 const ORIG_ENV = { ...process.env };
 
 beforeEach(() => {
-  captured.aParams = undefined;
-  captured.aOptions = undefined;
-  captured.oParams = undefined;
-  captured.oOptions = undefined;
-  mockAnthropicResponse = null;
-  mockOpenAIResponse = null;
+  captured.req = undefined;
+  mockResponse = {
+    content: "Hello",
+    tokens: { in: 100, out: 50, reasoning: 0 },
+    provider: "infomaniak",
+    model: "moonshotai/Kimi-K2.5",
+    latency_ms: 10,
+    attempt_count: 1,
+    was_fallback: false,
+  };
   delete process.env["ASC_DEBUG_MODE"];
-  delete process.env["ASC_LLM_TIMEOUT_PLANEJADOR"];
   delete process.env["PLANEJADOR_PROVIDER"];
   delete process.env["PLANEJADOR_MODEL"];
   delete process.env["LLM_PROVIDER"];
+  delete process.env["HAIKU_TRIAGE_PROVIDER"];
+  delete process.env["HAIKU_TRIAGE_MODEL"];
   process.env["ANTHROPIC_API_KEY"] = "test-key";
   process.env["INFOMANIAK_API_KEY"] = "test-info-key";
 });
@@ -66,50 +60,41 @@ afterEach(() => {
 });
 
 describe("planejador.callLlm — provider DEFAULT (Infomaniak / Kimi K2.5)", () => {
-  it("usa OpenAI SDK (Infomaniak) por default", async () => {
-    mockOpenAIResponse = {
-      choices: [{ message: { content: "Hello" } }],
-      usage: { prompt_tokens: 100, completion_tokens: 50 },
-    };
+  it("passa step=planejador + provider=infomaniak + model Kimi-K2.5 default", async () => {
     const { callLlm } = await import("../src/llm-client.js");
     const r = await callLlm("system", "user");
     expect(r.content).toBe("Hello");
-    expect(r.provider).toBe("infomaniak");
-    expect(r.model).toBe("moonshotai/Kimi-K2.5"); // default
-    expect(captured.oParams).toBeDefined();
-    expect(captured.aParams).toBeUndefined(); // Anthropic não foi chamado
+    expect(captured.req!.step).toBe("planejador");
+    expect(captured.req!.provider).toBe("infomaniak");
+    expect(captured.req!.model).toBe("moonshotai/Kimi-K2.5");
   });
 
-  it("captura reasoning field de Kimi/DeepSeek-R1", async () => {
-    mockOpenAIResponse = {
-      choices: [{ message: { content: "Final answer", reasoning: "Chain of thought..." } }],
-      usage: { prompt_tokens: 100, completion_tokens: 50 },
-    };
+  it("forward reasoning do gateway pra LlmCallResult", async () => {
+    mockResponse = { ...mockResponse, reasoning: "Chain of thought..." };
     const { callLlm } = await import("../src/llm-client.js");
     const r = await callLlm("s", "u");
     expect(r.reasoning).toBe("Chain of thought...");
   });
 
-  it("max_tokens=4096 pra Kimi (reasoning model heuristic)", async () => {
-    mockOpenAIResponse = {
-      choices: [{ message: { content: "{}" } }],
-      usage: { prompt_tokens: 1, completion_tokens: 1 },
-    };
+  it("max_tokens=4096 pra Kimi (reasoning model heuristic) passado pro gateway", async () => {
     const { callLlm } = await import("../src/llm-client.js");
     await callLlm("s", "u");
-    expect((captured.oParams as { max_tokens: number }).max_tokens).toBe(4096);
+    expect(captured.req!.maxTokens).toBe(4096);
   });
 
-  it("PLANEJADOR_MODEL override aplicado", async () => {
+  it("PLANEJADOR_MODEL override aplicado + max_tokens 2048 (non-reasoning)", async () => {
     process.env["PLANEJADOR_MODEL"] = "mistral3";
-    mockOpenAIResponse = {
-      choices: [{ message: { content: "{}" } }],
-      usage: { prompt_tokens: 1, completion_tokens: 1 },
-    };
     const { callLlm } = await import("../src/llm-client.js");
-    const r = await callLlm("s", "u");
-    expect(r.model).toBe("mistral3");
-    expect((captured.oParams as { max_tokens: number }).max_tokens).toBe(2048); // non-reasoning
+    await callLlm("s", "u");
+    expect(captured.req!.model).toBe("mistral3");
+    expect(captured.req!.maxTokens).toBe(2048);
+  });
+
+  it("propaga ASC_DEBUG_RUN_ID como run_id no gateway input", async () => {
+    process.env["ASC_DEBUG_RUN_ID"] = "test-run-planejador";
+    const { callLlm } = await import("../src/llm-client.js");
+    await callLlm("s", "u");
+    expect(captured.req!.run_id).toBe("test-run-planejador");
   });
 });
 
@@ -118,115 +103,80 @@ describe("planejador.callLlm — provider OVERRIDE (Anthropic)", () => {
     process.env["PLANEJADOR_PROVIDER"] = "anthropic";
   });
 
-  it("usa Anthropic SDK quando PLANEJADOR_PROVIDER=anthropic", async () => {
-    mockAnthropicResponse = {
-      content: [{ type: "text", text: "Hello" }],
-      usage: { input_tokens: 100, output_tokens: 50 },
-    };
+  it("passa provider=anthropic + model claude-sonnet-4-6 (fallback default)", async () => {
+    mockResponse = { ...mockResponse, provider: "anthropic", model: "claude-sonnet-4-6" };
     const { callLlm } = await import("../src/llm-client.js");
     const r = await callLlm("s", "u");
+    expect(captured.req!.provider).toBe("anthropic");
+    expect(captured.req!.model).toBe("claude-sonnet-4-6");
     expect(r.provider).toBe("anthropic");
-    expect(r.model).toBe("claude-sonnet-4-6"); // Anthropic fallback default
-    expect(captured.aParams).toBeDefined();
-    expect(captured.oParams).toBeUndefined();
   });
 
   it("max_tokens=2048 pra Sonnet (não reasoning na heurística)", async () => {
-    mockAnthropicResponse = {
-      content: [{ type: "text", text: "ok" }],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    };
     const { callLlm } = await import("../src/llm-client.js");
     await callLlm("s", "u");
-    expect((captured.aParams as { max_tokens: number }).max_tokens).toBe(2048);
+    expect(captured.req!.maxTokens).toBe(2048);
   });
 
   it("thinking ON com budget 1024 em debug mode", async () => {
     process.env["ASC_DEBUG_MODE"] = "true";
-    mockAnthropicResponse = {
-      content: [{ type: "text", text: "ok" }],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    };
     const { callLlm } = await import("../src/llm-client.js");
     await callLlm("s", "u");
-    expect((captured.aParams as { thinking?: { budget_tokens: number } }).thinking).toEqual({
-      type: "enabled",
-      budget_tokens: 1024,
-    });
+    expect(captured.req!.enableThinking).toBe(true);
+    expect(captured.req!.thinkingBudgetTokens).toBe(1024);
   });
 
-  it("thinking OFF default (debug off)", async () => {
-    mockAnthropicResponse = {
-      content: [{ type: "text", text: "ok" }],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    };
+  it("thinking OFF default (debug off) — enableThinking não é setado", async () => {
     const { callLlm } = await import("../src/llm-client.js");
     await callLlm("s", "u");
-    expect((captured.aParams as { thinking?: unknown }).thinking).toBeUndefined();
+    expect(captured.req!.enableThinking).toBeUndefined();
   });
 
-  it("captura reasoning de blocks type=thinking", async () => {
-    process.env["ASC_DEBUG_MODE"] = "true";
-    mockAnthropicResponse = {
-      content: [
-        { type: "thinking", thinking: "I should..." },
-        { type: "text", text: "Answer" },
-      ],
-      usage: { input_tokens: 100, output_tokens: 50 },
+  it("forward reasoning do gateway (gateway extrai thinking blocks)", async () => {
+    mockResponse = {
+      ...mockResponse,
+      reasoning: "I should...",
+      content: "Answer",
     };
     const { callLlm } = await import("../src/llm-client.js");
     const r = await callLlm("s", "u");
     expect(r.content).toBe("Answer");
     expect(r.reasoning).toBe("I should...");
   });
-
-  it("throw quando response sem text block", async () => {
-    mockAnthropicResponse = { content: [], usage: { input_tokens: 1, output_tokens: 1 } };
-    const { callLlm } = await import("../src/llm-client.js");
-    await expect(callLlm("s", "u")).rejects.toThrow(/no text block/);
-  });
-
-  it("timeout 30s + maxRetries 3 forwarded pra SDK options", async () => {
-    mockAnthropicResponse = {
-      content: [{ type: "text", text: "ok" }],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    };
-    const { callLlm } = await import("../src/llm-client.js");
-    await callLlm("s", "u");
-    expect((captured.aOptions as { timeout: number; maxRetries: number }).timeout).toBe(30_000);
-    expect((captured.aOptions as { timeout: number; maxRetries: number }).maxRetries).toBe(3);
-  });
 });
 
 describe("planejador.callHaiku — triage", () => {
-  it("default Infomaniak / mistral3", async () => {
-    mockOpenAIResponse = {
-      choices: [{ message: { content: '{"ranking":["a"]}' } }],
-      usage: { prompt_tokens: 50, completion_tokens: 10 },
+  it("default Infomaniak / mistral3 com max_tokens=512", async () => {
+    mockResponse = {
+      ...mockResponse,
+      content: '{"ranking":["a"]}',
+      provider: "infomaniak",
+      model: "mistral3",
     };
     const { callHaiku } = await import("../src/llm-client.js");
     const r = await callHaiku("s", "u");
+    expect(captured.req!.step).toBe("haiku-triage");
+    expect(captured.req!.provider).toBe("infomaniak");
+    expect(captured.req!.model).toBe("mistral3");
+    expect(captured.req!.maxTokens).toBe(512);
     expect(r.provider).toBe("infomaniak");
-    expect(r.model).toBe("mistral3");
-    expect((captured.oParams as { max_tokens: number }).max_tokens).toBe(512);
   });
 
-  it("HAIKU_TRIAGE_PROVIDER=anthropic → Claude Haiku", async () => {
+  it("HAIKU_TRIAGE_PROVIDER=anthropic → Claude Haiku, thinking sempre OFF", async () => {
     process.env["HAIKU_TRIAGE_PROVIDER"] = "anthropic";
-    mockAnthropicResponse = {
-      content: [{ type: "text", text: '{"ranking":["a"]}' }],
-      usage: { input_tokens: 50, output_tokens: 10 },
+    process.env["ASC_DEBUG_MODE"] = "true";
+    mockResponse = {
+      ...mockResponse,
+      content: '{"ranking":["a"]}',
+      provider: "anthropic",
+      model: "claude-haiku-4-5-20251001",
     };
     const { callHaiku } = await import("../src/llm-client.js");
-    const r = await callHaiku("s", "u");
-    expect(r.provider).toBe("anthropic");
-    expect(r.model).toBe("claude-haiku-4-5-20251001");
-    expect((captured.aParams as { max_tokens: number }).max_tokens).toBe(512);
-    expect((captured.aOptions as { timeout: number }).timeout).toBe(15_000);
-    // Thinking sempre OFF em haiku-triage (mesmo com debug ON)
-    process.env["ASC_DEBUG_MODE"] = "true";
-    captured.aParams = undefined;
     await callHaiku("s", "u");
-    expect((captured.aParams as { thinking?: unknown } | undefined)?.thinking).toBeUndefined();
+    expect(captured.req!.provider).toBe("anthropic");
+    expect(captured.req!.model).toBe("claude-haiku-4-5-20251001");
+    expect(captured.req!.maxTokens).toBe(512);
+    // Thinking sempre OFF em haiku-triage (mesmo com debug ON)
+    expect(captured.req!.enableThinking).toBeUndefined();
   });
 });
