@@ -1,53 +1,100 @@
 # transitions.yaml — Função de transição declarativa para perfil Kids (motor#25)
 #
-# Spec: docs/handoffs/2026-04-26-cc-motor-pre-piloto-strategic-gaps.md §motor#25.
-# ARCHITECTURE.md §14 (adicionado neste PR).
-#
-# Filosofia (DA-PRE-PILOTO-02): declarativo bloqueante. Função computacional
-# vira tech debt explícito SE função estática mostrar-se insuficiente após
-# 30d de piloto. Inverter essa ordem = caixa-preta dobrada.
-#
+# Versão: v0.2 — 2026-04-28 — A-01 GAP-02 do implementation plan pré-piloto.
+# Spec: ascendimacy-ops/docs/handoffs/2026-04-28-implementation-plan-gaps-pre-piloto.md §A-01
 # Schema validado por shared/src/transitions-schema.ts (Zod).
 #
 # Status atual da statusMatrix Kids: brejo → baia → pasto.
-# Cada transição lista signals que devem aparecer (required), signals que
-# confirmam (confirmatory), e signals que regridem (regression_to).
+# 4 transições: 2 ascendentes (brejo→baia, baia→pasto) +
+# 2 regressões explícitas (baia→brejo, pasto→baia).
+#
+# ─── Notas operacionais ────────────────────────────────────────────────
+# - Trigger Evaluator no Planejador roda após cada turn (loadTransitionsConfig)
+# - Lê signals do event_log (signals_extracted events) das últimas N turns
+# - Avalia required → if match emite transition_evaluated event
+# - v0 read-only: NÃO move statusMatrix automaticamente. Auto-mov vira v1
+#   pós-piloto, depois de validar precision com piloto Yuji.
+#
+# ─── Mapping spec → schema (DT-A01-01) ────────────────────────────────
+# Spec original (handoff §A-01) usa nomes diferentes do schema atual:
+#   spec.required_signals_any  → schema.required_signals (match_mode default OR)
+#   spec.required_signals_all  → schema.required_signals (match_mode "AND")
+#   spec.forbidden_signals_any → schema.regression_to_<estado>_if
+#   spec.min_window_turns      → schema.minimum_window_turns
+#   spec.from_status/to_status → encoded no NOME da transição
+#   spec.consecutive_turns_required → NÃO SUPORTADO no schema; comentado abaixo.
+#
+# DT-A01-01: extender schema pra suportar consecutive_turns_required + from/to
+# explícitos vira tarefa F+1 se piloto mostrar precisão insuficiente.
 
 profile_id: kids
-schema_version: v0
-last_updated: 2026-04-26
+schema_version: v0.2
+last_updated: "2026-04-28"
 
 transitions:
-  # Subida brejo → baia: signal de auto-aceitação OU engajamento sustentado
+
+  # ── Subida brejo → baia ───────────────────────────────────────────────
+  # Critério: qualquer signal de auto-aceitação OU engajamento ascendente.
+  # Janela: mínimo 2 turns desde brejo registrado (evita oscilação rápida).
+  # Regressão: distress alto OU resistência manifesta volta pra brejo.
   brejo_to_baia:
     required_signals:
       - philosophical_self_acceptance
-      - voluntary_topic_deepening  # OR via: 3 turns de mood_drift_up
-    minimum_window_turns: 2  # mínimo 2 turns desde último brejo registrado
-    confirmatory_signals:
       - voluntary_topic_deepening
       - mood_drift_up
+    match_mode: OR
+    minimum_window_turns: 2
+    confirmatory_signals: []
     regression_to_brejo_if:
-      - distress_marker_high  # gatilho forte → volta pra brejo
-      - 2_consecutive_deflexions  # 2 deflection_thematic ou _silence em sequência
+      - distress_marker_high
+      - gatekeeper_resistance
 
-  # Subida baia → pasto: meta-cognição OU síntese de framework próprio
+  # ── Subida baia → pasto ───────────────────────────────────────────────
+  # Critério: frame_synthesis (síntese de framework próprio) é obrigatório.
+  # meta_cognitive_observation + voluntary_topic_deepening elevam confidence.
+  # Janela: mínimo 5 turns em baia antes de virar pasto.
+  #
+  # DT-A01-02: spec original pedia required_signals_all:[frame_synthesis] +
+  # required_signals_any:[meta_cog, voluntary_topic]. Schema atual não
+  # combina 2 grupos — frame_synthesis vira required (AND com 1 elemento),
+  # os outros 2 viram confirmatory (não bloqueiam, mas documentam).
+  # Semantic loss: signals "any" não são strictly required no v0.
   baia_to_pasto:
     required_signals:
-      - meta_cognitive_observation
-      - frame_synthesis  # OR via: aplicação voluntária a novo contexto
-    minimum_window_turns: 5  # mínimo 5 turns em baia antes de virar pasto
+      - frame_synthesis
+    match_mode: AND
+    minimum_window_turns: 5
     confirmatory_signals:
-      - voluntary_application_to_new_context  # signal especial: detectado por bot via tópico shift consciente
-      - peer_reference  # menciona aprendizado pra irmão/amigo
+      - meta_cognitive_observation
+      - voluntary_topic_deepening
     regression_to_baia_if:
       - distress_marker_high
-      - explicit_request_for_simpler_framing  # "isso tá complicado demais"
+      - gatekeeper_resistance
 
-# Notas operacionais:
-# - Trigger Evaluator no Planejador roda APÓS cada turn
-# - Lê signals do event_log (extracted_signals events) das últimas N turns
-# - Avalia required → if match emite transition_evaluated event com decisão
-# - **NÃO move statusMatrix automaticamente em v0** — só EMITE evento.
-#   Movimentação real continua via inject_status (manual) ou mecanismo externo.
-#   Auto-movimentação fica pra v1 pós-piloto, depois de validar precision.
+  # ── Regressão baia → brejo (explícita) ────────────────────────────────
+  # Critério: distress alto OU 2 deflexões consecutivas.
+  # Janela: 0 (regressão imediata, sem buffer).
+  #
+  # DT-A01-03: spec pedia consecutive_turns_required: 2 — schema não
+  # suporta consecutive matching. v0 dispara em ocorrência única.
+  # Conservative: 1 distress_marker_high É suficiente; 1 deflection
+  # também (mais permissivo que spec). Refinar v1 se false positive alto.
+  regression_baia_to_brejo:
+    required_signals:
+      - distress_marker_high
+      - deflection_silence
+      - deflection_thematic
+    match_mode: OR
+    minimum_window_turns: 0
+    confirmatory_signals: []
+
+  # ── Regressão pasto → baia (explícita) ────────────────────────────────
+  # Critério: distress alto OU resistência manifesta.
+  # Janela: 0 (regressão imediata).
+  regression_pasto_to_baia:
+    required_signals:
+      - distress_marker_high
+      - gatekeeper_resistance
+    match_mode: OR
+    minimum_window_turns: 0
+    confirmatory_signals: []
