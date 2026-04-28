@@ -1,0 +1,36 @@
+# Voice Profile — Kids JP
+#
+# Spec: ascendimacy-ops/docs/specs/2026-04-28-motor-simplificacao-llm-spec-v1.md §6.2
+# Cascade: ClientVoiceProfile (este) → CulturalDefault (ja.yaml) → Universal (_neutral.yaml)
+
+profile_id: kids-jp
+language: ja
+cultural_default_ref: shared/voice/cultural-defaults/ja.yaml
+
+# ─── Materializer config (DS-09) ─────────────────────────────────────
+# DT-SIM-05: spec mencionou "qwen" como default; v0 usa step "drota"
+# existente (Kimi K2.5 via Infomaniak). Refator pra ler model daqui
+# quando voice profile ganhar tipo formal.
+materializer:
+  step: drota
+  max_tokens: 300
+  temperature: 0.7
+
+# ─── Assessor config (DS-08) ─────────────────────────────────────────
+assessor:
+  step: unified-assessor
+  max_tokens: 256
+  temperature: 0.1
+
+# ─── Pulso config (motor#33, DA-PULSO-01..05) ────────────────────────
+pulso:
+  enabled: true
+  type: omikuji
+  tie_threshold: 0.05
+  rng_seed_strategy: deterministic_session
+  vocabulary_ref: shared/voice/cultural-defaults/ja.yaml#pulso
+
+# ─── Cliente-specific overrides (família Yuji+Yuko revisa) ───────────
+client_overrides:
+  honorific: bare_name # família escolhe; default JP é sem honorífico
+  inaugural_purpose_override: null # null = usa do cultural default

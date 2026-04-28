@@ -1,0 +1,31 @@
+# Cultural Defaults — Neutral fallback (PT-BR plain)
+#
+# Spec: ascendimacy-ops/docs/specs/2026-04-28-motor-simplificacao-llm-spec-v1.md §5.5
+#
+# Universal fallback quando ClientVoiceProfile + CulturalDefault específico
+# (ja.yaml, br-pt.yaml) ausentes. Tom direto, sem decoração cultural.
+
+cultural_default_provenance: universal_neutral
+language: pt
+locale: pt-BR
+
+inaugural:
+  greeting: "Oi"
+  greeting_with_name_format: "{greeting}, {name}."
+  purpose: |
+    Estou aqui pra pensar coisas com você. Não sou quem dá respostas — sou quem fala junto.
+  non_evaluation_clause: "Isso não é prova nem avaliação."
+  exit_right: "Se quiser parar, é só falar. Sem problema nenhum."
+  confirmation_invite_template: "Hoje, quer falar sobre {interest}?"
+  confirmation_invite_default: "O que tá rolando aí?"
+
+pulso:
+  type: plain
+  enabled: false
+  tie_threshold: 0.05
+  rng_seed_strategy: deterministic_session
+  vocabulary: []
+
+honorifics:
+  default_form: bare_name
+  available_options: [bare_name]
