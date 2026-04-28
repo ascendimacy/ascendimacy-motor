@@ -146,13 +146,66 @@ async function getClient(): Promise<Client> {
   }
 }
 
+// ─── Mock awareness (USE_MOCK_LLM=true) ────────────────────────────────────
+// Quando flag liga, callGateway retorna stub determinístico per step,
+// SEM spawnar gateway nem chamar LLM real. Permite smoke end-to-end sem
+// custo de provider e sem dependência de rede/credenciais.
+//
+// Stubs são step-aware: retornam JSON estruturado válido pros parsers
+// downstream (unified-assessor JSON, mood-extractor JSON, etc).
+
+function isMockMode(): boolean {
+  return process.env["USE_MOCK_LLM"] === "true";
+}
+
+function buildMockContent(step: string): string {
+  switch (step) {
+    case "unified-assessor":
+      return `{"mood": 6, "mood_confidence": "medium", "signals": [], "engagement": "medium", "rationale": "mock"}`;
+    case "mood-extractor":
+      return `{"score": 5, "rationale": "mock"}`;
+    case "signal-extractor":
+      return `{"signals": [], "evidence": {}, "overall_confidence": 0.5}`;
+    case "haiku-triage":
+      return `{"approved_ids": [], "rejected_ids": []}`;
+    case "haiku-bullying":
+      return `{"flagged": false}`;
+    case "drota":
+      return `{"selectionRationale": "mock auto-select", "linguisticMaterialization": "Vamos pensar nisso juntos."}`;
+    case "planejador":
+      return `{"strategicRationale": "mock strategic", "contentPool": [], "contextHints": {}, "instruction_addition": ""}`;
+    case "persona-sim":
+      return `{"message": "(mock persona)", "thinking": null}`;
+    default:
+      return `{"mock": true, "step": "${step}"}`;
+  }
+}
+
+function buildMockResponse(req: GatewayChatCompletionInput): GatewayChatCompletionOutput {
+  return {
+    content: buildMockContent(req.step),
+    tokens: { in: 0, out: 0, reasoning: 0 },
+    provider: "infomaniak", // valor formal, não bate na rede
+    model: "mock",
+    latency_ms: 0,
+    attempt_count: 1,
+    was_fallback: false,
+  };
+}
+
 /**
  * Chama o gateway. Lazy-spawn no primeiro call; reusa o mesmo processo
  * gateway pro resto da vida do processo caller.
+ *
+ * Quando USE_MOCK_LLM=true, retorna stub determinístico per step sem
+ * spawnar gateway nem chamar LLM real (smoke local zero-custo).
  */
 export async function callGateway(
   req: GatewayChatCompletionInput,
 ): Promise<GatewayChatCompletionOutput> {
+  if (isMockMode()) {
+    return buildMockResponse(req);
+  }
   const client = await getClient();
   const result = await client.callTool({
     name: "chat_completion",
