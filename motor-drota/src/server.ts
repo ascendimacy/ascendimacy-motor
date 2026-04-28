@@ -12,6 +12,7 @@ import { selectFromPool, sanitizeMaterialization } from "./select.js";
 import { callLlm, callLlmMock } from "./llm-client.js";
 import { parseDrotaOutput } from "./parse-output.js";
 import { extractSignals } from "./signal-extractor.js";
+import { applyPostProcessors } from "./post-processor.js";
 import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
 
 const server = new McpServer({
@@ -296,9 +297,28 @@ server.registerTool(
       );
     }
 
-    const materialization = sanitizeMaterialization(
+    const sanitized = sanitizeMaterialization(
       parsed.linguisticMaterialization ?? "",
     );
+
+    // A-05: F3 (anti-infantilização, warn mode) + F5 (persona consistency, strict)
+    const personaProfileRaw = input.persona.profile as Record<string, unknown> | string;
+    const personaProfileStr =
+      typeof personaProfileRaw === "string"
+        ? personaProfileRaw.slice(0, 40)
+        : String(input.persona.id);
+    const postProcessed = await applyPostProcessors(
+      sanitized,
+      { f3Mode: "warn", personaProfile: personaProfileStr },
+      async () => {
+        const retry = useMock
+          ? await callLlmMock(systemPrompt, userMessage)
+          : await callLlm(dynamicBody, userMessage, { cacheableSystemPrefix: STABLE_DROTA_PREFIX });
+        const retryParsed = parseDrotaOutput(retry.content);
+        return sanitizeMaterialization(retryParsed.parsed.linguisticMaterialization ?? "");
+      },
+    );
+    const materialization = postProcessed.text;
 
     const output: EvaluateAndSelectOutput = {
       selectedContent: selected,
@@ -344,6 +364,8 @@ server.registerTool(
           materialization_length: materialization.length,
           sanitize_pass_applied: true,
           parse_failure_reason: parseFailureReason ?? null,
+          f3_warnings: postProcessed.warnings.filter((w) => w.startsWith("F3:")),
+          f5_blocked: postProcessed.filter === "f5" && postProcessed.blocked,
         },
       },
       outcome: parseFailureReason ? "skip" : "ok",
