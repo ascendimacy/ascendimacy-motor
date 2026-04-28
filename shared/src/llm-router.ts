@@ -34,53 +34,62 @@ export type LlmStep = (typeof LLM_STEPS)[number];
 
 /**
  * Default provider por step.
- * motor#21 + motor-simplificacao-v1: TUDO Infomaniak — zero Anthropic dependency.
  *
- * unified-assessor migrou de Anthropic Haiku → Infomaniak granite (Jun, 28-abr,
- * downsizing): zero custo Anthropic + um único provider em toda stack.
+ * motor-simplificacao-v1 (Jun, 28-abr — segunda iteração): TUDO Anthropic
+ * Haiku 4.5. Reverte tentativa anterior com Infomaniak granite por
+ * limitações em JSON estruturado + qualidade conversacional. Anthropic
+ * Haiku é small (1B-tier), rápido (~2-4s/call), bom em classification +
+ * geração curta. Custo aceitável após recarregar Anthropic.
  */
 export const DEFAULT_PROVIDERS: Record<LlmStep, LlmProvider> = {
-  planejador: "infomaniak",
-  drota: "infomaniak",
-  "persona-sim": "infomaniak",
-  "haiku-triage": "infomaniak",
-  "haiku-bullying": "infomaniak",
-  "signal-extractor": "infomaniak",
-  "mood-extractor": "infomaniak",
-  "unified-assessor": "infomaniak",
+  planejador: "anthropic",
+  drota: "anthropic",
+  "persona-sim": "anthropic",
+  "haiku-triage": "anthropic",
+  "haiku-bullying": "anthropic",
+  "signal-extractor": "anthropic",
+  "mood-extractor": "anthropic",
+  "unified-assessor": "anthropic",
 };
 
 /**
  * Default model por step.
  *
- * motor-simplificacao-v1 (Jun, 28-abr): TUDO `granite` (IBM small chat, ~3B,
- * ~3-5s/call). Downsizing radical: um único modelo em toda stack pra cortar
- * custos + simplificar debug. Trade-off conhecido: qualidade conversacional
- * cai vs Kimi K2.6 reasoning. Aceitável pra Kids (respostas curtas) e
- * classification (signal/mood/triage).
+ * motor-simplificacao-v1 (Jun, 28-abr — segunda iteração): TUDO Anthropic
+ * Haiku 4.5. Stack homogênea, debug simples, qualidade Anthropic.
  *
- * Override per-step via env <STEP>_MODEL (ex: DROTA_MODEL=moonshotai/Kimi-K2.6
- * pra subir qualidade só do drota).
+ * Trade-off: depende de ANTHROPIC_API_KEY válida + créditos. Sem key →
+ * use USE_MOCK_LLM=true (mock awareness em callGateway) ou override
+ * per-step via <STEP>_MODEL + <STEP>_PROVIDER pra Infomaniak.
+ *
+ * Override per-step preservado:
+ *   DROTA_PROVIDER=infomaniak DROTA_MODEL=moonshotai/Kimi-K2.6
  */
 export const DEFAULT_MODELS: Record<LlmStep, string> = {
-  planejador: "granite",
-  drota: "granite",
-  "persona-sim": "granite",
-  "haiku-triage": "granite",
-  "haiku-bullying": "granite",
-  "signal-extractor": "granite",
-  "mood-extractor": "granite",
-  "unified-assessor": "granite",
+  planejador: "claude-haiku-4-5-20251001",
+  drota: "claude-haiku-4-5-20251001",
+  "persona-sim": "claude-haiku-4-5-20251001",
+  "haiku-triage": "claude-haiku-4-5-20251001",
+  "haiku-bullying": "claude-haiku-4-5-20251001",
+  "signal-extractor": "claude-haiku-4-5-20251001",
+  "mood-extractor": "claude-haiku-4-5-20251001",
+  "unified-assessor": "claude-haiku-4-5-20251001",
 };
 
 /**
- * Anthropic-specific defaults (usado só se provider=anthropic).
- * Mapeamento: step → modelo Claude equivalente.
+ * Anthropic-specific defaults (usado quando provider=anthropic).
+ *
+ * motor-simplificacao-v1 segunda iteração: TUDO Haiku 4.5. Antes era split
+ * (Sonnet pra geração rica, Haiku pra classification). Agora homogêneo.
+ *
+ * Pra subir qualidade pontual (drota, persona-sim) com Sonnet:
+ *   DROTA_MODEL=claude-sonnet-4-6
+ *   PERSONA_SIM_MODEL=claude-sonnet-4-6
  */
 export const ANTHROPIC_FALLBACK_MODELS: Record<LlmStep, string> = {
-  planejador: "claude-sonnet-4-6",
-  drota: "claude-sonnet-4-6",
-  "persona-sim": "claude-sonnet-4-6",
+  planejador: "claude-haiku-4-5-20251001",
+  drota: "claude-haiku-4-5-20251001",
+  "persona-sim": "claude-haiku-4-5-20251001",
   "haiku-triage": "claude-haiku-4-5-20251001",
   "haiku-bullying": "claude-haiku-4-5-20251001",
   "signal-extractor": "claude-haiku-4-5-20251001",

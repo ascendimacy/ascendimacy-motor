@@ -86,12 +86,16 @@ describe("motor-drota.callLlm — motor#28b gateway integration", () => {
   });
 
   it("passa step=drota + provider/model/maxTokens corretos pro gateway", async () => {
+    // motor-simplificacao-v1: default mudou pra anthropic+Haiku. Override
+    // explícito pra Kimi via MOTOR_DROTA_MODEL + DROTA_PROVIDER pra preservar
+    // o cenário original do test (reasoning model heuristic com max_tokens=4096).
+    process.env["DROTA_PROVIDER"] = "infomaniak";
     process.env["MOTOR_DROTA_MODEL"] = "moonshotai/Kimi-K2.5";
     const { callLlm } = await import("../src/llm-client.js");
     await callLlm("system", "user");
     expect(captured.req).toBeDefined();
     expect(captured.req!.step).toBe("drota");
-    expect(captured.req!.provider).toBe("infomaniak"); // default
+    expect(captured.req!.provider).toBe("infomaniak"); // override explícito
     expect(captured.req!.model).toBe("moonshotai/Kimi-K2.5");
     expect(captured.req!.maxTokens).toBe(4096); // reasoning model heuristic
     expect(captured.req!.systemPrompt).toBe("system");
