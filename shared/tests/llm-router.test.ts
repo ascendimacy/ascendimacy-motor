@@ -34,18 +34,18 @@ afterEach(() => {
 });
 
 describe("getProviderForStep", () => {
-  it("default infomaniak pra todos os steps", () => {
-    expect(getProviderForStep("planejador")).toBe("infomaniak");
-    expect(getProviderForStep("drota")).toBe("infomaniak");
-    expect(getProviderForStep("persona-sim")).toBe("infomaniak");
-    expect(getProviderForStep("haiku-triage")).toBe("infomaniak");
-    expect(getProviderForStep("haiku-bullying")).toBe("infomaniak");
+  it("default anthropic pra todos os steps (motor-simplificacao-v1 Haiku-em-tudo)", () => {
+    expect(getProviderForStep("planejador")).toBe("anthropic");
+    expect(getProviderForStep("drota")).toBe("anthropic");
+    expect(getProviderForStep("persona-sim")).toBe("anthropic");
+    expect(getProviderForStep("haiku-triage")).toBe("anthropic");
+    expect(getProviderForStep("haiku-bullying")).toBe("anthropic");
   });
 
   it("PLANEJADOR_PROVIDER override per-step", () => {
-    process.env["PLANEJADOR_PROVIDER"] = "anthropic";
-    expect(getProviderForStep("planejador")).toBe("anthropic");
-    expect(getProviderForStep("drota")).toBe("infomaniak"); // não afeta outros
+    process.env["PLANEJADOR_PROVIDER"] = "infomaniak";
+    expect(getProviderForStep("planejador")).toBe("infomaniak");
+    expect(getProviderForStep("drota")).toBe("anthropic"); // não afeta outros
   });
 
   it("hyphen no step name vira underscore no env (haiku-triage → HAIKU_TRIAGE_PROVIDER)", () => {
@@ -66,30 +66,79 @@ describe("getProviderForStep", () => {
     expect(getProviderForStep("planejador")).toBe("anthropic"); // global ainda
   });
 
-  it("valor inválido em env → fallback default", () => {
+  it("valor inválido em env → fallback default (anthropic)", () => {
     process.env["PLANEJADOR_PROVIDER"] = "openai"; // não é "anthropic" nem "infomaniak"
-    expect(getProviderForStep("planejador")).toBe("infomaniak"); // default
+    expect(getProviderForStep("planejador")).toBe("anthropic"); // default
   });
 
-  it("step desconhecido → infomaniak fallback", () => {
+  it("step desconhecido → infomaniak fallback (legado pré-haiku-em-tudo)", () => {
+    // getProviderForStep tem fallback hardcoded "infomaniak" pra steps fora
+    // do enum. Step desconhecido não deveria existir em prática (LLM_STEPS
+    // é exhaustivo), mas o fallback é defensivo.
     expect(getProviderForStep("unknown-step")).toBe("infomaniak");
   });
 });
 
+describe("getProviderForStep com provider local (vLLM)", () => {
+  it("LLM_PROVIDER=local → todos os steps retornam local", () => {
+    process.env["LLM_PROVIDER"] = "local";
+    expect(getProviderForStep("drota")).toBe("local");
+    expect(getProviderForStep("planejador")).toBe("local");
+    expect(getProviderForStep("unified-assessor")).toBe("local");
+  });
+
+  it("DROTA_PROVIDER=local → step específico, outros mantêm default", () => {
+    process.env["DROTA_PROVIDER"] = "local";
+    expect(getProviderForStep("drota")).toBe("local");
+    expect(getProviderForStep("planejador")).toBe("anthropic"); // default
+  });
+
+  it("step-specific local beats global anthropic", () => {
+    process.env["LLM_PROVIDER"] = "anthropic";
+    process.env["DROTA_PROVIDER"] = "local";
+    expect(getProviderForStep("drota")).toBe("local");
+    expect(getProviderForStep("planejador")).toBe("anthropic");
+  });
+});
+
+describe("getModelForStep com provider local (vLLM)", () => {
+  it("provider=local sem env → default gpt-oss-20b", () => {
+    delete process.env["LOCAL_LLM_MODEL"];
+    expect(getModelForStep("drota", "local")).toBe("gpt-oss-20b");
+  });
+
+  it("provider=local com LOCAL_LLM_MODEL → respeita env", () => {
+    process.env["LOCAL_LLM_MODEL"] = "qwen3-8b";
+    expect(getModelForStep("drota", "local")).toBe("qwen3-8b");
+  });
+
+  it("provider=local em todos os steps retorna mesmo modelo (single-model stack)", () => {
+    process.env["LOCAL_LLM_MODEL"] = "gpt-oss-20b";
+    expect(getModelForStep("planejador", "local")).toBe("gpt-oss-20b");
+    expect(getModelForStep("drota", "local")).toBe("gpt-oss-20b");
+    expect(getModelForStep("unified-assessor", "local")).toBe("gpt-oss-20b");
+    expect(getModelForStep("haiku-triage", "local")).toBe("gpt-oss-20b");
+  });
+});
+
 describe("getModelForStep", () => {
-  it("default Kimi K2.5 pra planejador/drota/persona-sim (Infomaniak)", () => {
-    expect(getModelForStep("planejador")).toBe("moonshotai/Kimi-K2.5");
-    expect(getModelForStep("drota")).toBe("moonshotai/Kimi-K2.5");
-    expect(getModelForStep("persona-sim")).toBe("moonshotai/Kimi-K2.5");
+  it("default Haiku 4.5 em todos os steps (motor-simplificacao-v1 Haiku-em-tudo)", () => {
+    // Pós-downsizing 28-abr (segunda iteração): stack inteira em Anthropic
+    // Haiku 4.5. Override per-step via env <STEP>_MODEL + <STEP>_PROVIDER.
+    const HAIKU = "claude-haiku-4-5-20251001";
+    expect(getModelForStep("planejador")).toBe(HAIKU);
+    expect(getModelForStep("drota")).toBe(HAIKU);
+    expect(getModelForStep("persona-sim")).toBe(HAIKU);
+    expect(getModelForStep("haiku-triage")).toBe(HAIKU);
+    expect(getModelForStep("haiku-bullying")).toBe(HAIKU);
+    expect(getModelForStep("signal-extractor")).toBe(HAIKU);
+    expect(getModelForStep("mood-extractor")).toBe(HAIKU);
+    expect(getModelForStep("unified-assessor")).toBe(HAIKU);
   });
 
-  it("default mistral3 pra haiku-triage/haiku-bullying (rerank, sem reasoning)", () => {
-    expect(getModelForStep("haiku-triage")).toBe("mistral3");
-    expect(getModelForStep("haiku-bullying")).toBe("mistral3");
-  });
-
-  it("provider=anthropic → Claude fallback", () => {
-    expect(getModelForStep("planejador", "anthropic")).toBe("claude-sonnet-4-6");
+  it("provider=anthropic → Haiku 4.5 em todos (motor-simplificacao-v1)", () => {
+    // Pós-Haiku-em-tudo: ANTHROPIC_FALLBACK_MODELS é homogêneo.
+    expect(getModelForStep("planejador", "anthropic")).toBe("claude-haiku-4-5-20251001");
     expect(getModelForStep("haiku-triage", "anthropic")).toBe("claude-haiku-4-5-20251001");
   });
 
@@ -174,8 +223,13 @@ describe("shouldEnableThinking", () => {
 });
 
 describe("constants exposure", () => {
-  it("DEFAULT_PROVIDERS é Infomaniak everywhere", () => {
-    for (const v of Object.values(DEFAULT_PROVIDERS)) expect(v).toBe("infomaniak");
+  it("DEFAULT_PROVIDERS é Anthropic everywhere (motor-simplificacao-v1 Haiku-em-tudo)", () => {
+    // motor-simplificacao-v1 segunda iteração (Jun, 28-abr): stack inteira em
+    // Anthropic Haiku 4.5. Reverte tentativa Infomaniak granite por limitações
+    // em JSON estruturado + qualidade conversacional.
+    for (const v of Object.values(DEFAULT_PROVIDERS)) {
+      expect(v).toBe("anthropic");
+    }
   });
   it("DEFAULT_MODELS preenchido pra todos os steps", () => {
     expect(DEFAULT_MODELS["planejador"]).toBeTruthy();

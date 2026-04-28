@@ -17,7 +17,7 @@
  *   PERSONA_SIM_MODEL=mistral3
  */
 
-export type LlmProvider = "anthropic" | "infomaniak";
+export type LlmProvider = "anthropic" | "infomaniak" | "local";
 
 /** Steps válidos com config defaults. */
 export const LLM_STEPS = [
@@ -28,54 +28,73 @@ export const LLM_STEPS = [
   "haiku-bullying",
   "signal-extractor", // motor#25 — captura signals semânticos antes de Environment Assessor
   "mood-extractor", // motor#35 — extração de mood absoluto da criança (F1-mood PART B)
+  "unified-assessor", // motor-simplificacao-v1 — Haiku unificado: signals + mood + engagement em 1 chamada
 ] as const;
 export type LlmStep = (typeof LLM_STEPS)[number];
 
 /**
  * Default provider por step.
- * motor#21: TUDO Infomaniak por default — zero Anthropic dependency.
+ *
+ * motor-simplificacao-v1 (Jun, 28-abr — segunda iteração): TUDO Anthropic
+ * Haiku 4.5. Reverte tentativa anterior com Infomaniak granite por
+ * limitações em JSON estruturado + qualidade conversacional. Anthropic
+ * Haiku é small (1B-tier), rápido (~2-4s/call), bom em classification +
+ * geração curta. Custo aceitável após recarregar Anthropic.
  */
 export const DEFAULT_PROVIDERS: Record<LlmStep, LlmProvider> = {
-  planejador: "infomaniak",
-  drota: "infomaniak",
-  "persona-sim": "infomaniak",
-  "haiku-triage": "infomaniak",
-  "haiku-bullying": "infomaniak",
-  "signal-extractor": "infomaniak",
-  "mood-extractor": "infomaniak",
+  planejador: "anthropic",
+  drota: "anthropic",
+  "persona-sim": "anthropic",
+  "haiku-triage": "anthropic",
+  "haiku-bullying": "anthropic",
+  "signal-extractor": "anthropic",
+  "mood-extractor": "anthropic",
+  "unified-assessor": "anthropic",
 };
 
 /**
  * Default model por step.
- * Reasoning models (Kimi K2.5) pra steps onde reasoning ajuda.
- * mistral3 (Mistral-Small-3.2-24B) pra triage/bullying — small, fast, deterministic.
+ *
+ * motor-simplificacao-v1 (Jun, 28-abr — segunda iteração): TUDO Anthropic
+ * Haiku 4.5. Stack homogênea, debug simples, qualidade Anthropic.
+ *
+ * Trade-off: depende de ANTHROPIC_API_KEY válida + créditos. Sem key →
+ * use USE_MOCK_LLM=true (mock awareness em callGateway) ou override
+ * per-step via <STEP>_MODEL + <STEP>_PROVIDER pra Infomaniak.
+ *
+ * Override per-step preservado:
+ *   DROTA_PROVIDER=infomaniak DROTA_MODEL=moonshotai/Kimi-K2.6
  */
 export const DEFAULT_MODELS: Record<LlmStep, string> = {
-  planejador: "moonshotai/Kimi-K2.5",
-  drota: "moonshotai/Kimi-K2.5",
-  "persona-sim": "moonshotai/Kimi-K2.5",
-  "haiku-triage": "mistral3",
-  "haiku-bullying": "mistral3",
-  // Signal Extractor: Mistral3 default — não-reasoning, ~5s/call.
-  // Tarefa é classificação de signals em texto curto, não exige reasoning.
-  "signal-extractor": "mistral3",
-  // Mood Extractor (motor#35 PART B): Mistral3 default — classificação curta
-  // ("humor 1-10 + rationale"), não-reasoning. Mesmo perfil do signal-extractor.
-  "mood-extractor": "mistral3",
-};
-
-/**
- * Anthropic-specific defaults (usado só se provider=anthropic).
- * Mapeamento: step → modelo Claude equivalente.
- */
-export const ANTHROPIC_FALLBACK_MODELS: Record<LlmStep, string> = {
-  planejador: "claude-sonnet-4-6",
-  drota: "claude-sonnet-4-6",
-  "persona-sim": "claude-sonnet-4-6",
+  planejador: "claude-haiku-4-5-20251001",
+  drota: "claude-haiku-4-5-20251001",
+  "persona-sim": "claude-haiku-4-5-20251001",
   "haiku-triage": "claude-haiku-4-5-20251001",
   "haiku-bullying": "claude-haiku-4-5-20251001",
   "signal-extractor": "claude-haiku-4-5-20251001",
   "mood-extractor": "claude-haiku-4-5-20251001",
+  "unified-assessor": "claude-haiku-4-5-20251001",
+};
+
+/**
+ * Anthropic-specific defaults (usado quando provider=anthropic).
+ *
+ * motor-simplificacao-v1 segunda iteração: TUDO Haiku 4.5. Antes era split
+ * (Sonnet pra geração rica, Haiku pra classification). Agora homogêneo.
+ *
+ * Pra subir qualidade pontual (drota, persona-sim) com Sonnet:
+ *   DROTA_MODEL=claude-sonnet-4-6
+ *   PERSONA_SIM_MODEL=claude-sonnet-4-6
+ */
+export const ANTHROPIC_FALLBACK_MODELS: Record<LlmStep, string> = {
+  planejador: "claude-haiku-4-5-20251001",
+  drota: "claude-haiku-4-5-20251001",
+  "persona-sim": "claude-haiku-4-5-20251001",
+  "haiku-triage": "claude-haiku-4-5-20251001",
+  "haiku-bullying": "claude-haiku-4-5-20251001",
+  "signal-extractor": "claude-haiku-4-5-20251001",
+  "mood-extractor": "claude-haiku-4-5-20251001",
+  "unified-assessor": "claude-haiku-4-5-20251001",
 };
 
 function envKey(step: string, suffix: string): string {
@@ -93,9 +112,9 @@ function envKey(step: string, suffix: string): string {
  */
 export function getProviderForStep(step: string): LlmProvider {
   const perStep = process.env[envKey(step, "PROVIDER")];
-  if (perStep === "anthropic" || perStep === "infomaniak") return perStep;
+  if (perStep === "anthropic" || perStep === "infomaniak" || perStep === "local") return perStep;
   const global = process.env["LLM_PROVIDER"];
-  if (global === "anthropic" || global === "infomaniak") return global;
+  if (global === "anthropic" || global === "infomaniak" || global === "local") return global;
   return DEFAULT_PROVIDERS[step as LlmStep] ?? "infomaniak";
 }
 
@@ -121,6 +140,10 @@ export function getModelForStep(step: string, provider?: LlmProvider): string {
   if (legacy && process.env[legacy]) return process.env[legacy]!;
   // Fallback aware do provider escolhido
   const p = provider ?? getProviderForStep(step);
+  if (p === "local") {
+    // vLLM local: model único pra toda stack via env (default gpt-oss-20b)
+    return process.env["LOCAL_LLM_MODEL"] ?? "gpt-oss-20b";
+  }
   if (p === "anthropic") {
     return ANTHROPIC_FALLBACK_MODELS[step as LlmStep] ?? "claude-sonnet-4-6";
   }

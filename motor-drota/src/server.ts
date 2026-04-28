@@ -13,6 +13,11 @@ import { callLlm, callLlmMock } from "./llm-client.js";
 import { parseDrotaOutput } from "./parse-output.js";
 import { extractSignals } from "./signal-extractor.js";
 import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
+// motor-simplificacao Step 5 (feature flag side-by-side)
+import { assess } from "./unified-assessor.js";
+import { selectAction } from "./pragmatic-selector.js";
+import { materialize } from "./constrained-materializer.js";
+import { resolveInauguralTemplate } from "./inaugural-template.js";
 
 const server = new McpServer({
   name: "motor-drota",
@@ -190,6 +195,136 @@ function buildDrotaPrompt(
   return STABLE_DROTA_PREFIX + "\n\n" + buildDrotaDynamicBody(input, selected);
 }
 
+// ─── motor-simplificacao Step 5: handler simplificado side-by-side ──────────
+// USE_SIMPLIFIED_PIPELINE=true desvia internamente pro pipeline novo
+// (Unified Assessor + Pragmatic Selector + Constrained Materializer).
+// Fluxo antigo (selectFromPool + callLlm + parseDrotaOutput) permanece intacto;
+// rollback = remover env var.
+async function handleSimplifiedPipeline(
+  input: EvaluateAndSelectInput,
+  ranked: ScoredContentItem[],
+): Promise<EvaluateAndSelectOutput> {
+  // Mensagem do sujeito vem em contextHints.last_user_message; fallback
+  // pra instruction_addition se ausente; se ambos vazios, assess opera com
+  // string vazia (mood=5 conservador via rule-based).
+  const lastUserMessage =
+    (input.contextHints?.["last_user_message"] as string | undefined) ??
+    (input.instruction_addition ?? "");
+
+  const recentTurns =
+    (input.contextHints?.["recent_turns"] as
+      | Array<{ role: "user" | "assistant"; content: string }>
+      | undefined) ?? [];
+
+  // 1. Unified Assessor — extrai mood + signals + engagement em 1 chamada
+  //    Haiku (ou rule-based se confidence high pre-LLM).
+  const assessment = await assess({
+    message: lastUserMessage,
+    recentTurns,
+    personaName: input.persona.name,
+    personaAge: input.persona.age,
+    trustLevel: input.state.trustLevel,
+    run_id: input.sessionId,
+  });
+
+  // 2. Pragmatic Selector — determinístico, zero LLM.
+  const selectionResult = selectAction({
+    candidates: ranked,
+    assessment,
+    state: input.state,
+  });
+
+  // Escalação: pool sem viáveis ou budget exausto → fallback conversacional
+  if (!selectionResult.selected || selectionResult.escalate_to !== null) {
+    return {
+      selectedContent:
+        selectionResult.selected ??
+        ranked[0] ?? {
+          item: {
+            id: "__empty_pool__",
+            type: "curiosity_hook",
+            domain: "generic",
+            casel_target: [],
+            age_range: [0, 99],
+            surprise: 7,
+            verified: false,
+            base_score: 0,
+            fact: "",
+            bridge: "",
+            quest: "",
+            sacrifice_type: "reflect",
+          } as ContentItem,
+          score: 0,
+          reasons: ["simplified_pipeline_escalation"],
+        },
+      selectionRationale: selectionResult.decision_path,
+      linguisticMaterialization:
+        "Me conta o que está passando na sua cabeça.",
+      ...(selectionResult.escalate_reason
+        ? { skipReason: selectionResult.escalate_reason }
+        : {}),
+    };
+  }
+
+  // 3a. Apresentação inaugural — turn 0 + flag explícita em contextHints.
+  //     Cascade resolver não chama LLM; texto retorna direto pro Bridge.
+  const isInauguralTurn =
+    input.state.turn === 0 &&
+    input.contextHints?.["is_inaugural_turn"] === true;
+
+  if (isInauguralTurn) {
+    const inaugural = resolveInauguralTemplate({
+      voiceProfile:
+        (input.contextHints?.["voice_profile"] as Record<
+          string,
+          unknown
+        > | undefined) ?? null,
+      culturalDefault:
+        (input.contextHints?.["cultural_default"] as Record<
+          string,
+          unknown
+        > | undefined) ?? null,
+      child: {
+        name: input.persona.name,
+        age: input.persona.age,
+        topInterest: input.contextHints?.["top_interest"] as
+          | string
+          | undefined,
+      },
+      sessionNumber: 1,
+    });
+    return {
+      selectedContent: selectionResult.selected,
+      selectionRationale: `${selectionResult.decision_path} [inaugural ${inaugural.template_used}]`,
+      linguisticMaterialization: inaugural.text,
+    };
+  }
+
+  // 3b. Constrained Materializer — gera texto com constraints in-prompt.
+  const matResult = await materialize({
+    action: selectionResult.selected,
+    subjectNameForm: input.persona.name,
+    mood: assessment.mood,
+    engagement: assessment.engagement,
+    turnCount: input.state.turn,
+    budgetRemaining: selectionResult.budget_after,
+    jurisdictionActive:
+      ((input.contextHints?.["jurisdiction"] as string | undefined) as
+        | "br"
+        | "jp"
+        | "ch") ?? "br",
+    run_id: input.sessionId,
+    incomingMessage: lastUserMessage,
+  });
+
+  return {
+    selectedContent: selectionResult.selected,
+    selectionRationale: selectionResult.decision_path,
+    linguisticMaterialization: matResult.text,
+    ...(matResult.fallback_triggered ? { skipReason: "materializer_fallback" } : {}),
+  };
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 server.registerTool(
   "evaluate_and_select",
@@ -225,6 +360,79 @@ server.registerTool(
   },
   async (input: EvaluateAndSelectInput) => {
     const ranked = rankPool(input.contentPool);
+
+    // ── motor-simplificacao Step 5: feature flag side-by-side ───────────────
+    // USE_SIMPLIFIED_PIPELINE=true desvia pro pipeline simplificado.
+    // Fluxo antigo (linhas abaixo) permanece intacto; rollback = remover env var.
+    if (process.env["USE_SIMPLIFIED_PIPELINE"] === "true") {
+      if (ranked.length === 0) {
+        // Pool vazio: mesmo comportamento do fluxo antigo (consistência).
+        const emptyOutput: EvaluateAndSelectOutput = {
+          selectedContent: {
+            item: {
+              id: "__empty_pool__",
+              type: "curiosity_hook",
+              domain: "generic",
+              casel_target: [],
+              age_range: [0, 99],
+              surprise: 7,
+              verified: false,
+              base_score: 0,
+              fact: "",
+              bridge: "",
+              quest: "",
+              sacrifice_type: "reflect",
+            } as ContentItem,
+            score: 0,
+            reasons: ["pool_empty_fallback"],
+          },
+          selectionRationale: "Pool vazio — fallback conversacional.",
+          linguisticMaterialization:
+            "Oi! Me conta o que está passando na sua cabeça.",
+        };
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(emptyOutput) }],
+        };
+      }
+
+      const simplifiedOutput = await handleSimplifiedPipeline(input, ranked);
+
+      logDebugEvent({
+        side: "motor",
+        step: "drota",
+        user_id: input.persona.id,
+        session_id: input.sessionId,
+        turn_number: input.state.turn,
+        model: "simplified_pipeline",
+        provider: "internal",
+        tokens: { in: 0, out: 0 },
+        latency_ms: 0,
+        prompt: "[simplified_pipeline]",
+        response: simplifiedOutput.linguisticMaterialization,
+        reasoning: simplifiedOutput.selectionRationale,
+        snapshots_pre: {
+          drota: {
+            pipeline: "simplified",
+            pool_size: input.contentPool.length,
+          },
+        },
+        snapshots_post: {
+          drota: {
+            selected_item_id: simplifiedOutput.selectedContent.item.id,
+            materialization_length:
+              simplifiedOutput.linguisticMaterialization.length,
+          },
+        },
+        outcome: simplifiedOutput.skipReason ? "skip" : "ok",
+        error_class: simplifiedOutput.skipReason ?? null,
+      });
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(simplifiedOutput) }],
+      };
+    }
+    // ── FIM motor-simplificacao Step 5 ──────────────────────────────────────
+
     if (ranked.length === 0) {
       // Pool vazio: fallback conversacional (v2 §4.2 do plano).
       const output: EvaluateAndSelectOutput = {

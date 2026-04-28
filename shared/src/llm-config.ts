@@ -7,22 +7,21 @@
  * Override via env var por step ou global.
  */
 
-/** Timeouts default em ms, por step. */
+/** Timeouts default em ms, por step.
+ *
+ * Calibrados pra vLLM local (GPT-OSS-20B) — turn 1 prefill frio (~8-10k
+ * tokens) pode demorar 2-4s no Intel Arc B580; turns 2+ com prefix cache
+ * quente são <1s. Override per-step via ASC_LLM_TIMEOUT_<STEP> em segundos.
+ */
 export const LLM_TIMEOUT_DEFAULTS: Record<string, number> = {
-  // Sonnet 4.6 planejador — prompts moderados, reasoning budget 1024
-  planejador: 30_000,
-  // Haiku 4.5 rerank — prompts curtos
-  "haiku-triage": 15_000,
-  // Haiku 4.5 bullying check
-  "haiku-bullying": 15_000,
-  // Infomaniak reasoning models (Kimi K2.5, DeepSeek-R1) — reasoning chains longas
-  drota: 90_000,
-  // Sonnet 4.6 persona-simulator
-  "persona-sim": 30_000,
-  // motor#25 — Signal Extractor (Mistral3 default, classification curta)
-  "signal-extractor": 15_000,
-  // motor#35 PART B — Mood Extractor (Mistral3 default, classification curta)
-  "mood-extractor": 15_000,
+  planejador: 45_000, // local: prefill longo turn 1 pode chegar a 4s
+  "haiku-triage": 20_000,
+  "haiku-bullying": 20_000,
+  drota: 45_000, // local: turn 1 inaugural com contexto completo
+  "persona-sim": 45_000,
+  "signal-extractor": 20_000,
+  "mood-extractor": 20_000,
+  "unified-assessor": 20_000, // local: mesmo modelo que drota
 };
 
 /** MaxRetries default por step. */
@@ -34,6 +33,7 @@ export const LLM_MAX_RETRIES_DEFAULTS: Record<string, number> = {
   "persona-sim": 3,
   "signal-extractor": 2, // motor#25 — fail-fast, fallback rule-based existe
   "mood-extractor": 2, // motor#35 PART B — fail-fast, fallback rule-based existe
+  "unified-assessor": 2, // motor-simplificacao-v1 — fail-fast, rule-based degraded fallback
 };
 
 /**

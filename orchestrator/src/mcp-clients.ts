@@ -30,6 +30,20 @@ function buildEnv(): Record<string, string> {
     "SIGNAL_EXTRACTOR_MODEL",
     "HAIKU_TRIAGE_PROVIDER",
     "HAIKU_TRIAGE_MODEL",
+    "HAIKU_BULLYING_PROVIDER",
+    "HAIKU_BULLYING_MODEL",
+    "PERSONA_SIM_PROVIDER",
+    "PERSONA_SIM_MODEL",
+    "MOOD_EXTRACTOR_PROVIDER",
+    "MOOD_EXTRACTOR_MODEL",
+    "UNIFIED_ASSESSOR_PROVIDER",
+    "UNIFIED_ASSESSOR_MODEL",
+    // Local provider (vLLM / llama-server) — motor-simplificacao-v1
+    "LOCAL_LLM_BASE_URL",
+    "LOCAL_LLM_MODEL",
+    "LOCAL_LLM_API_KEY",
+    // Pipeline simplification flag (motor-simplificacao-v1 Step 5)
+    "USE_SIMPLIFIED_PIPELINE",
     // Gateway config (motor#28)
     "LLM_GATEWAY_RATE_INFOMANIAK",
     "LLM_GATEWAY_RATE_ANTHROPIC",
