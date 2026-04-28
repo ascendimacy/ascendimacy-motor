@@ -20,6 +20,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { join, dirname } from "node:path";
 import { createRequire } from "node:module";
 import type { LlmProvider } from "./llm-router.js";
+import { getProviderForStep } from "./llm-router.js";
 
 // Tipos espelham llm-gateway/src/types.ts. Mantidos sincronizados manualmente.
 export interface GatewayChatCompletionInput {
@@ -72,6 +73,9 @@ const PROPAGATED_ENV_KEYS = [
   "SIGNAL_EXTRACTOR_MODEL",
   "PERSONA_SIM_PROVIDER",
   "PERSONA_SIM_MODEL",
+  "LOCAL_LLM_BASE_URL",
+  "LOCAL_LLM_MODEL",
+  "LOCAL_LLM_API_KEY",
   "LLM_GATEWAY_RATE_INFOMANIAK",
   "LLM_GATEWAY_RATE_ANTHROPIC",
   "LLM_GATEWAY_PRIMARY_TIMEOUT_MS",
@@ -193,18 +197,104 @@ function buildMockResponse(req: GatewayChatCompletionInput): GatewayChatCompleti
   };
 }
 
+// ─── Local vLLM provider ───────────────────────────────────────────────────
+// Quando provider=local (resolved via getProviderForStep), bypassa o gateway
+// MCP e chama o endpoint OpenAI-compatible do vLLM diretamente via fetch.
+// Sem spawnar gateway, sem MCP, sem API keys externas.
+//
+// Env vars:
+//   LOCAL_LLM_BASE_URL  default: http://localhost:8000/v1
+//   LOCAL_LLM_MODEL     default: gpt-oss-20b
+//   LOCAL_LLM_API_KEY   default: "local" (vLLM não valida)
+//   ASC_LLM_TIMEOUT_SECONDS  default: 30 (override pra prefill longo turn 1)
+
+async function callLocalVllm(
+  req: GatewayChatCompletionInput,
+): Promise<GatewayChatCompletionOutput> {
+  const baseUrl =
+    process.env["LOCAL_LLM_BASE_URL"] ?? "http://localhost:8000/v1";
+  const model = process.env["LOCAL_LLM_MODEL"] ?? "gpt-oss-20b";
+  const apiKey = process.env["LOCAL_LLM_API_KEY"] ?? "local";
+
+  // Separação prefixo fixo / dinâmico — vLLM prefix caching opera sobre o
+  // prefixo do system message; partes fixas DEVEM ser idênticas entre turns.
+  const systemContent = req.cacheableSystemPrefix
+    ? `${req.cacheableSystemPrefix}\n\n${req.systemPrompt}`
+    : req.systemPrompt;
+
+  const messages: Array<{ role: string; content: string }> = [];
+  if (systemContent.trim()) {
+    messages.push({ role: "system", content: systemContent });
+  }
+  messages.push({ role: "user", content: req.userMessage });
+
+  const t0 = Date.now();
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: req.maxTokens ?? 512,
+      temperature: 0.7,
+    }),
+    signal: AbortSignal.timeout(
+      Number(process.env["ASC_LLM_TIMEOUT_SECONDS"] ?? 30) * 1_000,
+    ),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `vLLM local error: HTTP ${response.status} — ${body.slice(0, 200)}`,
+    );
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+
+  const content = data.choices?.[0]?.message?.content ?? "";
+  const tokens = {
+    in: data.usage?.prompt_tokens ?? 0,
+    out: data.usage?.completion_tokens ?? 0,
+    reasoning: 0,
+  };
+
+  return {
+    content,
+    tokens,
+    provider: "local",
+    model,
+    latency_ms: Date.now() - t0,
+    attempt_count: 1,
+    was_fallback: false,
+  };
+}
+
 /**
  * Chama o gateway. Lazy-spawn no primeiro call; reusa o mesmo processo
  * gateway pro resto da vida do processo caller.
  *
- * Quando USE_MOCK_LLM=true, retorna stub determinístico per step sem
- * spawnar gateway nem chamar LLM real (smoke local zero-custo).
+ * Provider resolution:
+ *   - USE_MOCK_LLM=true → mock determinístico (smoke zero-custo)
+ *   - provider=local → callLocalVllm (vLLM local, bypassa gateway MCP)
+ *   - provider=anthropic|infomaniak → gateway MCP (com retry/fallback)
  */
 export async function callGateway(
   req: GatewayChatCompletionInput,
 ): Promise<GatewayChatCompletionOutput> {
   if (isMockMode()) {
     return buildMockResponse(req);
+  }
+  // Provider local: bypassa gateway MCP, chama vLLM direto via fetch
+  const provider = getProviderForStep(req.step);
+  if (provider === "local") {
+    return callLocalVllm(req);
   }
   const client = await getClient();
   const result = await client.callTool({

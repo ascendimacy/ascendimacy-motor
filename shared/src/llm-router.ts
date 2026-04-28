@@ -17,7 +17,7 @@
  *   PERSONA_SIM_MODEL=mistral3
  */
 
-export type LlmProvider = "anthropic" | "infomaniak";
+export type LlmProvider = "anthropic" | "infomaniak" | "local";
 
 /** Steps válidos com config defaults. */
 export const LLM_STEPS = [
@@ -112,9 +112,9 @@ function envKey(step: string, suffix: string): string {
  */
 export function getProviderForStep(step: string): LlmProvider {
   const perStep = process.env[envKey(step, "PROVIDER")];
-  if (perStep === "anthropic" || perStep === "infomaniak") return perStep;
+  if (perStep === "anthropic" || perStep === "infomaniak" || perStep === "local") return perStep;
   const global = process.env["LLM_PROVIDER"];
-  if (global === "anthropic" || global === "infomaniak") return global;
+  if (global === "anthropic" || global === "infomaniak" || global === "local") return global;
   return DEFAULT_PROVIDERS[step as LlmStep] ?? "infomaniak";
 }
 
@@ -140,6 +140,10 @@ export function getModelForStep(step: string, provider?: LlmProvider): string {
   if (legacy && process.env[legacy]) return process.env[legacy]!;
   // Fallback aware do provider escolhido
   const p = provider ?? getProviderForStep(step);
+  if (p === "local") {
+    // vLLM local: model único pra toda stack via env (default gpt-oss-20b)
+    return process.env["LOCAL_LLM_MODEL"] ?? "gpt-oss-20b";
+  }
   if (p === "anthropic") {
     return ANTHROPIC_FALLBACK_MODELS[step as LlmStep] ?? "claude-sonnet-4-6";
   }

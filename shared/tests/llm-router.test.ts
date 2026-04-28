@@ -79,6 +79,48 @@ describe("getProviderForStep", () => {
   });
 });
 
+describe("getProviderForStep com provider local (vLLM)", () => {
+  it("LLM_PROVIDER=local → todos os steps retornam local", () => {
+    process.env["LLM_PROVIDER"] = "local";
+    expect(getProviderForStep("drota")).toBe("local");
+    expect(getProviderForStep("planejador")).toBe("local");
+    expect(getProviderForStep("unified-assessor")).toBe("local");
+  });
+
+  it("DROTA_PROVIDER=local → step específico, outros mantêm default", () => {
+    process.env["DROTA_PROVIDER"] = "local";
+    expect(getProviderForStep("drota")).toBe("local");
+    expect(getProviderForStep("planejador")).toBe("anthropic"); // default
+  });
+
+  it("step-specific local beats global anthropic", () => {
+    process.env["LLM_PROVIDER"] = "anthropic";
+    process.env["DROTA_PROVIDER"] = "local";
+    expect(getProviderForStep("drota")).toBe("local");
+    expect(getProviderForStep("planejador")).toBe("anthropic");
+  });
+});
+
+describe("getModelForStep com provider local (vLLM)", () => {
+  it("provider=local sem env → default gpt-oss-20b", () => {
+    delete process.env["LOCAL_LLM_MODEL"];
+    expect(getModelForStep("drota", "local")).toBe("gpt-oss-20b");
+  });
+
+  it("provider=local com LOCAL_LLM_MODEL → respeita env", () => {
+    process.env["LOCAL_LLM_MODEL"] = "qwen3-8b";
+    expect(getModelForStep("drota", "local")).toBe("qwen3-8b");
+  });
+
+  it("provider=local em todos os steps retorna mesmo modelo (single-model stack)", () => {
+    process.env["LOCAL_LLM_MODEL"] = "gpt-oss-20b";
+    expect(getModelForStep("planejador", "local")).toBe("gpt-oss-20b");
+    expect(getModelForStep("drota", "local")).toBe("gpt-oss-20b");
+    expect(getModelForStep("unified-assessor", "local")).toBe("gpt-oss-20b");
+    expect(getModelForStep("haiku-triage", "local")).toBe("gpt-oss-20b");
+  });
+});
+
 describe("getModelForStep", () => {
   it("default Haiku 4.5 em todos os steps (motor-simplificacao-v1 Haiku-em-tudo)", () => {
     // Pós-downsizing 28-abr (segunda iteração): stack inteira em Anthropic
