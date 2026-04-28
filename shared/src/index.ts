@@ -14,6 +14,7 @@ export * from "./helix-state.js";
 export * from "./helix-planner.js";
 export * from "./helix-events.js";
 export * from "./helix-repo-memory.js";
+export * from "./stable-state-cache.js";
 export * from "./db.js";
 export * from "./status-matrix-repo-pg.js";
 export * from "./sacrifice-budget.js";

@@ -174,8 +174,16 @@ describe("shouldEnableThinking", () => {
 });
 
 describe("constants exposure", () => {
-  it("DEFAULT_PROVIDERS é Infomaniak everywhere", () => {
-    for (const v of Object.values(DEFAULT_PROVIDERS)) expect(v).toBe("infomaniak");
+  it("DEFAULT_PROVIDERS é Infomaniak everywhere (exceto unified-assessor)", () => {
+    for (const [step, v] of Object.entries(DEFAULT_PROVIDERS)) {
+      // unified-assessor (motor-simplificacao-v1 DS-08): Haiku Anthropic
+      // por design — classificação JSON estruturada, modelo Anthropic-specific.
+      if (step === "unified-assessor") {
+        expect(v).toBe("anthropic");
+      } else {
+        expect(v).toBe("infomaniak");
+      }
+    }
   });
   it("DEFAULT_MODELS preenchido pra todos os steps", () => {
     expect(DEFAULT_MODELS["planejador"]).toBeTruthy();
