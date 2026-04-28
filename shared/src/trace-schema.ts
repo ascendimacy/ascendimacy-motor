@@ -109,6 +109,37 @@ export interface TurnTrace {
   parseFailure?: boolean;
   /** Razão (parse_failure | json_invalid_after_extract). */
   parseFailureReason?: string;
+
+  // ─── v0.3.4 — motor-simplificacao Steps 1-5 (feature flag) ───────────
+  /** Snapshot do Unified Assessor (Step 1). Preenchido só com flag on. */
+  assessmentSnapshot?: {
+    mood: number;
+    mood_method: "rule" | "llm" | "fallback";
+    mood_confidence: "high" | "medium" | "low";
+    signals: string[];
+    engagement: "high" | "medium" | "low" | "disengaging";
+    model_used?: string;
+    latency_ms: number;
+  };
+  /** Snapshot do Pragmatic Selector (Step 2). Preenchido só com flag on. */
+  selectionSnapshot?: {
+    decision_path: string;
+    candidates_count: number;
+    viable_count: number;
+    selected_id: string;
+    selected_cost: number;
+    budget_before: number;
+    budget_after: number;
+    pulso_emitted?: boolean;
+  };
+  /** Snapshot do Constrained Materializer (Step 3). Preenchido só com flag on. */
+  materializationSnapshot?: {
+    model_used: string;
+    fallback_triggered: boolean;
+    latency_ms: number;
+    token_count: number;
+    sanitization_applied?: boolean;
+  };
 }
 
 export interface SessionTrace {
