@@ -101,12 +101,30 @@ describe("materialize — happy path", () => {
     expect(captured.req?.step).toBe("persona-sim");
   });
 
-  it("system prompt inclui slots dinâmicos", async () => {
+  it("userMessage inclui slots dinâmicos (post-Step 8 refactor)", async () => {
     mockResponse = buildLlmResponse("ok");
     await materialize(stubCtx({ subjectNameForm: "Kei", mood: 4 }));
-    const sys = captured.req?.systemPrompt ?? "";
-    expect(sys).toContain("Kei");
-    expect(sys).toContain("Mood atual: 4/10");
+    // Step 8: campos dinâmicos vão pro userMessage (não systemPrompt) pra
+    // preservar prefix caching no vLLM.
+    const user = captured.req?.userMessage ?? "";
+    expect(user).toContain("Kei");
+    expect(user).toContain("MOOD: 4/10");
+  });
+
+  it("cacheableSystemPrefix é STABLE_MATERIALIZER_PREFIX (cache hit pro vLLM)", async () => {
+    mockResponse = buildLlmResponse("ok");
+    await materialize(stubCtx());
+    const prefix = captured.req?.cacheableSystemPrefix ?? "";
+    expect(prefix.length).toBeGreaterThan(100);
+    expect(prefix).toContain("CONTRATO DE VOZ");
+    expect(prefix).toContain("CONSTRAINTS DE SEGURANÇA");
+    expect(prefix).toContain("REGRAS CONDICIONAIS");
+  });
+
+  it("systemPrompt vazio (tudo fixo está em cacheableSystemPrefix)", async () => {
+    mockResponse = buildLlmResponse("ok");
+    await materialize(stubCtx());
+    expect(captured.req?.systemPrompt).toBe("");
   });
 });
 
@@ -167,23 +185,34 @@ describe("materialize — sanitização final", () => {
 // Mood baixo / engagement disengaging — guidance no prompt
 // ─────────────────────────────────────────────────────────────────────────
 
-describe("materialize — mood/engagement guidance no prompt", () => {
-  it("mood ≤ 3 inclui guidance 'SEM perguntas abertas'", async () => {
+describe("materialize — regras condicionais sempre no cacheableSystemPrefix", () => {
+  // Step 8: regras condicionais ficam SEMPRE no prefix como texto fixo
+  // ("Se mood ≤ 3 → ..."). Aplicação em runtime depende do mood/engajamento
+  // que LLM lê no userMessage. Cache hit preservado.
+  it("'SEM perguntas abertas' no prefix (regra mood ≤ 3 fixa)", async () => {
     mockResponse = buildLlmResponse("ok");
     await materialize(stubCtx({ mood: 2 }));
-    expect(captured.req?.systemPrompt).toContain("SEM perguntas abertas");
+    expect(captured.req?.cacheableSystemPrefix).toContain("SEM perguntas abertas");
   });
 
-  it("engagement disengaging inclui guidance '1 frase, tom leve'", async () => {
+  it("'1 frase, tom leve' no prefix (regra disengaging fixa)", async () => {
     mockResponse = buildLlmResponse("ok");
     await materialize(stubCtx({ engagement: "disengaging" }));
-    expect(captured.req?.systemPrompt).toContain("1 frase, tom leve");
+    expect(captured.req?.cacheableSystemPrefix).toContain("1 frase, tom leve");
   });
 
-  it("turn ≤ 3 → guidance comprimento curto", async () => {
+  it("'turn inicial' no prefix (regra turn ≤ 3 fixa)", async () => {
     mockResponse = buildLlmResponse("ok");
     await materialize(stubCtx({ turnCount: 1 }));
-    expect(captured.req?.systemPrompt).toContain("turn inicial");
+    expect(captured.req?.cacheableSystemPrefix).toContain("turn inicial");
+  });
+
+  it("MOOD value vai pro userMessage (LLM aplica regra fixa do prefix)", async () => {
+    mockResponse = buildLlmResponse("ok");
+    await materialize(stubCtx({ mood: 2, engagement: "disengaging", turnCount: 1 }));
+    expect(captured.req?.userMessage).toContain("MOOD: 2");
+    expect(captured.req?.userMessage).toContain("ENGAJAMENTO: disengaging");
+    expect(captured.req?.userMessage).toContain("TURN: 1");
   });
 });
 

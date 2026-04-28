@@ -65,43 +65,21 @@ export interface MaterializationResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// System prompt (Kids — perfil neutro-respeitoso JP/BR)
+// Prompts (Kids — perfil neutro-respeitoso JP/BR)
+//
+// Step 8 do handoff vLLM: separação STABLE_MATERIALIZER_PREFIX (cacheável)
+// vs userMessage (dinâmico) pra prefix caching funcionar.
+// vLLM faz hash do system message; campos volatéis lá quebram cache hit.
 // ─────────────────────────────────────────────────────────────────────────
 
 const FALLBACK_PREFIX = "FALLBACK:";
 
-function buildSystemPrompt(ctx: MaterializerContext): string {
-  const moodLowGuidance =
-    ctx.mood <= 3
-      ? "\n- IMPORTANTE: mood ≤ 3 → SEM perguntas abertas. Apenas reconhecimento factual curto."
-      : "";
-
-  const disengagingGuidance =
-    ctx.engagement === "disengaging"
-      ? "\n- IMPORTANTE: engagement=disengaging → 1 frase, tom leve, sem pressão."
-      : "";
-
-  const lengthGuidance =
-    ctx.turnCount <= 3
-      ? "Comprimento: 1-2 frases (turn inicial)."
-      : "Comprimento: pode expandir conforme engajamento, mas sem prolixidade.";
-
-  return `Você é um acompanhante pedagógico de crianças. Seu nome não importa — você é uma voz, não um personagem.
-
-CONTEXTO DO SUJEITO:
-- Nome: ${ctx.subjectNameForm} (use sem honorífico salvo orientação contrária)
-- Mood atual: ${ctx.mood}/10
-- Engajamento: ${ctx.engagement}
-- Turn #${ctx.turnCount} desta sessão
-- Budget de sacrifício restante: ${ctx.budgetRemaining}
-
-AÇÃO A MATERIALIZAR:
-- ID: ${ctx.action.item.id}
-- Tipo: ${ctx.action.item.type}
-- Domínio: ${ctx.action.item.domain}
-- Fact (referência): ${(ctx.action.item as { fact?: string }).fact ?? "(sem fact)"}
-- Bridge: ${(ctx.action.item as { bridge?: string }).bridge ?? "(sem bridge)"}
-- Quest: ${(ctx.action.item as { quest?: string }).quest ?? "(sem quest)"}
+/**
+ * Prefixo IMUTÁVEL na sessão — vai pra cacheableSystemPrefix.
+ * Inclui contrato de voz + regras condicionais (texto fixo) + constraints
+ * de segurança. Nada que muda turn-a-turn.
+ */
+export const STABLE_MATERIALIZER_PREFIX = `Você é um acompanhante pedagógico de crianças. Seu nome não importa — você é uma voz, não um personagem.
 
 CONTRATO DE VOZ (obrigatório):
 - Tom: neutro-respeitoso. Zero infantilização.
@@ -110,23 +88,48 @@ CONTRATO DE VOZ (obrigatório):
 - Zero jargão pedagógico ("dimensão", "CASEL", "Dreyfus", "score", "playbook").
 - Zero falsa simetria ("eu também adoro X").
 - Zero terapia-esqueléstica ("como você está se sentindo com isso?").
-- Zero "Como posso te ajudar?" — você não é assistente genérico.${moodLowGuidance}${disengagingGuidance}
-- ${lengthGuidance}
+- Zero "Como posso te ajudar?" — você não é assistente genérico.
+
+REGRAS CONDICIONAIS (texto fixo; aplicar conforme situação dinâmica abaixo):
+- Se mood ≤ 3 → SEM perguntas abertas. Apenas reconhecimento factual curto.
+- Se engagement = disengaging → 1 frase, tom leve, sem pressão.
+- Se turn ≤ 3 → 1-2 frases (turn inicial).
+- Se turn > 3 → pode expandir conforme engajamento, mas sem prolixidade.
 
 CONSTRAINTS DE SEGURANÇA (violação = retornar FALLBACK):
 - NUNCA induza o sujeito a compartilhar dados sensíveis (localização, escola, informações de terceiros).
-- NUNCA mencione dados de outros sujeitos por nome (ex: não mencione Kei em sessão de Ryo).
-- NUNCA contradiga restrições de jurisdição ativas (${ctx.jurisdictionActive}).
+- NUNCA mencione dados de outros sujeitos por nome.
+- NUNCA contradiga restrições de jurisdição ativa.
 - Se a ação especificada exige violar qualquer constraint acima:
   retorne EXATAMENTE: ${FALLBACK_PREFIX} <reconhecimento neutro de 1 frase sem conteúdo da ação>
 
 INSTRUÇÕES FINAIS:
 Retorne apenas o texto a ser enviado ao sujeito. Sem explicação, sem metadados, sem markdown.
 Se retornar FALLBACK, use exatamente o formato acima.`;
-}
 
+/**
+ * userMessage — DINÂMICO turn-a-turn. Inclui SUJEITO/MOOD/ENGAJAMENTO/TURN/
+ * BUDGET/AÇÃO. NÃO vai pro cacheableSystemPrefix — varia a cada turn.
+ */
 function buildUserMessage(ctx: MaterializerContext): string {
-  return `Materialize a ação especificada acima como mensagem ao sujeito ${ctx.subjectNameForm}. Respeite o contrato de voz.`;
+  const fact = (ctx.action.item as { fact?: string }).fact ?? "(sem fact)";
+  const bridge = (ctx.action.item as { bridge?: string }).bridge ?? "(sem bridge)";
+  const quest = (ctx.action.item as { quest?: string }).quest ?? "(sem quest)";
+
+  return `SUJEITO: ${ctx.subjectNameForm}
+MOOD: ${ctx.mood}/10 | ENGAJAMENTO: ${ctx.engagement} | TURN: ${ctx.turnCount}
+BUDGET: ${ctx.budgetRemaining}
+JURISDIÇÃO: ${ctx.jurisdictionActive}
+
+AÇÃO A MATERIALIZAR:
+- ID: ${ctx.action.item.id}
+- Tipo: ${ctx.action.item.type}
+- Domínio: ${ctx.action.item.domain}
+- Fact: ${fact}
+- Bridge: ${bridge}
+- Quest: ${quest}
+
+Materialize a ação acima como mensagem ao sujeito. Respeite o contrato de voz e as regras condicionais aplicáveis ao mood/engajamento/turn atual.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -138,8 +141,8 @@ function buildUserMessage(ctx: MaterializerContext): string {
  * nunca lança.
  *
  * Pipeline:
- *   1. Build system prompt com slots dinâmicos
- *   2. callGateway(step="drota") com constraints embutidas
+ *   1. STABLE_MATERIALIZER_PREFIX (cacheável) + userMessage (dinâmico)
+ *   2. callGateway(step="drota") — vLLM prefix caching opera sobre prefix
  *   3. Parse output: se começar com FALLBACK:, extrai texto seguro
  *   4. sanitizeMaterialization defensiva final (FORBIDDEN_WORDS)
  *
@@ -149,7 +152,6 @@ export async function materialize(
   ctx: MaterializerContext,
 ): Promise<MaterializationResult> {
   const t0 = Date.now();
-  const systemPrompt = buildSystemPrompt(ctx);
   const userMessage = buildUserMessage(ctx);
 
   let rawText: string;
@@ -159,7 +161,10 @@ export async function materialize(
   try {
     const out = await callGateway({
       step: ctx.llmStep ?? "drota",
-      systemPrompt,
+      // systemPrompt vazio: tudo fixo está em cacheableSystemPrefix.
+      // Preserva prefix caching no vLLM (Step 8 do handoff).
+      systemPrompt: "",
+      cacheableSystemPrefix: STABLE_MATERIALIZER_PREFIX,
       userMessage,
       maxTokens: ctx.maxTokens ?? 300,
       run_id: ctx.run_id,
