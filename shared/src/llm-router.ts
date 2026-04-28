@@ -34,7 +34,10 @@ export type LlmStep = (typeof LLM_STEPS)[number];
 
 /**
  * Default provider por step.
- * motor#21: TUDO Infomaniak por default — zero Anthropic dependency.
+ * motor#21 + motor-simplificacao-v1: TUDO Infomaniak — zero Anthropic dependency.
+ *
+ * unified-assessor migrou de Anthropic Haiku → Infomaniak granite (Jun, 28-abr,
+ * downsizing): zero custo Anthropic + um único provider em toda stack.
  */
 export const DEFAULT_PROVIDERS: Record<LlmStep, LlmProvider> = {
   planejador: "infomaniak",
@@ -44,29 +47,30 @@ export const DEFAULT_PROVIDERS: Record<LlmStep, LlmProvider> = {
   "haiku-bullying": "infomaniak",
   "signal-extractor": "infomaniak",
   "mood-extractor": "infomaniak",
-  "unified-assessor": "anthropic",
+  "unified-assessor": "infomaniak",
 };
 
 /**
  * Default model por step.
- * Reasoning models (Kimi K2.5) pra steps onde reasoning ajuda.
- * mistral3 (Mistral-Small-3.2-24B) pra triage/bullying — small, fast, deterministic.
+ *
+ * motor-simplificacao-v1 (Jun, 28-abr): TUDO `granite` (IBM small chat, ~3B,
+ * ~3-5s/call). Downsizing radical: um único modelo em toda stack pra cortar
+ * custos + simplificar debug. Trade-off conhecido: qualidade conversacional
+ * cai vs Kimi K2.6 reasoning. Aceitável pra Kids (respostas curtas) e
+ * classification (signal/mood/triage).
+ *
+ * Override per-step via env <STEP>_MODEL (ex: DROTA_MODEL=moonshotai/Kimi-K2.6
+ * pra subir qualidade só do drota).
  */
 export const DEFAULT_MODELS: Record<LlmStep, string> = {
-  planejador: "moonshotai/Kimi-K2.5",
-  drota: "moonshotai/Kimi-K2.5",
-  "persona-sim": "moonshotai/Kimi-K2.5",
-  "haiku-triage": "mistral3",
-  "haiku-bullying": "mistral3",
-  // Signal Extractor: Mistral3 default — não-reasoning, ~5s/call.
-  // Tarefa é classificação de signals em texto curto, não exige reasoning.
-  "signal-extractor": "mistral3",
-  // Mood Extractor (motor#35 PART B): Mistral3 default — classificação curta
-  // ("humor 1-10 + rationale"), não-reasoning. Mesmo perfil do signal-extractor.
-  "mood-extractor": "mistral3",
-  // motor-simplificacao-v1: Haiku 4.5 — JSON estruturado (signals + mood +
-  // engagement em 1 chamada). DS-08 da spec: classificação, não geração.
-  "unified-assessor": "claude-haiku-4-5-20251001",
+  planejador: "granite",
+  drota: "granite",
+  "persona-sim": "granite",
+  "haiku-triage": "granite",
+  "haiku-bullying": "granite",
+  "signal-extractor": "granite",
+  "mood-extractor": "granite",
+  "unified-assessor": "granite",
 };
 
 /**

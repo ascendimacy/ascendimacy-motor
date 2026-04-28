@@ -77,15 +77,17 @@ describe("getProviderForStep", () => {
 });
 
 describe("getModelForStep", () => {
-  it("default Kimi K2.5 pra planejador/drota/persona-sim (Infomaniak)", () => {
-    expect(getModelForStep("planejador")).toBe("moonshotai/Kimi-K2.5");
-    expect(getModelForStep("drota")).toBe("moonshotai/Kimi-K2.5");
-    expect(getModelForStep("persona-sim")).toBe("moonshotai/Kimi-K2.5");
-  });
-
-  it("default mistral3 pra haiku-triage/haiku-bullying (rerank, sem reasoning)", () => {
-    expect(getModelForStep("haiku-triage")).toBe("mistral3");
-    expect(getModelForStep("haiku-bullying")).toBe("mistral3");
+  it("default granite em todos os steps Infomaniak (motor-simplificacao-v1)", () => {
+    // Pós-downsizing 28-abr: stack inteira em granite (IBM small chat).
+    // Override per-step via env <STEP>_MODEL pra subir qualidade onde valer.
+    expect(getModelForStep("planejador")).toBe("granite");
+    expect(getModelForStep("drota")).toBe("granite");
+    expect(getModelForStep("persona-sim")).toBe("granite");
+    expect(getModelForStep("haiku-triage")).toBe("granite");
+    expect(getModelForStep("haiku-bullying")).toBe("granite");
+    expect(getModelForStep("signal-extractor")).toBe("granite");
+    expect(getModelForStep("mood-extractor")).toBe("granite");
+    expect(getModelForStep("unified-assessor")).toBe("granite");
   });
 
   it("provider=anthropic → Claude fallback", () => {
@@ -174,15 +176,11 @@ describe("shouldEnableThinking", () => {
 });
 
 describe("constants exposure", () => {
-  it("DEFAULT_PROVIDERS é Infomaniak everywhere (exceto unified-assessor)", () => {
-    for (const [step, v] of Object.entries(DEFAULT_PROVIDERS)) {
-      // unified-assessor (motor-simplificacao-v1 DS-08): Haiku Anthropic
-      // por design — classificação JSON estruturada, modelo Anthropic-specific.
-      if (step === "unified-assessor") {
-        expect(v).toBe("anthropic");
-      } else {
-        expect(v).toBe("infomaniak");
-      }
+  it("DEFAULT_PROVIDERS é Infomaniak everywhere (incluindo unified-assessor pós-downsizing)", () => {
+    // motor-simplificacao-v1 (Jun, 28-abr): unified-assessor migrou de
+    // Anthropic Haiku → Infomaniak granite. Stack 100% Infomaniak agora.
+    for (const v of Object.values(DEFAULT_PROVIDERS)) {
+      expect(v).toBe("infomaniak");
     }
   });
   it("DEFAULT_MODELS preenchido pra todos os steps", () => {
