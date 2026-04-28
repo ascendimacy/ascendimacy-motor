@@ -314,6 +314,7 @@ async function handleSimplifiedPipeline(
         | "jp"
         | "ch") ?? "br",
     run_id: input.sessionId,
+    incomingMessage: lastUserMessage,
   });
 
   return {

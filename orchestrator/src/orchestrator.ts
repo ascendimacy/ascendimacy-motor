@@ -228,7 +228,7 @@ export async function runTurn(
       state,
       persona,
       strategicRationale: plan.strategicRationale,
-      contextHints: plan.contextHints,
+      contextHints: { ...(plan.contextHints ?? {}), last_user_message: message },
       instruction_addition: plan.instruction_addition ?? "",
     },
   });
