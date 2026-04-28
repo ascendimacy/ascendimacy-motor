@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { loadInventory } from "./loader.js";
-import { getState, logEvent, getDbInstance } from "./state-manager.js";
+import { getState, getStateByChild, logEvent, getDbInstance } from "./state-manager.js";
 import { executePlaybook } from "./executor.js";
 import {
   startProgram,
@@ -54,10 +54,20 @@ const server = new McpServer({
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 server.registerTool("get_state", {
-  description: "Retorna estado atual da sessao (trust_level, budget, turn, event_log)",
-  inputSchema: { sessionId: z.string() } as any,
-}, async ({ sessionId }: { sessionId: string }) => {
-  const state = getState(sessionId);
+  description: "Retorna estado atual da sessao (trust_level, budget, turn, event_log). Se child_id fornecido, vincula sessão à criança e agrega event_log cross-session.",
+  inputSchema: { sessionId: z.string(), childId: z.string().optional() } as any,
+}, async ({ sessionId, childId }: { sessionId: string; childId?: string }) => {
+  const state = childId
+    ? getState(sessionId, childId)
+    : getState(sessionId);
+  return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
+});
+
+server.registerTool("get_state_by_child", {
+  description: "Retorna estado agregado cross-session de uma criança pelo child_id (últimas 50 entradas globais, trust_level da sessão mais recente).",
+  inputSchema: { childId: z.string(), maxEntries: z.number().optional() } as any,
+}, async ({ childId, maxEntries }: { childId: string; maxEntries?: number }) => {
+  const state = getStateByChild(childId, maxEntries ?? 50);
   return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
 });
 
@@ -65,12 +75,16 @@ server.registerTool("execute_playbook", {
   description: "Executa um playbook escolhido, persiste state e loga evento",
   inputSchema: {
     sessionId: z.string(),
+    childId: z.string().optional(),
     playbookId: z.string(),
     selectedContentId: z.string().optional(),
     output: z.string(),
     metadata: z.record(z.string(), z.unknown()).optional().default({}),
   } as any,
-}, async ({ sessionId, playbookId, selectedContentId, output, metadata }: { sessionId: string; playbookId: string; selectedContentId?: string; output: string; metadata?: Record<string, unknown> }) => {
+}, async ({ sessionId, childId, playbookId, selectedContentId, output, metadata }: { sessionId: string; childId?: string; playbookId: string; selectedContentId?: string; output: string; metadata?: Record<string, unknown> }) => {
+  if (childId) {
+    getState(sessionId, childId);
+  }
   const result = executePlaybook({ sessionId, playbookId, selectedContentId, output, metadata: metadata ?? {} }, inventory);
   return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
 });

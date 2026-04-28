@@ -20,12 +20,14 @@ function getDb(dbPath?: string): Database.Database {
     db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
         session_id TEXT PRIMARY KEY,
+        child_id TEXT,
         trust_level REAL DEFAULT 0.3,
         budget_remaining REAL DEFAULT 100,
         turn INTEGER DEFAULT 0,
         created_at TEXT,
         updated_at TEXT
       );
+      CREATE INDEX IF NOT EXISTS idx_sessions_child_id ON sessions (child_id);
       CREATE TABLE IF NOT EXISTS event_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT,
@@ -43,7 +45,7 @@ function getDb(dbPath?: string): Database.Database {
   return db;
 }
 
-export function getState(sessionId: string, now?: string): SessionState {
+export function getState(sessionId: string, childId?: string, now?: string): SessionState {
   const database = getDb();
   let row = database
     .prepare("SELECT * FROM sessions WHERE session_id = ?")
@@ -52,14 +54,27 @@ export function getState(sessionId: string, now?: string): SessionState {
     const ts = getNow(now);
     database
       .prepare(
-        "INSERT INTO sessions (session_id, trust_level, budget_remaining, turn, created_at, updated_at) VALUES (?, 0.3, 100, 0, ?, ?)",
+        "INSERT INTO sessions (session_id, child_id, trust_level, budget_remaining, turn, created_at, updated_at) VALUES (?, ?, 0.3, 100, 0, ?, ?)",
       )
-      .run(sessionId, ts, ts);
-    row = { session_id: sessionId, trust_level: 0.3, budget_remaining: 100, turn: 0 };
+      .run(sessionId, childId ?? null, ts, ts);
+    row = { session_id: sessionId, child_id: childId ?? null, trust_level: 0.3, budget_remaining: 100, turn: 0 };
+  } else if (childId && !row["child_id"]) {
+    database.prepare("UPDATE sessions SET child_id = ? WHERE session_id = ?").run(childId, sessionId);
+    row = { ...row, child_id: childId };
   }
-  const events = database
-    .prepare("SELECT * FROM event_log WHERE session_id = ? ORDER BY id DESC LIMIT 20")
-    .all(sessionId) as Record<string, unknown>[];
+  const effectiveChildId = String(row["child_id"] ?? "");
+  const events: Record<string, unknown>[] = effectiveChildId
+    ? database
+        .prepare(
+          `SELECT el.* FROM event_log el
+           INNER JOIN sessions s ON el.session_id = s.session_id
+           WHERE s.child_id = ?
+           ORDER BY el.id DESC LIMIT 50`,
+        )
+        .all(effectiveChildId) as Record<string, unknown>[]
+    : database
+        .prepare("SELECT * FROM event_log WHERE session_id = ? ORDER BY id DESC LIMIT 20")
+        .all(sessionId) as Record<string, unknown>[];
   const statusMatrix = getStatusMatrix(database, sessionId);
   const gardnerProgram = getProgramState(database, sessionId);
   return {
@@ -67,6 +82,47 @@ export function getState(sessionId: string, now?: string): SessionState {
     trustLevel: Number(row["trust_level"]),
     budgetRemaining: Number(row["budget_remaining"]),
     turn: Number(row["turn"]),
+    statusMatrix,
+    gardnerProgram,
+    eventLog: events.map((e) => ({
+      timestamp: String(e["timestamp"]),
+      type: String(e["type"]),
+      playbookId: e["playbook_id"] ? String(e["playbook_id"]) : undefined,
+      data: JSON.parse(String(e["data"] ?? "{}")),
+    })),
+  };
+}
+
+export function getStateByChild(childId: string, maxEntries = 50): SessionState {
+  const database = getDb();
+  const latestSession = database
+    .prepare("SELECT * FROM sessions WHERE child_id = ? ORDER BY updated_at DESC, rowid DESC LIMIT 1")
+    .get(childId) as Record<string, unknown> | undefined;
+  const events = database
+    .prepare(
+      `SELECT el.* FROM event_log el
+       INNER JOIN sessions s ON el.session_id = s.session_id
+       WHERE s.child_id = ?
+       ORDER BY el.id DESC LIMIT ?`,
+    )
+    .all(childId, maxEntries) as Record<string, unknown>[];
+  if (!latestSession) {
+    return {
+      sessionId: `child:${childId}`,
+      trustLevel: 0.3,
+      budgetRemaining: 100,
+      turn: 0,
+      eventLog: [],
+    };
+  }
+  const latestSessionId = String(latestSession["session_id"]);
+  const statusMatrix = getStatusMatrix(database, latestSessionId);
+  const gardnerProgram = getProgramState(database, latestSessionId);
+  return {
+    sessionId: latestSessionId,
+    trustLevel: Number(latestSession["trust_level"]),
+    budgetRemaining: Number(latestSession["budget_remaining"]),
+    turn: Number(latestSession["turn"]),
     statusMatrix,
     gardnerProgram,
     eventLog: events.map((e) => ({
