@@ -154,3 +154,148 @@ describe("collectRecentSignals", () => {
     expect(collectRecentSignals(log, 5)).toEqual(["valid"]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// A-01 (GAP-02): Verifica que kids.transitions.yaml real existe + carrega
+// + tem as 4 transições esperadas + dispara conforme spec.
+// ─────────────────────────────────────────────────────────────────────
+
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadTransitionsConfig } from "../src/trigger-evaluator.js";
+
+describe("kids.transitions.yaml — A-01 acceptance criteria", () => {
+  const REAL_CONTENT_DIR = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../content/profiles",
+  );
+
+  beforeEach(() => {
+    process.env["CONTENT_PROFILES_DIR"] = REAL_CONTENT_DIR;
+    resetTransitionsConfigCache();
+  });
+
+  it("loadTransitionsConfig('kids') retorna config sem erro", () => {
+    const config = loadTransitionsConfig("kids");
+    expect(config).not.toBeNull();
+    expect(config!.profile_id).toBe("kids");
+  });
+
+  it("contém as 4 transições da spec A-01", () => {
+    const config = loadTransitionsConfig("kids");
+    const names = Object.keys(config!.transitions);
+    expect(names).toContain("brejo_to_baia");
+    expect(names).toContain("baia_to_pasto");
+    expect(names).toContain("regression_baia_to_brejo");
+    expect(names).toContain("regression_pasto_to_baia");
+  });
+
+  it("brejo_to_baia dispara com philosophical_self_acceptance + janela ≥ 2", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["philosophical_self_acceptance"],
+      3,
+    );
+    const brejoToBaia = results.find(
+      (r) => r.transition_name === "brejo_to_baia",
+    );
+    expect(brejoToBaia?.fired).toBe(true);
+  });
+
+  it("brejo_to_baia bloqueado por janela insuficiente (< 2 turns)", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["philosophical_self_acceptance"],
+      1,
+    );
+    const brejoToBaia = results.find(
+      (r) => r.transition_name === "brejo_to_baia",
+    );
+    expect(brejoToBaia?.fired).toBe(false);
+    expect(brejoToBaia?.reason).toMatch(/window/);
+  });
+
+  it("brejo_to_baia bloqueado por regression signal (distress_marker_high)", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["philosophical_self_acceptance", "distress_marker_high"],
+      5,
+    );
+    const brejoToBaia = results.find(
+      (r) => r.transition_name === "brejo_to_baia",
+    );
+    expect(brejoToBaia?.fired).toBe(false);
+    expect(brejoToBaia?.regression_signals_present).toContain(
+      "distress_marker_high",
+    );
+  });
+
+  it("baia_to_pasto requer frame_synthesis (AND mode, 1 elemento)", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["frame_synthesis", "meta_cognitive_observation"],
+      6,
+    );
+    const baiaToPasto = results.find(
+      (r) => r.transition_name === "baia_to_pasto",
+    );
+    expect(baiaToPasto?.fired).toBe(true);
+    expect(baiaToPasto?.confirmatory_matched).toContain(
+      "meta_cognitive_observation",
+    );
+  });
+
+  it("baia_to_pasto bloqueado sem frame_synthesis", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["meta_cognitive_observation", "voluntary_topic_deepening"],
+      10,
+    );
+    const baiaToPasto = results.find(
+      (r) => r.transition_name === "baia_to_pasto",
+    );
+    expect(baiaToPasto?.fired).toBe(false);
+  });
+
+  it("regression_baia_to_brejo dispara com distress_marker_high (window=0)", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["distress_marker_high"],
+      0,
+    );
+    const regr = results.find(
+      (r) => r.transition_name === "regression_baia_to_brejo",
+    );
+    expect(regr?.fired).toBe(true);
+  });
+
+  it("regression_baia_to_brejo dispara com deflection_silence", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["deflection_silence"],
+      0,
+    );
+    const regr = results.find(
+      (r) => r.transition_name === "regression_baia_to_brejo",
+    );
+    expect(regr?.fired).toBe(true);
+  });
+
+  it("regression_pasto_to_baia dispara com gatekeeper_resistance (window=0)", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["gatekeeper_resistance"],
+      0,
+    );
+    const regr = results.find(
+      (r) => r.transition_name === "regression_pasto_to_baia",
+    );
+    expect(regr?.fired).toBe(true);
+  });
+
+  it("texto neutro (signals vazios) → nenhuma transição dispara", () => {
+    const results = evaluateAllTransitions("kids", [], 10);
+    const fired = results.filter((r) => r.fired);
+    expect(fired).toHaveLength(0);
+  });
+});
