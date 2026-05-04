@@ -23,6 +23,8 @@ import {
   getEmittedCardsInRange,
   getNextSequence,
 } from "./cards-repo.js";
+import { loadHelixState as helixLoad, saveHelixState as helixSave } from "./helix-repo.js";
+import type { HelixState as HelixStateT } from "@ascendimacy/shared";
 import type {
   EmittedCard,
   CardArchetype,
@@ -299,6 +301,22 @@ server.registerTool("log_event", {
   const event = { timestamp: getNow(), type, data: data ?? {} };
   logEvent(sessionId, event);
   return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true, event }) }] };
+});
+
+server.registerTool("get_helix_state", {
+  description: "Retorna HelixState da crianca ou null se nao inicializado (motor#66)",
+  inputSchema: { childId: z.string() } as any,
+}, async ({ childId }: { childId: string }) => {
+  const state = helixLoad(getDbInstance(), childId);
+  return { content: [{ type: "text" as const, text: JSON.stringify({ state }) }] };
+});
+
+server.registerTool("save_helix_state", {
+  description: "Persiste HelixState (upsert por userId/child_id). Usado pelo orchestrator no fim do turn (motor#66)",
+  inputSchema: { state: z.record(z.string(), z.unknown()) } as any,
+}, async ({ state }: { state: Record<string, unknown> }) => {
+  helixSave(getDbInstance(), state as unknown as HelixStateT);
+  return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true }) }] };
 });
 
 const transport = new StdioServerTransport();

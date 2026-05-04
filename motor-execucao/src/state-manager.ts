@@ -6,6 +6,7 @@ import { TREE_NODES_DDL, getStatusMatrix } from "./tree-nodes.js";
 import { GARDNER_PROGRAM_DDL, getProgramState } from "./gardner-program.js";
 import { PARENT_DECISIONS_DDL } from "./parent-decisions.js";
 import { EMITTED_CARDS_DDL } from "./cards-repo.js";
+import { HELIX_STATE_DDL } from "./helix-repo.js";
 import { getNow, resolveDbPath } from "./clock.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,7 @@ function getDb(dbPath?: string): Database.Database {
       ${GARDNER_PROGRAM_DDL}
       ${PARENT_DECISIONS_DDL}
       ${EMITTED_CARDS_DDL}
+      ${HELIX_STATE_DDL}
     `);
   }
   return db;
