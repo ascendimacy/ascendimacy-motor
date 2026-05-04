@@ -24,7 +24,17 @@ import {
   getNextSequence,
 } from "./cards-repo.js";
 import { loadHelixState as helixLoad, saveHelixState as helixSave } from "./helix-repo.js";
-import type { HelixState as HelixStateT } from "@ascendimacy/shared";
+import type { HelixState as HelixStateT, CaselDim } from "@ascendimacy/shared";
+import {
+  initHelix,
+  advanceProgress as helixAdvanceProgress,
+  checkBossFight as helixCheckBossFight,
+  completeCycle as helixCompleteCycle,
+  emitHelixCycleStarted,
+  emitRetrievalTriggered,
+  emitBossCompleted,
+  emitCycleCompleted,
+} from "@ascendimacy/shared";
 import type {
   EmittedCard,
   CardArchetype,
@@ -317,6 +327,57 @@ server.registerTool("save_helix_state", {
 }, async ({ state }: { state: Record<string, unknown> }) => {
   helixSave(getDbInstance(), state as unknown as HelixStateT);
   return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true }) }] };
+});
+
+server.registerTool("init_helix", {
+  description: "Inicializa HelixState pra crianca (lazy bootstrap). Idempotente: se state existe, retorna existente; senao cria e emit helix.cycle.started (motor#H5)",
+  inputSchema: {
+    childId: z.string(),
+    firstDim: z.string().optional(),
+  } as any,
+}, async ({ childId, firstDim }: { childId: string; firstDim?: string }) => {
+  const existing = helixLoad(getDbInstance(), childId);
+  if (existing) {
+    return { content: [{ type: "text" as const, text: JSON.stringify({ state: existing, bootstrapped: false }) }] };
+  }
+  const newState = initHelix(childId, (firstDim as CaselDim | undefined) ?? "SA");
+  helixSave(getDbInstance(), newState);
+  emitHelixCycleStarted(newState);
+  return { content: [{ type: "text" as const, text: JSON.stringify({ state: newState, bootstrapped: true }) }] };
+});
+
+server.registerTool("advance_helix", {
+  description: "Avança Helix progress + detecta transitions retrieval/boss + completeCycle. Persistido. Retorna newState + transitions emitidos (motor#H5)",
+  inputSchema: {
+    childId: z.string(),
+    delta: z.number(),
+    mood: z.number(),
+  } as any,
+}, async ({ childId, delta, mood }: { childId: string; delta: number; mood: number }) => {
+  const current = helixLoad(getDbInstance(), childId);
+  if (!current) {
+    return { content: [{ type: "text" as const, text: JSON.stringify({ error: "no_helix_state", childId }) }] };
+  }
+  const transitions: string[] = [];
+  const before = current.progress;
+  const advanced = helixAdvanceProgress(current, delta, mood);
+
+  if (before < 0.5 && advanced.progress >= 0.5 && current.previousDimension) {
+    emitRetrievalTriggered(advanced, current.previousDimension);
+    transitions.push("retrieval");
+  }
+
+  let finalState = advanced;
+  if (advanced.progress >= 1.0 && helixCheckBossFight(advanced)) {
+    emitBossCompleted(advanced, advanced.activeDimension);
+    finalState = helixCompleteCycle(advanced);
+    emitCycleCompleted(finalState);
+    transitions.push("boss");
+    transitions.push("cycle_completed");
+  }
+
+  helixSave(getDbInstance(), finalState);
+  return { content: [{ type: "text" as const, text: JSON.stringify({ state: finalState, transitions }) }] };
 });
 
 const transport = new StdioServerTransport();
