@@ -49,6 +49,12 @@ export interface MaterializerContext {
   maxTokens?: number;
   /** Última mensagem do sujeito — necessária pra "prioridade contextual". */
   incomingMessage?: string;
+  /** motor#69 H4: Helix phase ("solo" / "retrieval" / "boss"). */
+  helixPhase?: "solo" | "retrieval" | "boss";
+  /** motor#69 H4: dim CASEL ativa do meta-ciclo Helix. */
+  caselFocusDim?: string;
+  /** motor#69 H4: dim CASEL anterior (retrieval) — só se phase != solo. */
+  caselRetrievalDim?: string;
 }
 
 export interface MaterializationResult {
@@ -108,6 +114,8 @@ REGRAS CONDICIONAIS (texto fixo; aplicar conforme situação dinâmica abaixo):
 - Se engagement = disengaging → 1 frase, tom leve, sem pressão.
 - Se turn ≤ 3 → 1-2 frases (turn inicial). Prioridade contextual acima vale duplo.
 - Se turn > 3 → pode expandir conforme engajamento, mas sem prolixidade.
+- Se HELIX_PHASE = boss (Double Helix integrador) → quest/desafio integra os DOIS domínios CASEL (CASEL_FOCUS_DIM + CASEL_RETRIEVAL_DIM) numa única atividade concreta, não em quests separadas. Ex: SOC ativo + SA retrieval → "como sua autoconsciência muda quando está com outras pessoas?" (não duas perguntas).
+- Se HELIX_PHASE = retrieval → mencionar CASEL_RETRIEVAL_DIM sutilmente como ponte (re-visita), sem forçar.
 
 CONSTRAINTS DE SEGURANÇA (violação = retornar FALLBACK):
 - NUNCA induza o sujeito a compartilhar dados sensíveis (localização, escola, informações de terceiros).
@@ -134,11 +142,16 @@ function buildUserMessage(ctx: MaterializerContext): string {
     ? `MENSAGEM DO SUJEITO (use como tema, se houver):\n"${incoming}"`
     : `MENSAGEM DO SUJEITO: (vazia / vaga — não há tema concreto pra puxar)`;
 
+  // motor#69 H4: helix block (omit quando phase=undefined / fora do helix path).
+  const helixBlock = ctx.helixPhase
+    ? `\nHELIX_PHASE: ${ctx.helixPhase}${ctx.caselFocusDim ? ` | CASEL_FOCUS_DIM: ${ctx.caselFocusDim}` : ""}${ctx.caselRetrievalDim ? ` | CASEL_RETRIEVAL_DIM: ${ctx.caselRetrievalDim}` : ""}\n`
+    : "";
+
   return `SUJEITO: ${ctx.subjectNameForm}
 MOOD: ${ctx.mood}/10 | ENGAJAMENTO: ${ctx.engagement} | TURN: ${ctx.turnCount}
 BUDGET: ${ctx.budgetRemaining}
 JURISDIÇÃO: ${ctx.jurisdictionActive}
-
+${helixBlock}
 ${subjectBlock}
 
 AÇÃO LATENTE (use só se houver ponte natural com a mensagem do sujeito acima):

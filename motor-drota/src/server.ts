@@ -315,6 +315,10 @@ async function handleSimplifiedPipeline(
         | "ch") ?? "br",
     run_id: input.sessionId,
     incomingMessage: lastUserMessage,
+    // motor#69 H4: helix metadata pra LLM ler regras condicionais boss/retrieval no PREFIX.
+    helixPhase: input.contextHints?.["helix_phase"] as "solo" | "retrieval" | "boss" | undefined,
+    caselFocusDim: input.contextHints?.["casel_focus_dim"] as string | undefined,
+    caselRetrievalDim: input.contextHints?.["casel_retrieval_dim"] as string | undefined,
   });
 
   return {
