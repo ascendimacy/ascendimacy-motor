@@ -34,6 +34,8 @@ import {
   triageForParents,
   logDebugEvent,
   getProviderForStep,
+  checkRetrievalGate,
+  checkBossFight,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku } from "./llm-client.js";
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
@@ -178,7 +180,13 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   });
   const child = personaToChildProfile(input.persona, input.state);
   const statusMatrix = input.state.statusMatrix ?? defaultMatrix();
-  const focusDim = pickFocusDimension(statusMatrix);
+  // motor#67 H2: helixState (quando presente) declara dim ativa do meta-ciclo;
+  // sobrepõe pickFocusDimension(statusMatrix) que opera intra-sessão.
+  // Fallback statusMatrix mantido pra callers sem helix wired.
+  const helixState = input.helixState;
+  const focusDim = helixState
+    ? helixState.activeDimension
+    : pickFocusDimension(statusMatrix);
   const caselTargets = focusDim ? caselTargetsFor(focusDim) : [];
   // motor#23: extrai items já consumidos nesta sessão do event_log pra
   // penalizar reuso e forçar rotação (descoberta no smoke-3d-bumped onde
@@ -282,6 +290,22 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   if (focusDim) {
     contextHints["casel_focus_dimension"] = focusDim;
     contextHints["casel_focus_targets"] = caselTargets;
+  }
+  // motor#67 H2: helixState → contextHints (drota lê pra adaptar materializer).
+  if (helixState) {
+    const phase: "boss" | "retrieval" | "solo" = checkBossFight(helixState)
+      ? "boss"
+      : checkRetrievalGate(helixState)
+        ? "retrieval"
+        : "solo";
+    contextHints["helix_phase"] = phase;
+    contextHints["helix_progress"] = helixState.progress;
+    contextHints["helix_cycle_day"] = helixState.cycleDay;
+    contextHints["casel_focus_dim"] = helixState.activeDimension;
+    contextHints["casel_focus_level"] = helixState.activeLevel;
+    if (phase !== "solo" && helixState.previousDimension) {
+      contextHints["casel_retrieval_dim"] = helixState.previousDimension;
+    }
   }
   if (input.state.gardnerProgram?.current_week) {
     contextHints["gardner_program_active"] = gardnerInstruction.active;

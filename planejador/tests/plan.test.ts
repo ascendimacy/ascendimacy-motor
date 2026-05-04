@@ -87,6 +87,80 @@ describe("planTurn — Bloco 2a (contentPool)", () => {
     expect(output.contextHints["status_gates"]).toBeDefined();
   });
 
+  it("phase=solo helix injects casel_focus_dim and helix_phase", async () => {
+    const helixState = {
+      userId: "ryo",
+      activeDimension: "SA" as const,
+      activeLevel: "emerging" as const,
+      progress: 0.3,
+      cycleDay: 1,
+      cycleStart: "2026-05-01",
+      previousDimension: null,
+      retrievalDone: false,
+      estimatedCycleDays: 18,
+      queue: ["SOC", "SM", "REL", "DM"] as ("SA"|"SM"|"SOC"|"REL"|"DM")[],
+      deferred: [],
+      completed: [],
+      vacationModeActive: false,
+    };
+    const output = await planTurn({
+      sessionId: "test-001",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "oi",
+      helixState,
+    });
+    expect(output.contextHints["helix_phase"]).toBe("solo");
+    expect(output.contextHints["helix_progress"]).toBe(0.3);
+    expect(output.contextHints["casel_focus_dim"]).toBe("SA");
+    expect(output.contextHints["casel_focus_level"]).toBe("emerging");
+    expect(output.contextHints["casel_retrieval_dim"]).toBeUndefined();
+  });
+
+  it("phase=retrieval helix exposes previousDimension when progress>=0.5", async () => {
+    const helixState = {
+      userId: "ryo",
+      activeDimension: "SOC" as const,
+      activeLevel: "emerging" as const,
+      progress: 0.6,
+      cycleDay: 8,
+      cycleStart: "2026-05-01",
+      previousDimension: "SA" as const,
+      retrievalDone: false,
+      estimatedCycleDays: 18,
+      queue: ["SM", "REL", "DM"] as ("SA"|"SM"|"SOC"|"REL"|"DM")[],
+      deferred: [],
+      completed: ["SA"] as ("SA"|"SM"|"SOC"|"REL"|"DM")[],
+      vacationModeActive: false,
+    };
+    const output = await planTurn({
+      sessionId: "test-001",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "oi",
+      helixState,
+    });
+    expect(output.contextHints["helix_phase"]).toBe("retrieval");
+    expect(output.contextHints["casel_retrieval_dim"]).toBe("SA");
+  });
+
+  it("falls back to statusMatrix when helixState undefined", async () => {
+    const output = await planTurn({
+      sessionId: "test-001",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: { ...mockState, statusMatrix: { emotional: "brejo", social_with_ebrota: "baia" } },
+      incomingMessage: "oi",
+    });
+    expect(output.contextHints["helix_phase"]).toBeUndefined();
+    expect(output.contextHints["casel_focus_dimension"]).toBe("emotional");
+  });
+
   it("injects casel_focus_dimension derived from status matrix", async () => {
     const output = await planTurn({
       sessionId: "test-001",

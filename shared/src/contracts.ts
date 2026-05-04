@@ -14,6 +14,16 @@ export interface PlanTurnInput {
   inventory: PlaybookIndex[];
   state: SessionState;
   incomingMessage: string;
+  /**
+   * motor#67 H2: HelixState da criança (lido pelo orchestrator via
+   * motor-execucao.get_helix_state). Quando presente, planejador usa
+   * activeDimension pra direcionar caselTargets e popula contextHints
+   * com helix_phase/helix_progress/casel_focus_dim/casel_retrieval_dim.
+   *
+   * null  → child sem state (lazy bootstrap responsabilidade do orchestrator)
+   * undef → caller não suporta helix → fallback statusMatrix
+   */
+  helixState?: import("./helix-state.js").HelixState | null;
 }
 
 export interface PlanTurnOutput {
