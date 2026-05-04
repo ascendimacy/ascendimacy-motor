@@ -4,8 +4,18 @@ import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 import type { McpClients } from "./mcp-clients.js";
 import { initTrace, appendTurn, saveTrace } from "./trace-writer.js";
-import type { PersonaDef, AdquirenteDef, PlaybookIndex } from "@ascendimacy/shared";
-import { logDebugEvent } from "@ascendimacy/shared";
+import type { PersonaDef, AdquirenteDef, PlaybookIndex, HelixState } from "@ascendimacy/shared";
+import {
+  logDebugEvent,
+  initHelix,
+  advanceProgress,
+  checkBossFight,
+  completeCycle,
+  emitHelixCycleStarted,
+  emitRetrievalTriggered,
+  emitBossCompleted,
+  emitCycleCompleted,
+} from "@ascendimacy/shared";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, "../../fixtures");
@@ -113,6 +123,8 @@ export async function runTurn(
   // event no event_log pra Trigger Evaluator consumir.
   // Read-only — fail-soft, qualquer erro vira signals=[].
   const tSig = Date.now();
+  // motor#68 H3: capturado em escopo outer pra Helix advance no fim do turn
+  let extractedSignals: string[] = [];
   try {
     const signalsResult = await clients.motorDrota.callTool({
       name: "extract_signals",
@@ -134,6 +146,7 @@ export async function runTurn(
       evidence?: Record<string, string>;
       overall_confidence?: number;
     }>(signalsResult);
+    if (sig.signals) extractedSignals = sig.signals;
     if (sig.signals && sig.signals.length > 0) {
       // Loga event no motor-execucao pra Trigger Evaluator ler na próxima call
       await clients.motorExecucao.callTool({
@@ -161,10 +174,33 @@ export async function runTurn(
   }
   void (Date.now() - tSig); // keep latency hint local — debug log captura via debug-mode
 
+  // motor#68 H3: carrega HelixState (lazy bootstrap se ausente).
+  // childId = persona.id por convenção (consistente com card emission).
+  let helixState: HelixState | null = null;
+  try {
+    const helixResult = await clients.motorExecucao.callTool({
+      name: "get_helix_state",
+      arguments: { childId: persona.id },
+    });
+    const parsed = parseToolText<{ state: HelixState | null }>(helixResult);
+    helixState = parsed.state;
+    if (!helixState) {
+      // Lazy bootstrap: criança nunca tocou Helix → inicia em SA (default rotation).
+      helixState = initHelix(persona.id);
+      await clients.motorExecucao.callTool({
+        name: "save_helix_state",
+        arguments: { state: helixState },
+      });
+      emitHelixCycleStarted(helixState);
+    }
+  } catch {
+    // Fail-soft: se motor-execucao sem Helix wired, segue sem helix (planejador fallback statusMatrix).
+  }
+
   const t1 = Date.now();
   const planResult = await clients.planejador.callTool({
     name: "plan_turn",
-    arguments: { sessionId, persona, adquirente, inventory, state, incomingMessage: message },
+    arguments: { sessionId, persona, adquirente, inventory, state, incomingMessage: message, helixState },
   });
   const plan = parseToolText<import("@ascendimacy/shared").PlanTurnOutput>(planResult);
   turnEntries.push({
@@ -266,6 +302,51 @@ export async function runTurn(
     },
     output: exec as unknown as Record<string, unknown>,
   });
+
+  // motor#68 H3: Helix advance no fim do turn.
+  // Heurística MVP — mood/engagement reais virão do unified-assessor expose
+  // no EvaluateAndSelectOutput numa iteração futura. Por ora:
+  //   delta = 0.05 base + 0.05 se signals positivos; 0 se signals de
+  //           desengajamento (loop conservador 10-20 turns/ciclo)
+  //   mood proxy = trustLevel >= 0.4 ? 8 : 2 (passa/bloqueia buffer day)
+  if (helixState && !helixState.vacationModeActive) {
+    const positiveSignals = ["voluntary_topic_deepening", "meta_cognitive_observation", "positive_engagement"];
+    const negativeSignals = ["disengagement", "confusion", "mood_drop"];
+    const hasPositive = extractedSignals.some((s) => positiveSignals.includes(s));
+    const hasNegative = extractedSignals.some((s) => negativeSignals.includes(s));
+    const delta = hasNegative ? 0 : hasPositive ? 0.10 : 0.05;
+    const moodProxy = state.trustLevel >= 0.4 ? 8 : 2;
+
+    try {
+      const beforeProgress = helixState.progress;
+      const afterAdvance = advanceProgress(helixState, delta, moodProxy);
+
+      // Detecta transition retrieval (cruzou 0.5)
+      if (
+        beforeProgress < 0.5 &&
+        afterAdvance.progress >= 0.5 &&
+        helixState.previousDimension
+      ) {
+        emitRetrievalTriggered(afterAdvance, helixState.previousDimension);
+      }
+
+      // Detecta boss + completeCycle
+      let finalState = afterAdvance;
+      if (afterAdvance.progress >= 1.0 && checkBossFight(afterAdvance)) {
+        emitBossCompleted(afterAdvance, afterAdvance.activeDimension);
+        finalState = completeCycle(afterAdvance);
+        emitCycleCompleted(finalState);
+      }
+
+      await clients.motorExecucao.callTool({
+        name: "save_helix_state",
+        arguments: { state: finalState },
+      });
+      helixState = finalState;
+    } catch {
+      // Fail-soft: Helix advance não trava o turn
+    }
+  }
 
   // v0.3: enriquece o turn com snapshots e resumos.
   const selectedItem = drota.selectedContent?.item;
