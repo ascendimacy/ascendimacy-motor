@@ -52,8 +52,34 @@ function seedPath(): string | undefined {
   return process.env["CONTENT_SEED_PATH"];
 }
 
-function buildSystemPrompt(input: PlanTurnInput): string {
-  const { persona, state, incomingMessage } = input;
+/**
+ * Exportado pra testes. 2026-05-05 (bugfix-materializer-content-anchor):
+ * agora injeta `extracted_signals` (vindos do caller via input.contextHints)
+ * + bloco DEFLECTION ATIVO quando deflection_thematic / exit_marker_*
+ * estiverem presentes — o LLM precisa saber pra produzir rationale apropriado
+ * e adicionar contextHints.avoid.
+ */
+export function buildSystemPrompt(input: PlanTurnInput): string {
+  const { persona, state, incomingMessage, contextHints } = input;
+
+  const extractedSignals = Array.isArray(contextHints?.["extracted_signals"])
+    ? (contextHints["extracted_signals"] as string[])
+    : [];
+
+  const signalsBlock = extractedSignals.length > 0
+    ? `\nSINAIS DETECTADOS NO TURNO ATUAL: ${extractedSignals.join(", ")}`
+    : "";
+
+  const deflectionActive = extractedSignals.some(
+    (s) =>
+      s === "deflection_thematic" ||
+      s === "exit_marker_implicit" ||
+      s === "exit_marker_explicit",
+  );
+  const deflectionBlock = deflectionActive
+    ? `\n⚠️ DEFLECTION ATIVO: o sujeito desviou do tema anterior. O strategicRationale DEVE reconhecer o desvio e propor tema diferente. NÃO retorne ao tema que o sujeito evitou. Em contextHints, adicione:\n  "avoid": "não retornar ao tema que o sujeito acabou de desviar",\n  "tone": "leve, sem pressão".`
+    : "";
+
   return `Você é o Planejador do motor Ascendimacy. Seu papel é AUXILIAR de compositor:
 o scoring de content items é determinístico (feito no código). Você só emite:
 
@@ -63,7 +89,7 @@ o scoring de content items é determinístico (feito no código). Você só emit
 SUJEITO: ${persona.name}, ${persona.age} anos.
 Perfil: ${JSON.stringify(persona.profile, null, 2)}
 Estado: trust=${state.trustLevel.toFixed(2)}, turn=${state.turn}, budget=${state.budgetRemaining}
-Mensagem: "${incomingMessage}"
+Mensagem: "${incomingMessage}"${signalsBlock}${deflectionBlock}
 
 Detecte a língua do sujeito (ex: 'pt-br', 'pt-br limitado', 'pt-br basico', 'ja', 'en'). Se o perfil indica falante não-nativo (ex: japonês aprendendo pt-br), use 'pt-br limitado'.
 
@@ -291,10 +317,25 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   const gardnerInstruction = buildGardnerInstruction(input);
 
   // 5. Injeta status_gates + casel_focus + gardner meta + triage meta em contextHints.
+  // 2026-05-05 (sts-realista): upstream hints (extracted_signals, last_user_message)
+  // do caller têm prioridade — preservados via spread inicial. LLM rationale e
+  // status_gates layer-by-layer em cima sem sobrescrever.
   const contextHints: Record<string, unknown> = {
+    ...(input.contextHints ?? {}),
     ...rationale.contextHints,
     status_gates: allGates(statusMatrix),
   };
+  // Re-aplica extracted_signals/last_user_message/recent_turns vindas do caller
+  // para garantir que rationale.contextHints (LLM-generated) não sobrescreva.
+  if (input.contextHints?.["extracted_signals"]) {
+    contextHints["extracted_signals"] = input.contextHints["extracted_signals"];
+  }
+  if (input.contextHints?.["last_user_message"]) {
+    contextHints["last_user_message"] = input.contextHints["last_user_message"];
+  }
+  if (input.contextHints?.["recent_turns"]) {
+    contextHints["recent_turns"] = input.contextHints["recent_turns"];
+  }
   if (focusDim) {
     contextHints["casel_focus_dimension"] = focusDim;
     contextHints["casel_focus_targets"] = caselTargets;

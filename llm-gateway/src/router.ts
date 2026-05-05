@@ -46,9 +46,15 @@ interface DegradedState {
   marks: Map<LlmProvider, number>;
 }
 
+// Note: este Router (legacy) só implementa fallback entre anthropic ⇄ infomaniak.
+// Providers "local" e "mock" foram adicionados ao type union (motor-simplificacao-v1)
+// mas não usam este router — chamam direto via callGateway/callLocalVllm/callLlmMock.
+// Os entries são placeholders para satisfazer o type checker; nunca são usados.
 const FALLBACK_MAP: Record<LlmProvider, LlmProvider> = {
   anthropic: "infomaniak",
   infomaniak: "anthropic",
+  local: "anthropic",
+  mock: "anthropic",
 };
 
 export class Router {
@@ -63,13 +69,24 @@ export class Router {
   private readonly degraded: DegradedState = { marks: new Map() };
 
   constructor(opts: RouterOptions = {}) {
+    // local + mock: providers placeholder pra satisfazer Record<LlmProvider, ...>.
+    // Não são chamados por este Router; veja comentário em FALLBACK_MAP.
+    const noopProvider: ProviderClient = {
+      call: async () => {
+        throw new GatewayError("INVALID_REQUEST", "noop placeholder provider — not callable");
+      },
+    };
     this.providers = {
       anthropic: opts.providers?.anthropic ?? anthropicProvider,
       infomaniak: opts.providers?.infomaniak ?? infomaniakProvider,
+      local: opts.providers?.local ?? noopProvider,
+      mock: opts.providers?.mock ?? noopProvider,
     };
     this.buckets = {
       anthropic: opts.buckets?.anthropic ?? new TokenBucket({ rate: parseRate("LLM_GATEWAY_RATE_ANTHROPIC", 50) }),
       infomaniak: opts.buckets?.infomaniak ?? new TokenBucket({ rate: parseRate("LLM_GATEWAY_RATE_INFOMANIAK", 5) }),
+      local: opts.buckets?.local ?? new TokenBucket({ rate: 50 }),
+      mock: opts.buckets?.mock ?? new TokenBucket({ rate: 50 }),
     };
     this.logger = opts.logger ?? { log: () => {} };
     this.primaryHardTimeoutMs = opts.primaryHardTimeoutMs ?? parseMs("LLM_GATEWAY_PRIMARY_TIMEOUT_MS", 30_000);

@@ -248,3 +248,42 @@ describe("materialize — metadata", () => {
     expect(r.token_count).toBe(50); // do mock
   });
 });
+
+// ─── 2026-05-05 (bugfix-materializer-content-anchor) ────────────────────────
+describe("STABLE_MATERIALIZER_PREFIX — content anchor + deflection", () => {
+  it("contém 'CONTEÚDO PEDAGÓGICO' e ordena Fact como obrigatório", async () => {
+    const { STABLE_MATERIALIZER_PREFIX } = await import(
+      "../src/constrained-materializer.js"
+    );
+    expect(STABLE_MATERIALIZER_PREFIX).toContain("CONTEÚDO PEDAGÓGICO");
+    expect(STABLE_MATERIALIZER_PREFIX).toContain(
+      "FOI SELECIONADO para este sujeito",
+    );
+    expect(STABLE_MATERIALIZER_PREFIX).toContain("a questão é COMO, não SE");
+  });
+
+  it("não contém mais 'POSSIBILIDADE LATENTE'", async () => {
+    const { STABLE_MATERIALIZER_PREFIX } = await import(
+      "../src/constrained-materializer.js"
+    );
+    expect(STABLE_MATERIALIZER_PREFIX).not.toContain("POSSIBILIDADE LATENTE");
+  });
+
+  it("ANTI-LOOP inclui constraint de não retornar a tema desviado", async () => {
+    const { STABLE_MATERIALIZER_PREFIX } = await import(
+      "../src/constrained-materializer.js"
+    );
+    expect(STABLE_MATERIALIZER_PREFIX).toContain("desviou de um tema");
+    expect(STABLE_MATERIALIZER_PREFIX).toContain("contextHints.avoid");
+  });
+
+  it("REGRAS CONDICIONAIS incluem turn inaugural sem tema → não usar Fact", async () => {
+    const { STABLE_MATERIALIZER_PREFIX } = await import(
+      "../src/constrained-materializer.js"
+    );
+    expect(STABLE_MATERIALIZER_PREFIX).toContain("turn inaugural");
+    expect(STABLE_MATERIALIZER_PREFIX).toContain(
+      "NÃO use Fact/Bridge/Quest",
+    );
+  });
+});

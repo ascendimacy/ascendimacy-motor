@@ -55,6 +55,14 @@ export interface MaterializerContext {
   caselFocusDim?: string;
   /** motor#69 H4: dim CASEL anterior (retrieval) — só se phase != solo. */
   caselRetrievalDim?: string;
+  /**
+   * 2026-05-05 (sts-realista): janela curta de history (últimos 3 pares
+   * user/assistant). Motor é semi-stateless: estratégia (helix, status,
+   * gardner) vem de state; awareness conversacional vem daqui pra evitar
+   * loops + permitir continuidade temática. NÃO vai pro PREFIX cacheável —
+   * é dinâmico turn-a-turn, fica em userMessage.
+   */
+  recentTurns?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 export interface MaterializationResult {
@@ -102,18 +110,33 @@ CONTRATO DE VOZ (obrigatório, sem exceção):
 ANTI-LOOP (importante, sob risco de soar artificial):
 - Se o sujeito repete a mesma resposta entre turns (ex: "tô treinando tênis" 3x seguidas), NÃO insista no mesmo enquadramento. Reconheça brevemente (1 cláusula) e MUDE o ângulo: pergunte sobre algo adjacente, ou recue ("ok, tô por aqui quando quiser").
 - Não escale com elogios cumulativos ("legal!" → "muito legal!" → "que demais!") — isso soa falso e o contrato proíbe.
+- Se o sujeito desviou de um tema (mudou de assunto explicitamente), NÃO retorne a esse tema na mesma resposta. O contextHints.avoid indica o tema a evitar — respeite-o literalmente.
 
-PRIORIDADE CONTEXTUAL (regra geral, vale antes das outras):
-- A ação abaixo é uma POSSIBILIDADE LATENTE, não obrigação. Use-a SÓ se houver ponte natural com o que o sujeito acabou de dizer.
-- O sujeito trouxe um tema concreto na mensagem (objeto, lugar, sentimento, fato dele)? Reconheça PRIMEIRO o tema dele em 1 frase. SE o Domínio/Fact da ação conectar de forma honesta com o tema dele → traga Fact e/ou Bridge/Quest reformulados DENTRO desse tema. SE NÃO conectar → ignore Fact/Bridge/Quest e faça 1 pergunta aberta sobre o tema dele.
-- O sujeito NÃO trouxe tema concreto (turn inaugural, "oi", "tudo bem?", silêncio, mensagem vaga)? → NÃO materialize Fact/Bridge/Quest. Abra com 1 frase curta + 1 pergunta aberta sobre como ele está hoje. Deixa ele puxar o tema.
-- Quest e Bridge entram SEMPRE dentro do contexto que o sujeito puxou — nunca como pergunta solta.
+CONTEÚDO PEDAGÓGICO (regra obrigatória):
+O Fact abaixo FOI SELECIONADO para este sujeito neste momento. Você DEVE
+usá-lo — a questão é COMO, não SE.
+
+Regra de ancoragem:
+1. Reconheça o tema do sujeito em 1 frase curta (sem elogio, sem eco excessivo).
+2. Introduza o Fact com uma ponte NATURAL ao que ele disse.
+   - Se o tema do sujeito conecta diretamente ao Domínio → traga o Fact diretamente.
+   - Se o tema do sujeito não conecta diretamente → use o Fact como ângulo lateral.
+     Exemplo: sujeito falou de tênis, Fact é sobre golfinhos com nome → bridge:
+     "Golfinhos chamam uns aos outros pelo nome. Quando você tá em jogo, como
+     chama a atenção do parceiro?"
+3. Bridge e Quest entram DEPOIS do Fact, reformulados dentro do contexto do sujeito.
+4. Exceção única: se o sujeito enviou sinal EXPLÍCITO de saída ("tchau", "preciso ir",
+   "para") OU se o Fact exigiria violar CONSTRAINTS DE SEGURANÇA → ignore o Fact e
+   reconheça brevemente a saída ou retorne FALLBACK.
+
+NUNCA gere resposta genérica ignorando o Fact. Se não encontrar ângulo, crie um.
 
 REGRAS CONDICIONAIS (texto fixo; aplicar conforme situação dinâmica abaixo):
 - Se mood ≤ 3 → SEM perguntas abertas. Apenas reconhecimento factual curto.
 - Se engagement = disengaging → 1 frase, tom leve, sem pressão.
 - Se turn ≤ 3 → 1-2 frases (turn inicial). Prioridade contextual acima vale duplo.
 - Se turn > 3 → pode expandir conforme engajamento, mas sem prolixidade.
+- Se MENSAGEM DO SUJEITO está marcada como vazia/vaga (turn inaugural, "oi", mensagem ≤ 3 palavras sem tema) → NÃO use Fact/Bridge/Quest. Abra com apresentação curta do que vão fazer juntos + 1 pergunta sobre o sujeito.
 - Se HELIX_PHASE = boss (Double Helix integrador) → quest/desafio integra os DOIS domínios CASEL (CASEL_FOCUS_DIM + CASEL_RETRIEVAL_DIM) numa única atividade concreta, não em quests separadas. Ex: SOC ativo + SA retrieval → "como sua autoconsciência muda quando está com outras pessoas?" (não duas perguntas).
 - Se HELIX_PHASE = retrieval → mencionar CASEL_RETRIEVAL_DIM sutilmente como ponte (re-visita), sem forçar.
 
@@ -147,12 +170,32 @@ function buildUserMessage(ctx: MaterializerContext): string {
     ? `\nHELIX_PHASE: ${ctx.helixPhase}${ctx.caselFocusDim ? ` | CASEL_FOCUS_DIM: ${ctx.caselFocusDim}` : ""}${ctx.caselRetrievalDim ? ` | CASEL_RETRIEVAL_DIM: ${ctx.caselRetrievalDim}` : ""}\n`
     : "";
 
+  // 2026-05-05 (sts-realista): janela curta de history pra anti-loop awareness.
+  // Excluímos o turn atual do sujeito (já está em subjectBlock).
+  const turns = ctx.recentTurns ?? [];
+  const tail = turns.slice(-6); // último ~3 pares
+  const botRecent = tail.filter((t) => t.role === "assistant").slice(-3);
+  const userRecent = tail.filter((t) => t.role === "user").slice(-3);
+  const formatLines = (arr: typeof botRecent): string =>
+    arr.length === 0
+      ? "(nenhum)"
+      : arr.map((t, i) => `[${i + 1}] "${t.content.slice(0, 240).replace(/\n/g, " ")}"`).join("\n");
+  const historyBlock = tail.length > 0
+    ? `
+
+VOCÊ JÁ DISSE (não repita verbatim — varie ângulo, vocabulário, abertura):
+${formatLines(botRecent)}
+
+SUJEITO JÁ DISSE (continue o que está em aberto, não recomece zero):
+${formatLines(userRecent)}`
+    : "";
+
   return `SUJEITO: ${ctx.subjectNameForm}
 MOOD: ${ctx.mood}/10 | ENGAJAMENTO: ${ctx.engagement} | TURN: ${ctx.turnCount}
 BUDGET: ${ctx.budgetRemaining}
 JURISDIÇÃO: ${ctx.jurisdictionActive}
 ${helixBlock}
-${subjectBlock}
+${subjectBlock}${historyBlock}
 
 AÇÃO LATENTE (use só se houver ponte natural com a mensagem do sujeito acima):
 - ID: ${ctx.action.item.id}
@@ -162,7 +205,7 @@ AÇÃO LATENTE (use só se houver ponte natural com a mensagem do sujeito acima)
 - Bridge: ${bridge}
 - Quest: ${quest}
 
-Aplique a PRIORIDADE CONTEXTUAL do contrato. Se houver ponte → traga Fact/Bridge/Quest dentro do tema do sujeito. Se não houver tema/ponte → reconheça e abra com 1 pergunta sobre o que ele trouxe (ou como ele está, se mensagem vazia). Respeite contrato de voz + regras condicionais.`;
+Aplique a PRIORIDADE CONTEXTUAL do contrato. Se houver ponte → traga Fact/Bridge/Quest dentro do tema do sujeito. Se não houver tema/ponte → reconheça e abra com 1 pergunta sobre o que ele trouxe (ou como ele está, se mensagem vazia). Respeite contrato de voz + regras condicionais. ANTI-LOOP: se algo da sua lista "VOCÊ JÁ DISSE" está sendo replicado mentalmente, MUDE de ângulo agora.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -186,6 +229,12 @@ export async function materialize(
 ): Promise<MaterializationResult> {
   const t0 = Date.now();
   const userMessage = buildUserMessage(ctx);
+  if (process.env["ASC_DEBUG_MATERIALIZER"] === "true") {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[materialize] turn=${ctx.turnCount} recentTurns=${(ctx.recentTurns ?? []).length} userMsgLen=${userMessage.length}\n--- USER MSG START ---\n${userMessage}\n--- USER MSG END ---`,
+    );
+  }
 
   let rawText: string;
   let modelUsed = "unknown";
@@ -199,7 +248,10 @@ export async function materialize(
       systemPrompt: "",
       cacheableSystemPrefix: STABLE_MATERIALIZER_PREFIX,
       userMessage,
-      maxTokens: ctx.maxTokens ?? 300,
+      // 2026-05-05 (sts-realista): turn 1-3 mantém 300 (rapport curto).
+      // turn 4+ permite 600 — abre espaço pra profundidade quando há contexto
+      // estabelecido. Override explícito via ctx.maxTokens vence a heurística.
+      maxTokens: ctx.maxTokens ?? (ctx.turnCount >= 4 ? 600 : 300),
       run_id: ctx.run_id,
     });
     rawText = out.content;

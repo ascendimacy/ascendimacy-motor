@@ -24,6 +24,12 @@ export interface PlanTurnInput {
    * undef → caller não suporta helix → fallback statusMatrix
    */
   helixState?: import("./helix-state.js").HelixState | null;
+  /**
+   * 2026-05-05 (sts-realista §2.1): contextHints upstream — caller
+   * (orchestrator/STS motor-client) injeta extracted_signals + last_user_message
+   * antes de plan_turn. Planejador merge no contextHints final.
+   */
+  contextHints?: Record<string, unknown>;
 }
 
 export interface PlanTurnOutput {
@@ -83,6 +89,20 @@ export interface EvaluateAndSelectOutput {
   skipReason?: string;
   /** motor#25: head do raw output pra debug log quando skipReason populado. */
   rawOutput?: string;
+  /**
+   * 2026-05-05 (sts-realista): assessment do Unified Assessor exposto pra caller
+   * (STS motor-client) usar mood real no Helix advance — antes proxy trustLevel.
+   * Populado APENAS no pipeline simplificado (USE_SIMPLIFIED_PIPELINE=true).
+   * Pipeline antigo deixa undefined.
+   */
+  assessment?: {
+    mood: number;
+    mood_confidence: "high" | "medium" | "low";
+    mood_method: "rule" | "llm" | "fallback";
+    signals: string[];
+    engagement: "high" | "medium" | "low" | "disengaging";
+    rationale: string;
+  };
 }
 
 export interface ExecutePlaybookInput {

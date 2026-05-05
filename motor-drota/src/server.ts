@@ -234,6 +234,16 @@ async function handleSimplifiedPipeline(
     state: input.state,
   });
 
+  // 2026-05-05 (sts-realista): assessment exposto no output pra STS usar mood real.
+  const assessmentForOutput = {
+    mood: assessment.mood,
+    mood_confidence: assessment.mood_confidence,
+    mood_method: assessment.mood_method,
+    signals: assessment.signals,
+    engagement: assessment.engagement,
+    rationale: assessment.rationale,
+  };
+
   // Escalação: pool sem viáveis ou budget exausto → fallback conversacional
   if (!selectionResult.selected || selectionResult.escalate_to !== null) {
     return {
@@ -260,6 +270,7 @@ async function handleSimplifiedPipeline(
       selectionRationale: selectionResult.decision_path,
       linguisticMaterialization:
         "Me conta o que está passando na sua cabeça.",
+      assessment: assessmentForOutput,
       ...(selectionResult.escalate_reason
         ? { skipReason: selectionResult.escalate_reason }
         : {}),
@@ -297,6 +308,7 @@ async function handleSimplifiedPipeline(
       selectedContent: selectionResult.selected,
       selectionRationale: `${selectionResult.decision_path} [inaugural ${inaugural.template_used}]`,
       linguisticMaterialization: inaugural.text,
+      assessment: assessmentForOutput,
     };
   }
 
@@ -319,12 +331,15 @@ async function handleSimplifiedPipeline(
     helixPhase: input.contextHints?.["helix_phase"] as "solo" | "retrieval" | "boss" | undefined,
     caselFocusDim: input.contextHints?.["casel_focus_dim"] as string | undefined,
     caselRetrievalDim: input.contextHints?.["casel_retrieval_dim"] as string | undefined,
+    // 2026-05-05 (sts-realista): janela curta de history pra anti-loop.
+    recentTurns,
   });
 
   return {
     selectedContent: selectionResult.selected,
     selectionRationale: selectionResult.decision_path,
     linguisticMaterialization: matResult.text,
+    assessment: assessmentForOutput,
     ...(matResult.fallback_triggered ? { skipReason: "materializer_fallback" } : {}),
   };
 }

@@ -51,6 +51,8 @@ server.registerTool(
         partnerStatusMatrix: z.record(z.string(), z.string()).optional(),
       }),
       incomingMessage: z.string(),
+      helixState: z.record(z.string(), z.unknown()).nullable().optional(),
+      contextHints: z.record(z.string(), z.unknown()).optional(),
     } as any,
   },
   async (input: PlanTurnInput) => {
