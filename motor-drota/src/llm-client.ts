@@ -96,7 +96,8 @@ export async function callLlmMock(
         "Olá! Que bom ter você aqui. Posso te apresentar algo que pode facilitar muito o seu dia?",
     }),
     tokens: { in: 0, out: 0, reasoning: 0 },
-    provider: "infomaniak",
+    // 2026-05-05: provider/model = "mock" pra distinguir de real call em traces
+    provider: "mock",
     model: "mock",
   };
 }

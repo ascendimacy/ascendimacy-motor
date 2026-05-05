@@ -12,7 +12,7 @@ import { selectFromPool, sanitizeMaterialization } from "./select.js";
 import { callLlm, callLlmMock } from "./llm-client.js";
 import { parseDrotaOutput } from "./parse-output.js";
 import { extractSignals } from "./signal-extractor.js";
-import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
+import { logDebugEvent, getProviderForStep, isApiKeyMissing } from "@ascendimacy/shared";
 // motor-simplificacao Step 5 (feature flag side-by-side)
 import { assess } from "./unified-assessor.js";
 import { selectAction } from "./pragmatic-selector.js";
@@ -471,12 +471,15 @@ server.registerTool(
     // EvaluateAndSelectOutput (compat — caller pega budget de outras camadas).
     const { selected } = selectFromPool(ranked, input.state);
     // motor#22: provider-aware mock detection.
+    // 2026-05-05: usa isApiKeyMissing pra cobrir provider="local" (bug fix).
     const drotaProvider = getProviderForStep("drota");
-    const drotaKeyMissing = drotaProvider === "anthropic"
-      ? !process.env["ANTHROPIC_API_KEY"]
-      : !process.env["INFOMANIAK_API_KEY"];
-    const useMock =
-      process.env["USE_MOCK_LLM"] === "true" || drotaKeyMissing;
+    const drotaKeyMissing = isApiKeyMissing(drotaProvider);
+    const drotaMockReason = process.env["USE_MOCK_LLM"] === "true"
+      ? "USE_MOCK_LLM=true"
+      : drotaKeyMissing
+        ? `${drotaProvider}_api_key_missing`
+        : null;
+    const useMock = drotaMockReason !== null;
     // motor#25 (handoff #24 Tarefa 2): split em stable prefix + dynamic body
     // pra prompt caching. STABLE_DROTA_PREFIX (BLOCO 1+4+5) é literalmente
     // idêntico entre calls — Anthropic cache_control: ephemeral funciona.
@@ -526,6 +529,7 @@ server.registerTool(
 
     // motor#19: debug log (no-op se ASC_DEBUG_MODE off)
     // motor#25: cache hit/miss info via llmResult.tokens.cacheCreation/cacheRead
+    // 2026-05-05: mock_reason refletido no event quando useMock=true.
     logDebugEvent({
       side: "motor",
       step: "drota",
@@ -536,6 +540,7 @@ server.registerTool(
       provider: llmResult.provider,
       tokens: llmResult.tokens,
       latency_ms: llmLatency,
+      mock_reason: drotaMockReason,
       prompt: systemPrompt + "\n\n[USER]\n" + userMessage,
       response: llmResult.content,
       reasoning: llmResult.reasoning,

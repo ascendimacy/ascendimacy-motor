@@ -34,6 +34,8 @@ import {
   triageForParents,
   logDebugEvent,
   getProviderForStep,
+  getModelForStep,
+  isApiKeyMissing,
   checkRetrievalGate,
   checkBossFight,
 } from "@ascendimacy/shared";
@@ -211,12 +213,16 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   // motor#22: provider-aware mock detection — antes era hardcoded
   // !ANTHROPIC_API_KEY (legacy pré-router motor#21). Agora checa a key
   // do provider efetivamente configurado pra este step.
+  // 2026-05-05: usa isApiKeyMissing pra cobrir provider="local" (bug fix
+  // — antes provider=local caía no else infomaniak e ativava mock falso).
   const planejadorProvider = getProviderForStep("planejador");
-  const planejadorKeyMissing = planejadorProvider === "anthropic"
-    ? !process.env["ANTHROPIC_API_KEY"]
-    : !process.env["INFOMANIAK_API_KEY"];
-  const useMockLlm =
-    process.env["USE_MOCK_LLM"] === "true" || planejadorKeyMissing;
+  const planejadorKeyMissing = isApiKeyMissing(planejadorProvider);
+  const mockReason = process.env["USE_MOCK_LLM"] === "true"
+    ? "USE_MOCK_LLM=true"
+    : planejadorKeyMissing
+      ? `${planejadorProvider}_api_key_missing`
+      : null;
+  const useMockLlm = mockReason !== null;
   const parentalProfile = extractParentalProfile(input.persona);
   let triageMode: "rule_based" | "haiku" | "skipped" = "skipped";
   let triageRejectedIds: string[] = [];
@@ -246,16 +252,18 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   const rationale = parseRationale(llmResult.content);
 
   // motor#19: debug log (no-op se ASC_DEBUG_MODE off)
+  // 2026-05-05: provider/model agora refletem o efetivamente usado (mock vs real).
   logDebugEvent({
     side: "motor",
     step: "planejador",
     user_id: input.persona.id,
     session_id: input.sessionId,
     turn_number: input.state.turn,
-    model: process.env["PLANEJADOR_MODEL"] ?? "claude-sonnet-4-6",
-    provider: "anthropic",
+    model: useMockLlm ? "mock" : getModelForStep("planejador", planejadorProvider),
+    provider: useMockLlm ? "mock" : planejadorProvider,
     tokens: llmResult.tokens,
     latency_ms: llmLatency,
+    mock_reason: mockReason,
     prompt: systemPrompt + "\n\n[USER]\n" + userMessage,
     response: llmResult.content,
     reasoning: llmResult.reasoning,

@@ -9,6 +9,7 @@ import {
   getMaxTokensForStep,
   shouldEnableThinking,
   isReasoningModel,
+  isApiKeyMissing,
   DEFAULT_PROVIDERS,
   DEFAULT_MODELS,
   ANTHROPIC_FALLBACK_MODELS,
@@ -241,5 +242,50 @@ describe("constants exposure", () => {
   it("ANTHROPIC_FALLBACK_MODELS usa Claude", () => {
     expect(ANTHROPIC_FALLBACK_MODELS["planejador"]).toContain("claude");
     expect(ANTHROPIC_FALLBACK_MODELS["haiku-triage"]).toContain("haiku");
+  });
+});
+
+// 2026-05-05 bugfix: provider=local não exige API key externa.
+describe("isApiKeyMissing", () => {
+  it("provider=local → sempre false (endpoint local, sem API key externa)", () => {
+    delete process.env["ANTHROPIC_API_KEY"];
+    delete process.env["INFOMANIAK_API_KEY"];
+    delete process.env["LOCAL_LLM_BASE_URL"];
+    expect(isApiKeyMissing("local")).toBe(false);
+  });
+
+  it("provider=anthropic sem ANTHROPIC_API_KEY → true", () => {
+    delete process.env["ANTHROPIC_API_KEY"];
+    expect(isApiKeyMissing("anthropic")).toBe(true);
+  });
+
+  it("provider=anthropic com ANTHROPIC_API_KEY → false", () => {
+    process.env["ANTHROPIC_API_KEY"] = "sk-test";
+    expect(isApiKeyMissing("anthropic")).toBe(false);
+  });
+
+  it("provider=infomaniak sem INFOMANIAK_API_KEY → true", () => {
+    delete process.env["INFOMANIAK_API_KEY"];
+    expect(isApiKeyMissing("infomaniak")).toBe(true);
+  });
+
+  it("provider=infomaniak com INFOMANIAK_API_KEY → false", () => {
+    process.env["INFOMANIAK_API_KEY"] = "imk-test";
+    expect(isApiKeyMissing("infomaniak")).toBe(false);
+  });
+
+  it("provider=mock → false (mock não chama nada externo)", () => {
+    expect(isApiKeyMissing("mock")).toBe(false);
+  });
+
+  it("regression: LLM_PROVIDER=local + sem keys externas NÃO ativa mock keyMissing", () => {
+    // Cenário do bug original: LLM_PROVIDER=local mas falta API_KEY → useMockLlm=true falsamente.
+    // Após fix, isApiKeyMissing("local") retorna false mesmo sem keys.
+    process.env["LLM_PROVIDER"] = "local";
+    delete process.env["ANTHROPIC_API_KEY"];
+    delete process.env["INFOMANIAK_API_KEY"];
+    const provider = getProviderForStep("planejador");
+    expect(provider).toBe("local");
+    expect(isApiKeyMissing(provider)).toBe(false);
   });
 });

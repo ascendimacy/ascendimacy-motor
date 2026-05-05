@@ -17,7 +17,7 @@
  *   PERSONA_SIM_MODEL=mistral3
  */
 
-export type LlmProvider = "anthropic" | "infomaniak" | "local";
+export type LlmProvider = "anthropic" | "infomaniak" | "local" | "mock";
 
 /** Steps válidos com config defaults. */
 export const LLM_STEPS = [
@@ -116,6 +116,31 @@ export function getProviderForStep(step: string): LlmProvider {
   const global = process.env["LLM_PROVIDER"];
   if (global === "anthropic" || global === "infomaniak" || global === "local") return global;
   return DEFAULT_PROVIDERS[step as LlmStep] ?? "infomaniak";
+}
+
+/**
+ * Provider-aware API key check. Bug fix 2026-05-05 — antes a lógica
+ * `provider === "anthropic" ? !ANTHROPIC : !INFOMANIAK` deixava `provider==="local"`
+ * cair no else, pedindo INFOMANIAK_API_KEY. Resultado: `useMockLlm=true` mesmo com
+ * LLM_PROVIDER=local ativo, planejador caía em mock e o pipeline degenerava.
+ *
+ * - anthropic → exige ANTHROPIC_API_KEY
+ * - infomaniak → exige INFOMANIAK_API_KEY
+ * - local → não exige API key externa (vLLM/OVMS/llama-server endpoint local).
+ *           Falha em runtime se endpoint offline (callLocalVllm tem fail-soft).
+ */
+export function isApiKeyMissing(provider: LlmProvider): boolean {
+  switch (provider) {
+    case "anthropic":
+      return !process.env["ANTHROPIC_API_KEY"];
+    case "infomaniak":
+      return !process.env["INFOMANIAK_API_KEY"];
+    case "local":
+    case "mock":
+      return false;
+    default:
+      return true;
+  }
 }
 
 /**

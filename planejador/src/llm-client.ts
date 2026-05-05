@@ -85,7 +85,8 @@ export async function callLlmMock(_systemPrompt: string, _userMessage: string): 
       contextHints: { language: "pt-br", mood: "receptive", urgency: "low" },
     }),
     tokens: { in: 0, out: 0, reasoning: 0 },
-    provider: "infomaniak",
+    // 2026-05-05: provider/model = "mock" pra distinguir de real call em traces
+    provider: "mock",
     model: "mock",
   };
 }
