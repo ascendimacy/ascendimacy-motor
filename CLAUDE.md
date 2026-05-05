@@ -1,7 +1,50 @@
 # ascendimacy-motor — CLAUDE.md
 
 > Leia este arquivo inteiro antes de qualquer ação no repo.
-> Atualizado: 2026-05-05 (v2 — pós-simplificacao Motor Drota Steps 1-5)
+> Atualizado: 2026-05-05 (v3 — Karpathy behavioral constraints integrados)
+
+---
+
+## 0. Comportamento obrigatório (Karpathy constraints)
+
+Esses 4 princípios valem para TODA tarefa neste repo, sem exceção.
+
+### P1 — Perguntar antes de codar
+Se o handoff ou spec não especifica algo com clareza, PARE e pergunte.
+Não escolha uma interpretação e siga em frente. Não assuma silenciosamente.
+Exemplos de ambiguidade que exigem pergunta:
+- "Modifica o materializer" — qual arquivo exatamente? qual função?
+- "Adiciona teste" — unitário com mock ou integração com callGateway real?
+- "Corrige o bug" — o fix da spec ou uma abordagem diferente?
+De: assumpção silenciosa. Para: "Antes de começar: [pergunta específica]."
+
+### P2 — Simplicidade primeiro
+Escreva o mínimo de código que resolve o problema especificado.
+Não adicione abstrações especulativas. Não crie flexibilidade que ninguém pediu.
+Exemplos específicos neste repo:
+- Não extraia interface nova se a função já funciona
+- Não crie factory pra algo que tem 1 implementação
+- Não adicione campo ao StateVector sem spec que o justifique
+- Não amplie o STABLE_MATERIALIZER_PREFIX sem medir impacto no prefix caching
+Referencial: o Pragmatic Selector tem ~50 linhas e zero abstrações. É o modelo.
+
+### P3 — Cirurgia, não reforma
+Toque APENAS o que a tarefa exige. Não melhore código vizinho. Não refatore o que não está quebrado.
+Exemplos específicos neste repo:
+- Se o handoff diz "modifica buildSystemPrompt em plan.ts", não toque em pool-builder.ts
+- Se o bugfix é no STABLE_MATERIALIZER_PREFIX, não refatore buildUserMessage junto
+- Não renomeie variáveis, não reordene imports, não ajuste estilo fora do escopo
+- Não abra DTs novos durante o fix — registre e deixe para depois
+Exceção única: se o código vizinho tem bug que CAUSA o problema sendo resolvido, documente e pergunte.
+
+### P4 — Alvo verificavel antes de escrever
+Transforme instruções vagas em critérios verificáveis antes de codar.
+Exemplos específicos neste repo:
+- "Corrige o content anchor" → "Fact aparece na materialização em ≥6/8 turns no STS"
+- "Adiciona deflection gate" → "Bot muda de tema no turn seguinte após deflection_thematic detectado"
+- "Melhora o assessor" → "mood_method='rule' em ≥70% dos turns com sinal explícito de distress"
+Se o handoff já tem Definition of Done com checkboxes, esses são os alvos. Use-os.
+Se não tem, escreva os alvos e confirme com Jun antes de começar.
 
 ---
 
@@ -134,11 +177,13 @@ git push origin feat/motor-simplificacao-v1
 **BUG-CM-01** — `constrained-materializer.ts`
 Causa: `STABLE_MATERIALIZER_PREFIX` usa "POSSIBILIDADE LATENTE" → Qwen14B ignora Fact
 Fix: substituir por `CONTEÚDO PEDAGÓGICO (regra obrigatória)`
+Alvo verificável (P4): Fact mencionado em ≥6/8 turns no STS smoke
 Spec: `ascendimacy-ops/docs/specs/2026-05-05-bugfix-materializer-content-anchor.md`
 
 **BUG-PL-01** — `planejador/src/plan.ts`
 Causa: `buildSystemPrompt` não injeta `extracted_signals` → deflection ignorada 3 turns
 Fix: adicionar `signalsBlock` + `deflectionBlock` quando `deflection_thematic` presente
+Alvo verificável (P4): bot muda de tema no turn seguinte após deflection_thematic
 Spec: mesma spec acima
 
 ---
@@ -172,6 +217,7 @@ ls ~/ascendimacy-ops/docs/handoffs/
 - Antes de modificar `STABLE_MATERIALIZER_PREFIX` ou `STABLE_DROTA_PREFIX`: verificar prefix caching
 - `npm test` verde antes de qualquer push
 - STS smoke obrigatório antes de merge
+- Ver comportamento obrigatório §0 acima — especialmente P1 e P3
 
 ---
 
@@ -187,5 +233,5 @@ Git pull nos três antes de iniciar sessão.
 
 ---
 
-> 🌳 Crescer para colhar.
-> CLAUDE.md v2.0 — 2026-05-05
+> 🌳 Crescer para colher.
+> CLAUDE.md v3.0 — 2026-05-05
