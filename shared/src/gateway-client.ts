@@ -240,6 +240,16 @@ async function callLocalVllm(
       messages,
       max_tokens: req.maxTokens ?? 512,
       temperature: 0.7,
+      // 2026-05-05: Qwen3 family supports hybrid thinking. Default ON
+      // adds 500-2000 reasoning tokens before content — drena max_tokens
+      // e infla latência. Desativar via chat_template_kwargs.enable_thinking=false
+      // (mecanismo oficial do Qwen3 chat template).
+      // Modelos sem suporte (Qwen2.5, Gemma3, etc.) ignoram silenciosamente.
+      // Override via LOCAL_LLM_THINKING=true se quiser thinking ativo.
+      chat_template_kwargs: {
+        enable_thinking:
+          process.env["LOCAL_LLM_THINKING"] === "true" ? true : false,
+      },
     }),
     signal: AbortSignal.timeout(
       Number(process.env["ASC_LLM_TIMEOUT_SECONDS"] ?? 30) * 1_000,
