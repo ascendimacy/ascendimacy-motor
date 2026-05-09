@@ -225,7 +225,7 @@ describe("initDebugRun", () => {
     const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
     expect(manifest.scenario_name).toBe("test-scenario");
     expect(manifest.personas).toEqual(["ryo-ochiai", "kei-ochiai"]);
-    expect(manifest.versions.debug_mode_schema).toBe("1.0");
+    expect(manifest.versions.debug_mode_schema).toBe("1.1");
   });
 
   it("returns null quando flag off", () => {
