@@ -1,7 +1,8 @@
 /**
- * LLM robustness config — timeouts + retries compartilhados por todos os callsites.
+ * LLM config — robustness primitives (motor#20) + pricing/cost (Sprint 0 PR1, motor#71).
  *
- * Motor#20 spec: docs/specs/... (inline aqui).
+ * Motor#20 spec: timeouts + retries compartilhados por todos os callsites.
+ * Sprint 0 PR1 (ops#497): pricing table + cost calc em USD por modelo.
  *
  * Defaults conservadores pra evitar hang (Kimi K2.5 travou 54min na sessão).
  * Override via env var por step ou global.
@@ -130,4 +131,110 @@ export function classifyLlmError(err: unknown): {
   }
   // Default: fail fast
   return { status, retriable: false, class: name };
+}
+
+// ============================================================================
+// Sprint 0 PR1 (motor#71) — Pricing + Cost calc
+// Stories: ops#498 (S-J-01-01) + ops#499 (S-J-01-02)
+// Capability: ops#483 (C-J-01) — Curador rastreia custo e usage por run
+// Issue âncora: ops#403 (F1-A006 — cost_usd_est=null em 378/378 events)
+// ============================================================================
+
+/** Estrutura de preço por token (USD). Campos em float — divisão de preço/M
+ * tokens por 1_000_000 mantém precisão suficiente. */
+export interface ModelPricing {
+  /** Custo USD por token de input. */
+  price_in_per_token: number;
+  /** Custo USD por token de output. */
+  price_out_per_token: number;
+}
+
+/** Metadata da tabela de preços. Atualizar `last_updated` + bumpar `version`
+ * quando preços forem revisados. */
+export const PRICING_TABLE_METADATA = {
+  /** Versão semântica da tabela. Bumpa minor quando adiciona modelo;
+   * bumpa major quando muda valores significativamente. */
+  version: "v0.1",
+  /** Data ISO da última atualização. */
+  last_updated: "2026-05-08",
+  /** Fonte/origem dos preços. Anthropic: pricing público (anthropic.com/pricing).
+   * Infomaniak: estimativa baseada em pricing público Moonshot/Mistral.
+   * Verificação completa pendente em ops#476. */
+  source:
+    "Anthropic public pricing + Moonshot/Mistral public pricing (Infomaniak resells); v0.1 estimates pending verification in ops#476",
+} as const;
+
+/** Tabela canônica de preços. Chaves são strings de modelo EXATAS como
+ * aparecem em `shared/src/llm-router.ts` defaults — nada de aliasing aqui.
+ *
+ * Adicionar novo modelo: incluir na tabela + bumpar PRICING_TABLE_METADATA.version. */
+const PRICING_TABLE: Record<string, ModelPricing> = {
+  // ===== LLM LOCAL (zero custo de API) =====
+  // Roda em llama.cpp SYCL no host do desenvolvedor (Intel Arc B580).
+  // Custo de API = 0; custo de electricidade/hardware fora do escopo deste tracking.
+  "qwen3-8b": {
+    price_in_per_token: 0,
+    price_out_per_token: 0,
+  },
+
+  // ===== INFOMANIAK (Moonshot Kimi K2.5 + Mistral) =====
+  // Pricing aproximado baseado em fontes públicas; Infomaniak resells.
+  // Kimi K2.5 = reasoning model, output cobra mais que input.
+  // ~$0.15/M input, ~$0.60/M output (aproximação Moonshot pricing 2026).
+  "moonshotai/Kimi-K2.5": {
+    price_in_per_token: 0.00000015,
+    price_out_per_token: 0.0000006,
+  },
+  // Mistral Small 3.2 24B — small classification model.
+  // ~$0.20/M input, ~$0.60/M output (aproximação Mistral pricing).
+  mistral3: {
+    price_in_per_token: 0.0000002,
+    price_out_per_token: 0.0000006,
+  },
+
+  // ===== ANTHROPIC =====
+  // Pricing público anthropic.com/pricing (2026 cutoff).
+  // Haiku 4.5: $1/M input, $5/M output.
+  "claude-haiku-4-5-20251001": {
+    price_in_per_token: 0.000001,
+    price_out_per_token: 0.000005,
+  },
+  // Sonnet 4.6: $3/M input, $15/M output.
+  "claude-sonnet-4-6": {
+    price_in_per_token: 0.000003,
+    price_out_per_token: 0.000015,
+  },
+};
+
+/** Lookup de preços por nome de modelo. Retorna null se modelo não
+ * estiver na tabela — caller decide (warn + emit cost=null em geral). */
+export function getPricesForModel(model: string): ModelPricing | null {
+  if (!model) return null;
+  return PRICING_TABLE[model] ?? null;
+}
+
+/** Calcula cost_usd_est dado modelo + tokens de input/output.
+ *
+ * Retorno:
+ *  - null se model é null OR modelo desconhecido (com warn na console)
+ *  - 0 se modelo conhecido + tokens=0 (steps stub) OR modelo local (qwen3)
+ *  - número positivo caso contrário
+ *
+ * Tokens negativos são tratados como 0 (defensivo — não deve acontecer em produção
+ * mas evita cost negativo se serializer falhar). */
+export function calculateCostUsd(
+  model: string | null,
+  tokensIn: number,
+  tokensOut: number,
+): number | null {
+  if (model == null) return null;
+  const prices = getPricesForModel(model);
+  if (prices == null) {
+    // eslint-disable-next-line no-console
+    console.warn(`[llm-config] Unknown model for cost calculation: ${model}`);
+    return null;
+  }
+  const safeIn = Math.max(0, tokensIn);
+  const safeOut = Math.max(0, tokensOut);
+  return safeIn * prices.price_in_per_token + safeOut * prices.price_out_per_token;
 }
