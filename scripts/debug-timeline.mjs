@@ -34,6 +34,9 @@ function parseArgs(argv) {
     turn: null,
     day: null,
     session: null,
+    scopeId: null, // S-N-01-05: filter por scope_id
+    byScope: false, // S-N-01-05: agrupa output por scope
+    integrity: false, // S-N-01-05: valida gaps/duplicates por scope
     tokensOnly: false,
     reasoningOnly: false,
     noContent: false,
@@ -50,6 +53,9 @@ function parseArgs(argv) {
     else if (a === "--turn" && argv[i + 1]) opts.turn = parseInt(argv[++i], 10);
     else if (a === "--day" && argv[i + 1]) opts.day = parseInt(argv[++i], 10);
     else if (a === "--session" && argv[i + 1]) opts.session = argv[++i];
+    else if (a === "--scope-id" && argv[i + 1]) opts.scopeId = argv[++i];
+    else if (a === "--by-scope") opts.byScope = true;
+    else if (a === "--integrity") opts.integrity = true;
     else if (a === "--tokens-only") opts.tokensOnly = true;
     else if (a === "--reasoning-only") opts.reasoningOnly = true;
     else if (a === "--no-content") opts.noContent = true;
@@ -70,11 +76,14 @@ Filters:
   --turn <n>            Filter by turn_number
   --day <n>             Filter by scenario_day
   --session <id>        Filter by session_id prefix
+  --scope-id <id>       Filter by scope_id (S-N-01-05; multi-process runs)
 
 Views:
   --tokens-only         Summary of cost/latency per step, no content
   --reasoning-only      Only print reasoning blocks
   --no-content          Metadata only, no prompts/responses
+  --by-scope            Group output by scope_id (S-N-01-05)
+  --integrity           Validate gaps/duplicates per scope (S-N-01-05; ops#398)
   --list                List available runs
 
 Dir override:
@@ -132,8 +141,49 @@ function filterEvents(events, opts) {
     if (opts.turn !== null && e.turn_number !== opts.turn) return false;
     if (opts.day !== null && e.scenario_day !== opts.day) return false;
     if (opts.session && !e.session_id?.startsWith(opts.session)) return false;
+    if (opts.scopeId && e.scope_id !== opts.scopeId) return false; // S-N-01-05
     return true;
   });
+}
+
+// S-N-01-05: agrupa events por scope_id preservando ordem original
+function groupByScope(events) {
+  const out = new Map();
+  for (const e of events) {
+    const key = e.scope_id ?? "__no_scope__";
+    if (!out.has(key)) out.set(key, []);
+    out.get(key).push(e);
+  }
+  return out;
+}
+
+// S-N-01-05: detecta gaps + duplicates de seq dentro de cada scope
+function checkIntegrityByScope(events) {
+  const byScope = groupByScope(events);
+  const results = [];
+  for (const [scopeId, scoped] of byScope) {
+    const seqs = scoped.map((e) => e.seq);
+    const seen = new Set();
+    const dups = [];
+    for (const s of seqs) {
+      if (seen.has(s)) dups.push(s);
+      seen.add(s);
+    }
+    const min = Math.min(...seqs);
+    const max = Math.max(...seqs);
+    const gaps = [];
+    for (let i = min; i <= max; i++) if (!seen.has(i)) gaps.push(i);
+    results.push({
+      scope_id: scopeId,
+      observed: scoped.length,
+      expected: max - min + 1,
+      gaps,
+      duplicates: [...new Set(dups)].sort((a, b) => a - b),
+      min_seq: min,
+      max_seq: max,
+    });
+  }
+  return results;
 }
 
 function printTokensSummary(events) {
@@ -175,7 +225,8 @@ function printTokensSummary(events) {
 
 function printEvent(baseDir, runId, e, opts) {
   const tsShort = e.ts.slice(11, 23);
-  const header = `[${tsShort}] ${e.side} → ${e.step}`;
+  const seqTag = e.scope_id != null ? ` #${e.seq}@${e.scope_id.slice(-8)}` : "";
+  const header = `[${tsShort}${seqTag}] ${e.side} → ${e.step}`;
   const modelTag = e.model ? ` (${e.model}` : "";
   const latTag = e.latency_ms != null ? `, ${e.latency_ms}ms` : "";
   const tokTag = e.tokens
@@ -260,8 +311,32 @@ function main() {
     return;
   }
   const events = loadEvents(baseDir, opts.run);
-  events.sort((a, b) => a.ts.localeCompare(b.ts));
+  // Sort cronologically com desempate (scope_id, seq) — determinístico em runs concorrentes
+  events.sort((a, b) => {
+    if (a.ts !== b.ts) return a.ts.localeCompare(b.ts);
+    if ((a.scope_id ?? "") !== (b.scope_id ?? ""))
+      return (a.scope_id ?? "").localeCompare(b.scope_id ?? "");
+    return (a.seq ?? 0) - (b.seq ?? 0);
+  });
   const filtered = filterEvents(events, opts);
+
+  if (opts.integrity) {
+    // S-N-01-05: relatório de integridade por scope
+    const results = checkIntegrityByScope(filtered);
+    console.log(`\n═══ Integrity check — Run: ${opts.run} ═══\n`);
+    let totalGaps = 0, totalDups = 0;
+    for (const r of results) {
+      const status = r.gaps.length === 0 && r.duplicates.length === 0 ? "✓" : "✗";
+      console.log(`${status} scope=${r.scope_id} observed=${r.observed} expected=${r.expected}`);
+      console.log(`  seq range: [${r.min_seq}, ${r.max_seq}]`);
+      if (r.gaps.length > 0) console.log(`  gaps (${r.gaps.length}): ${r.gaps.slice(0, 20).join(",")}${r.gaps.length > 20 ? "..." : ""}`);
+      if (r.duplicates.length > 0) console.log(`  duplicates (${r.duplicates.length}): ${r.duplicates.slice(0, 20).join(",")}${r.duplicates.length > 20 ? "..." : ""}`);
+      totalGaps += r.gaps.length;
+      totalDups += r.duplicates.length;
+    }
+    console.log(`\nTotal: ${results.length} scopes, ${totalGaps} gaps, ${totalDups} duplicates`);
+    return;
+  }
 
   if (opts.tokensOnly) {
     printTokensSummary(filtered);
@@ -271,8 +346,15 @@ function main() {
   console.log(`\n═══ Run: ${opts.run} ═══`);
   console.log(`Total events: ${events.length} (${filtered.length} after filters)\n`);
 
-  for (const e of filtered) {
-    printEvent(baseDir, opts.run, e, opts);
+  if (opts.byScope) {
+    // S-N-01-05: output agrupado por scope_id, cada scope cronológico próprio
+    const grouped = groupByScope(filtered);
+    for (const [scopeId, scoped] of grouped) {
+      console.log(`\n--- scope=${scopeId} (${scoped.length} events) ---\n`);
+      for (const e of scoped) printEvent(baseDir, opts.run, e, opts);
+    }
+  } else {
+    for (const e of filtered) printEvent(baseDir, opts.run, e, opts);
   }
   console.log("\n═══ End ═══");
 }
