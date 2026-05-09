@@ -7,13 +7,13 @@
  * Thread-safe via fsync síncrono em cada write (debug mode não é hot path).
  */
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { calculateCostUsd } from "./llm-config.js";
 
-export const DEBUG_MODE_SCHEMA_VERSION = "1.0";
+export const DEBUG_MODE_SCHEMA_VERSION = "1.1"; // 1.1 — Sprint 0 PR3: adiciona scope_id (motor#75)
 
 /** Flag de ativação via env. Qualquer valor truthy liga. */
 export function isDebugModeEnabled(): boolean {
@@ -31,9 +31,37 @@ export function getDebugRunId(): string | null {
   return process.env["ASC_DEBUG_RUN_ID"] ?? null;
 }
 
-/** Seta run ID (usado pelo scenario-runner na inicialização). */
+/** Seta run ID (usado pelo scenario-runner na inicialização).
+ *
+ * Sprint 0 PR3 (motor#75): também regenera o scope_id, garantindo que cada
+ * "novo run" tenha contadores frescos. Crítico para ops#398 F1-G5 (correlação
+ * cross-process). */
 export function setDebugRunId(runId: string): void {
   process.env["ASC_DEBUG_RUN_ID"] = runId;
+  _currentScopeId = null; // força regeneração no próximo getDebugScopeId
+}
+
+/** Sprint 0 PR3 — scope_id state.
+ *
+ * scope_id identifica unicamente um "contador de seq" dentro do NDJSON.
+ * Em single-process: 1 scope = 1 run. Em multi-process (Ryo + Kei em paralelo):
+ * cada processo tem seu próprio scope_id, mesmo run_id, e seq pode repetir
+ * entre scopes mas é monotônico dentro de cada scope.
+ *
+ * Resolução:
+ * 1. ASC_DEBUG_SCOPE_ID env var (override explícito — útil para tests + multi-process)
+ * 2. Cached value (gerado lazily na primeira chamada)
+ * 3. Auto-gen: `${runId}-${randomUUID().slice(0,8)}`
+ */
+let _currentScopeId: string | null = null;
+
+export function getDebugScopeId(): string {
+  const envOverride = process.env["ASC_DEBUG_SCOPE_ID"];
+  if (envOverride) return envOverride;
+  if (_currentScopeId != null) return _currentScopeId;
+  const runId = getDebugRunId() ?? "no-run";
+  _currentScopeId = `${runId}-${randomUUID().slice(0, 8)}`;
+  return _currentScopeId;
 }
 
 export interface DebugEventInput {
@@ -46,6 +74,10 @@ export interface DebugEventInput {
   session_id?: string | null;
   scenario_day?: number | null;
   turn_number?: number | null;
+  /** Sprint 0 PR3 (motor#75): override per-event do scope_id. Útil quando
+   * caller emite events de "outro contexto" (ex: simulando 2 personas). Se
+   * omitido, usa scope_id global do processo (getDebugScopeId). */
+  scope_id?: string;
   model?: string | null;
   provider?: string | null;
   tokens?: { in?: number; out?: number; reasoning?: number } | null;
@@ -62,6 +94,10 @@ export interface DebugEventInput {
 
 export interface DebugEventLine {
   run_id: string;
+  /** Sprint 0 PR3 (motor#75): scope_id pareia com seq. Identifica processo/contador
+   * único dentro de um run_id. Em concurrent runs (Ryo + Kei), múltiplos scope_ids
+   * coexistem no mesmo NDJSON; chave única = (scope_id, seq). */
+  scope_id: string;
   seq: number;
   ts: string;
   side: "sts" | "motor";
@@ -92,11 +128,16 @@ function hashContent(s: string): string {
   return "sha256:" + createHash("sha256").update(s, "utf-8").digest("hex");
 }
 
-/** Seq monotônico por processo. Persistido in-memory. */
-let _seqCounter = 0;
-function nextSeq(): number {
-  _seqCounter += 1;
-  return _seqCounter;
+/** Seq monotônico per-scope. Sprint 0 PR3 (motor#75): substituiu contador
+ * global por Map keyed por scope_id, garantindo monotonicidade dentro de
+ * cada scope mesmo em ambientes concorrentes (vide ops#398 F1-G5). */
+const _seqCountersByScope = new Map<string, number>();
+
+function nextSeqForScope(scopeId: string): number {
+  const current = _seqCountersByScope.get(scopeId) ?? 0;
+  const next = current + 1;
+  _seqCountersByScope.set(scopeId, next);
+  return next;
 }
 
 /** Ensures run dir exists + returns the absolute path. Idempotente. */
@@ -152,9 +193,14 @@ export function logDebugEvent(input: DebugEventInput): void {
     const snapshotsPreHashes = writeSnapshotMap(snapshots, input.snapshots_pre);
     const snapshotsPostHashes = writeSnapshotMap(snapshots, input.snapshots_post);
 
+    // Sprint 0 PR3 (motor#75): scope_id pareia com seq.
+    // Caller pode override (multi-process, simulação); senão usa scope global.
+    const scopeId = input.scope_id ?? getDebugScopeId();
+
     const line: DebugEventLine = {
       run_id: runId,
-      seq: nextSeq(),
+      scope_id: scopeId,
+      seq: nextSeqForScope(scopeId),
       ts: new Date().toISOString(),
       side: input.side,
       step: input.step,
