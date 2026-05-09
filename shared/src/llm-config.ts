@@ -216,9 +216,10 @@ export function getPricesForModel(model: string): ModelPricing | null {
 /** Calcula cost_usd_est dado modelo + tokens de input/output.
  *
  * Retorno:
+ *  - 0 se ambos tokens=0 (steps stub não custam — distingue 'sem tokens'
+ *    de 'modelo desconhecido'; S-J-01-03)
  *  - null se model é null OR modelo desconhecido (com warn na console)
- *  - 0 se modelo conhecido + tokens=0 (steps stub) OR modelo local (qwen3)
- *  - número positivo caso contrário
+ *  - número positivo caso contrário (qwen3-8b sempre = 0 por price=0)
  *
  * Tokens negativos são tratados como 0 (defensivo — não deve acontecer em produção
  * mas evita cost negativo se serializer falhar). */
@@ -227,6 +228,10 @@ export function calculateCostUsd(
   tokensIn: number,
   tokensOut: number,
 ): number | null {
+  const safeIn = Math.max(0, tokensIn);
+  const safeOut = Math.max(0, tokensOut);
+  // S-J-01-03: zero tokens overrides everything — sem tokens consumidos = sem custo
+  if (safeIn === 0 && safeOut === 0) return 0;
   if (model == null) return null;
   const prices = getPricesForModel(model);
   if (prices == null) {
@@ -234,7 +239,5 @@ export function calculateCostUsd(
     console.warn(`[llm-config] Unknown model for cost calculation: ${model}`);
     return null;
   }
-  const safeIn = Math.max(0, tokensIn);
-  const safeOut = Math.max(0, tokensOut);
   return safeIn * prices.price_in_per_token + safeOut * prices.price_out_per_token;
 }
