@@ -11,6 +11,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { calculateCostUsd } from "./llm-config.js";
 
 export const DEBUG_MODE_SCHEMA_VERSION = "1.1"; // 1.1 — Sprint 0 PR3: adiciona scope_id (motor#75)
@@ -295,4 +297,82 @@ export function initDebugRun(opts: {
     console.error(`[debug-logger] initDebugRun failed: ${String(err).slice(0, 200)}`);
   }
   return runId;
+}
+
+// ============================================================================
+// Sprint 0 PR5 (motor#TBD) — Zod schema validation
+// Stories: ops#504 (S-N-01-03 model=null marker) + ops#505 (S-N-01-04 Zod validation)
+// Bundles fix ops#408 (mood_method enum violation)
+// ============================================================================
+
+const TokensSchema = z.object({
+  in: z.number().int().min(0),
+  out: z.number().int().min(0),
+  reasoning: z.number().int().min(0),
+});
+
+const HashSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/);
+
+/**
+ * Zod schema espelhando DebugEventLine + invariantes runtime.
+ *
+ * Invariante S-N-01-04: se `model != null`, então `tokens` deve existir
+ * com `tokens.in > 0`. Stub steps DEVEM emitir `model: null`. Catches
+ * casos onde caller emite nome de modelo fictício pra step sem LLM real.
+ */
+export const DebugEventLineSchema = z
+  .object({
+    run_id: z.string().min(1),
+    scope_id: z.string().min(1),
+    seq: z.number().int().min(1),
+    ts: z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
+      message: "ts must be ISO 8601",
+    }),
+    side: z.enum(["sts", "motor"]),
+    step: z.string().min(1),
+    user_id: z.string().min(1),
+    partner_user_id: z.string().nullable(),
+    user_kind: z.string().nullable(),
+    motor_target: z.string().nullable(),
+    session_id: z.string().nullable(),
+    scenario_day: z.number().int().nullable(),
+    turn_number: z.number().int().nullable(),
+    model: z.string().nullable(),
+    provider: z.string().nullable(),
+    tokens: TokensSchema.nullable(),
+    latency_ms: z.number().nullable(),
+    cost_usd_est: z.number().nullable(),
+    prompt_hash: HashSchema.nullable(),
+    response_hash: HashSchema.nullable(),
+    reasoning_hash: HashSchema.nullable(),
+    snapshots_pre: z.record(z.string(), z.string()).nullable(),
+    snapshots_post: z.record(z.string(), z.string()).nullable(),
+    outcome: z.enum(["ok", "error", "skip"]),
+    error_class: z.string().nullable(),
+  })
+  .refine(
+    (data) => {
+      // S-N-01-04: model != null implica tokens.in > 0
+      if (data.model != null) {
+        if (!data.tokens || data.tokens.in === 0) return false;
+      }
+      return true;
+    },
+    {
+      message:
+        "model != null requires tokens.in > 0 (stub steps must emit model: null) — S-N-01-04",
+      path: ["model"],
+    },
+  );
+
+/** Helper: validates a DebugEventLine, returns {ok, errors?}. */
+export function validateDebugEventLine(
+  data: unknown,
+): { ok: true } | { ok: false; errors: string[] } {
+  const result = DebugEventLineSchema.safeParse(data);
+  if (result.success) return { ok: true };
+  return {
+    ok: false,
+    errors: result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+  };
 }
