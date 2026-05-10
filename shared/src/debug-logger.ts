@@ -11,6 +11,8 @@ import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { calculateCostUsd } from "./llm-config.js";
+
 export const DEBUG_MODE_SCHEMA_VERSION = "1.0";
 
 /** Flag de ativação via env. Qualquer valor truthy liga. */
@@ -173,7 +175,14 @@ export function logDebugEvent(input: DebugEventInput): void {
           }
         : null,
       latency_ms: input.latency_ms ?? null,
-      cost_usd_est: input.cost_usd_est ?? null,
+      // Sprint 0 PR1 (motor#71): auto-compute cost_usd_est via pricing table
+      // quando caller não fornece explicitamente. Resolve ops#403 (F1-A006:
+      // cost_usd_est=null em 378/378 events). Caller-provided wins (override).
+      cost_usd_est:
+        input.cost_usd_est ??
+        (input.tokens
+          ? calculateCostUsd(input.model ?? null, input.tokens.in ?? 0, input.tokens.out ?? 0)
+          : null),
       prompt_hash: promptHash,
       response_hash: responseHash,
       reasoning_hash: reasoningHash,
