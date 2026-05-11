@@ -1,0 +1,44 @@
+{
+  "persona_id": "exemplo",
+  "schema_version": "v0.1.0",
+  "generated_at": "2026-05-11T13:00:00.000Z",
+  "valid_until": "2026-05-25T13:00:00.000Z",
+  "source": {
+    "trust_level": 0.42,
+    "profile_hash": "sha256:exemplo-profile-hash",
+    "eixos_state_hash": "sha256:exemplo-eixos-hash"
+  },
+  "items": [
+    {
+      "id": "curio-01",
+      "type": "curiosity",
+      "content": "Por que o ângulo do grip muda o cross-court? Conversar com o pai depois do treino.",
+      "weight": 0.8
+    },
+    {
+      "id": "challenge-01",
+      "type": "challenge",
+      "content": "Tentar nomear em 1 palavra o que sentiu no ponto perdido.",
+      "weight": 0.65,
+      "expires_at": "2026-05-25T13:00:00.000Z"
+    },
+    {
+      "id": "strategy-01",
+      "type": "strategy",
+      "content": "Quando o sujeito reclama do silêncio do pai, ancorar em ação concreta (ex: 'o que mudou no grip hoje?').",
+      "weight": 0.7
+    },
+    {
+      "id": "play-01",
+      "type": "play",
+      "content": "Convidar a desmontar mentalmente uma jogada do dia em 3 etapas.",
+      "weight": 0.55
+    },
+    {
+      "id": "diamond-01",
+      "type": "cultural_diamond",
+      "content": "Suzuki Daisetz — relação mestre/discípulo no kendo: a transmissão acontece no gesto, não na fala.",
+      "weight": 0.45
+    }
+  ]
+}
