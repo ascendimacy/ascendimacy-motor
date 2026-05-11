@@ -39,6 +39,25 @@ export interface MoodReading {
   source: MoodSource;
 }
 
+// ============================================================================
+// Sprint 0 PR5 — Zod schemas para validação runtime
+// Bundles fix ops#408 (mood_method enum violation: 'rule' deve ser 'rule_based')
+// ============================================================================
+
+import { z } from "zod";
+
+/** Zod schema enforcing MoodSource enum literal. Rejeita 'rule' (ops#408). */
+export const MoodSourceSchema = z.enum(["llm", "rule_based", "manual"]);
+
+/** Zod schema para MoodReading completo. Score integer 1-10, at ISO 8601. */
+export const MoodReadingSchema = z.object({
+  score: z.number().int().min(MOOD_MIN).max(MOOD_MAX),
+  at: z.string().refine((s) => !Number.isNaN(Date.parse(s)) && /^\d{4}-\d{2}-\d{2}T/.test(s), {
+    message: "at must be ISO 8601 datetime string",
+  }),
+  source: MoodSourceSchema,
+});
+
 /**
  * Janela móvel de mood — agregações pra usar em prompt context e
  * comfort gate. Ambos podem ser null se sem leituras na janela.
