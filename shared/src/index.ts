@@ -33,3 +33,4 @@ export * from "./llm-router.js";
 export * from "./semantic-signals.js";
 export * from "./transitions-schema.js";
 export * from "./gateway-client.js";
+export * from "./contracts/index.js";
