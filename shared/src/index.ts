@@ -29,6 +29,7 @@ export * from "./bullying-check.js";
 export * from "./debug-logger.js";
 export * from "./llm-config.js";
 export * from "./cost-aggregator.js";
+export * from "./replay-utils.js";
 export * from "./llm-router.js";
 export * from "./semantic-signals.js";
 export * from "./transitions-schema.js";
