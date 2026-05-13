@@ -30,10 +30,15 @@ import { generateActionMenu, type LlmCall } from "../src/menu-generator.js";
 import { RYO_HINT } from "../src/persona-hints.js";
 
 const STACK_UP = process.env["LLM_LOCAL_STACK_UP"] === "true";
+// Default canônico Jun (2026-05-13): stack llama.cpp SYCL no Windows host,
+// llama-server expõe alias `qwen3-30b` (GGUF subjacente:
+// Qwen3-30B-A3B-Instruct-2507-Q4_K_M). Endpoint via WSL→Windows host gateway.
+// Override via LLM_LOCAL_ENDPOINT / LLM_LOCAL_MODEL pra outros setups.
+// Ref: memória project_llm_stack_qwen3, ops `2026-05-07-stack-llama-sycl-qwen3-30b`.
 const LOCAL_ENDPOINT =
   process.env["LLM_LOCAL_ENDPOINT"] ??
-  "http://localhost:8080/v1/chat/completions";
-const LOCAL_MODEL = process.env["LLM_LOCAL_MODEL"] ?? "qwen3-8b";
+  "http://172.28.160.1:9000/v1/chat/completions";
+const LOCAL_MODEL = process.env["LLM_LOCAL_MODEL"] ?? "qwen3-30b";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -64,7 +69,7 @@ function localLlmCall(): LlmCall {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(180_000),
+      signal: AbortSignal.timeout(600_000),
     });
     if (!resp.ok) {
       throw new Error(`LLM local HTTP ${resp.status}`);
@@ -144,5 +149,5 @@ describe.runIf(STACK_UP)("generateActionMenu — LLM LOCAL (qwen3)", () => {
           .map(([k, v]) => `${k}=${v}`)
           .join(", "),
     );
-  }, 240_000);
+  }, 1500000);
 });
