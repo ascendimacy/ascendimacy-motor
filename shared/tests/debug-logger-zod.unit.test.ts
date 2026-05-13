@@ -80,6 +80,24 @@ describe("DebugEventLineSchema — campos básicos", () => {
     const r = DebugEventLineSchema.safeParse({ ...validBase, outcome: "pending" });
     expect(r.success).toBe(false);
   });
+
+  // D-4-TELO (ops#1056): outcome ganha "ok-retry" e "degraded" granular.
+  it("aceita outcome \"ok-retry\" (sucesso após retry)", () => {
+    const r = DebugEventLineSchema.safeParse({ ...validBase, outcome: "ok-retry" });
+    expect(r.success).toBe(true);
+  });
+
+  it("aceita outcome \"degraded\" (sucesso parcial — ISA labels stripped)", () => {
+    const r = DebugEventLineSchema.safeParse({ ...validBase, outcome: "degraded" });
+    expect(r.success).toBe(true);
+  });
+
+  it("legado \"ok\" / \"error\" / \"skip\" continua válido (back-compat)", () => {
+    for (const v of ["ok", "error", "skip"]) {
+      const r = DebugEventLineSchema.safeParse({ ...validBase, outcome: v });
+      expect(r.success).toBe(true);
+    }
+  });
 });
 
 describe("DebugEventLineSchema — model + tokens consistency (S-N-01-04)", () => {

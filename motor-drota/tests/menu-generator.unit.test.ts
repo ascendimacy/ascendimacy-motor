@@ -9,7 +9,26 @@
  * Refs: ops#993 (S-T-09-02), motor#88 (H-AC-02), ops#991.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+
+// Mock pontual de logDebugEvent — permite asserções sobre o outcome
+// granular emitido pelo menu-generator (D-4-TELO, ops#1056). Não afeta
+// os outros testes do arquivo: logDebugEvent é no-op default (debug mode
+// off), então substituir por mock preserva o comportamento observável.
+const { mockLogDebugEvent } = vi.hoisted(() => ({
+  mockLogDebugEvent: vi.fn(),
+}));
+
+vi.mock("@ascendimacy/shared", async () => {
+  const actual = await vi.importActual<typeof import("@ascendimacy/shared")>(
+    "@ascendimacy/shared",
+  );
+  return {
+    ...actual,
+    logDebugEvent: mockLogDebugEvent,
+  };
+});
+
 import {
   ACTION_MENU_SCHEMA_VERSION,
   parseActionMenu,
@@ -21,6 +40,10 @@ import {
   type LlmCall,
 } from "../src/menu-generator.js";
 import { RYO_HINT, KEI_HINT } from "../src/persona-hints.js";
+
+beforeEach(() => {
+  mockLogDebugEvent.mockClear();
+});
 
 function validRyoInput(): GenerateActionMenuInput {
   return {
@@ -381,5 +404,96 @@ describe("generateActionMenu — input validation", () => {
     );
     expect(menu).toBeNull();
     expect(warnings).toContain("invalid_input");
+  });
+});
+
+// D-4-TELO (ops#1056): outcome granular emitido para logDebugEvent.
+describe("generateActionMenu — telemetria outcome granular", () => {
+  it("emite outcome=\"ok\" no happy path (sucesso na 1a tentativa)", async () => {
+    const llm = mockLlm(fullLabeledLlmJson("ryo-ochiai"));
+    await generateActionMenu(validRyoInput(), { llmCall: llm });
+
+    // Pega o último evento emitido (handle de mock cumulative durante o test)
+    const calls = mockLogDebugEvent.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const lastEvent = calls[calls.length - 1]![0] as { outcome: string; step: string };
+    expect(lastEvent.step).toBe("menu_generation");
+    expect(lastEvent.outcome).toBe("ok");
+  });
+
+  it("emite outcome=\"ok-retry\" quando 1o output falha schema e retry recupera", async () => {
+    const bad = JSON.parse(fullLabeledLlmJson("ryo-ochiai")) as ActionMenu;
+    (bad.items[0] as unknown as { played_as: string }).played_as = "scaffold";
+    const good = fullLabeledLlmJson("ryo-ochiai");
+
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: JSON.stringify(bad),
+        tokens: { in: 1200, out: 380, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      })
+      .mockResolvedValueOnce({
+        content: good,
+        tokens: { in: 1300, out: 400, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      });
+
+    await generateActionMenu(validRyoInput(), { llmCall: llm });
+    const calls = mockLogDebugEvent.mock.calls;
+    const lastEvent = calls[calls.length - 1]![0] as { outcome: string };
+    expect(lastEvent.outcome).toBe("ok-retry");
+  });
+
+  it("emite outcome=\"degraded\" quando 2 retries falham e ISA labels são stripped", async () => {
+    const bad1 = JSON.parse(fullLabeledLlmJson("ryo-ochiai")) as ActionMenu;
+    (bad1.items[0] as unknown as { played_as: string }).played_as = "scaffold";
+    const bad2 = JSON.parse(fullLabeledLlmJson("ryo-ochiai")) as ActionMenu;
+    (bad2.items[0] as unknown as { intensity: string }).intensity = "savage";
+
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: JSON.stringify(bad1),
+        tokens: { in: 1200, out: 380, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify(bad2),
+        tokens: { in: 1300, out: 400, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      });
+
+    await generateActionMenu(validRyoInput(), { llmCall: llm });
+    const calls = mockLogDebugEvent.mock.calls;
+    const lastEvent = calls[calls.length - 1]![0] as { outcome: string };
+    expect(lastEvent.outcome).toBe("degraded");
+  });
+
+  it("emite outcome=\"error\" quando ambas as tentativas retornam garbage", async () => {
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: "not JSON",
+        tokens: { in: 100, out: 20, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      })
+      .mockResolvedValueOnce({
+        content: "still not JSON",
+        tokens: { in: 100, out: 10, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      });
+
+    const menu = await generateActionMenu(validRyoInput(), { llmCall: llm });
+    expect(menu).toBeNull();
+    const calls = mockLogDebugEvent.mock.calls;
+    const lastEvent = calls[calls.length - 1]![0] as { outcome: string };
+    expect(lastEvent.outcome).toBe("error");
   });
 });
