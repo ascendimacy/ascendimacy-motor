@@ -274,6 +274,36 @@ describe("calculateCostUsd — aritmética de cost (S-J-01-02)", () => {
     // Aceita 0 ou cost negativo determinístico — apenas não pode crashar
     expect(typeof cost === "number" || cost === null).toBe(true);
   });
+
+  // D-3-PROV (ops#1055): provider=openai-compat → 0 mesmo p/ modelo desconhecido.
+  it("provider=openai-compat → 0 mesmo para modelo desconhecido (LLM local)", () => {
+    // qwen3-30b não está cadastrado no PRICING_TABLE; sem o provider seria null.
+    expect(calculateCostUsd("qwen3-30b", 1000, 500, "openai-compat")).toBe(0);
+    expect(calculateCostUsd("ministral-q4", 50000, 20000, "openai-compat")).toBe(0);
+    // null model + openai-compat ainda assim → 0 (distinção do "modelo unknown").
+    expect(calculateCostUsd(null, 1000, 500, "openai-compat")).toBe(0);
+  });
+
+  it("provider=openai-compat respeita zero-tokens override (S-J-01-03)", () => {
+    // Mesmo openai-compat com 0 tokens retorna 0 (curto-circuito anterior).
+    expect(calculateCostUsd("qwen3-30b", 0, 0, "openai-compat")).toBe(0);
+  });
+
+  it("provider=anthropic/infomaniak: comportamento legado preservado (back-compat)", () => {
+    // Passar provider explícito mas conhecido NÃO muda a lógica do PRICING_TABLE.
+    expect(calculateCostUsd("modelo-desconhecido", 100, 50, "infomaniak")).toBeNull();
+    expect(calculateCostUsd("modelo-desconhecido", 100, 50, "anthropic")).toBeNull();
+    // Modelo conhecido + provider explícito: aritmética normal.
+    const cost = calculateCostUsd("moonshotai/Kimi-K2.5", 1000, 500, "infomaniak");
+    expect(cost).not.toBeNull();
+    expect(cost!).toBeGreaterThan(0);
+  });
+
+  it("provider omitido: caller pré-D-3-PROV continua funcionando (back-compat)", () => {
+    // Garantia explícita: o parâmetro provider é opcional.
+    expect(calculateCostUsd("qwen3-8b", 1000, 500)).toBe(0); // via PRICING_TABLE
+    expect(calculateCostUsd("modelo-desconhecido", 100, 50)).toBeNull();
+  });
 });
 
 // ============================================================================
