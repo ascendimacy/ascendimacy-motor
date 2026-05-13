@@ -1,11 +1,17 @@
 /**
  * Strategist — gera e persiste o ActionMenu pós-compaction.
  *
- * PR1 (S-T-09-01 + S-T-09-05): schema + persistência.
- * PRs futuros: generation LLM-backed (S-T-09-02), triggers (S-T-09-03/04),
- * telemetria (S-T-09-07), LLM-LOCAL integration (S-T-09-06).
+ * - PR1 (S-T-09-01 + S-T-09-05): schema + persistência.
+ * - PR2 (S-T-09-02 + H-AC-02, motor#88): schema movido para
+ *   `@ascendimacy/shared/contracts/action-menu` (cross-workspace);
+ *   generator vive em motor-drota. Persistência permanece aqui (única
+ *   consumer da fronteira disco).
  *
- * Refs: ops#989, ops#991.
+ * Re-export dos símbolos canônicos via shared para preservar a API
+ * pública anterior (consumers ainda importam de `@ascendimacy/planejador`
+ * por compatibilidade, embora shared seja a fonte canônica).
+ *
+ * Refs: ops#989, ops#991, ops#993, motor#88.
  */
 
 export {
@@ -26,7 +32,7 @@ export {
   type ActionMenuSource,
   type Intensity,
   type PlayedAs,
-} from "./action-menu-schema.js";
+} from "@ascendimacy/shared";
 
 export {
   actionMenuFilename,
