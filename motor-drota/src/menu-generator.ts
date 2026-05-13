@@ -37,7 +37,7 @@
  * - ops#991 (Sprint 1 tracker)
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -127,28 +127,15 @@ export interface GenerateActionMenuOptions {
 
 /** Lê template + cacheia em memória (idempotente entre chamadas).
  *
- * Robusto a dois layouts:
- * 1. Execução via vitest direto sobre `src/` — `__dirname` é `.../src`,
- *    template ao lado em `src/prompts/`.
- * 2. Execução via build em `dist/` (smoke script, MCP server) — TypeScript
- *    não copia `.txt` para dist/. Fallback resolve para `src/prompts/`
- *    relativo ao dist/. Se desejável copiar no build, adicionar postbuild
- *    step (não bloqueante hoje).
+ * `postbuild` em motor-drota/package.json copia `src/prompts/*.txt` para
+ * `dist/prompts/`, então `__dirname/prompts/` resolve igual em dev (vitest
+ * sobre src/) e prod (Node sobre dist/). Ref: ops#1057 (D-5-PBLD).
  */
 let _cachedTemplate: string | null = null;
 function loadPromptTemplate(pathOverride?: string): string {
   if (pathOverride) return readFileSync(pathOverride, "utf-8");
   if (_cachedTemplate) return _cachedTemplate;
-  if (existsSync(PROMPT_TEMPLATE_PATH)) {
-    _cachedTemplate = readFileSync(PROMPT_TEMPLATE_PATH, "utf-8");
-    return _cachedTemplate;
-  }
-  // Fallback: rodando de dist/, .txt fica em src/.
-  const fromDistToSrc = PROMPT_TEMPLATE_PATH.replace(
-    `${join("/", "dist", "/")}`,
-    `${join("/", "src", "/")}`,
-  );
-  _cachedTemplate = readFileSync(fromDistToSrc, "utf-8");
+  _cachedTemplate = readFileSync(PROMPT_TEMPLATE_PATH, "utf-8");
   return _cachedTemplate;
 }
 

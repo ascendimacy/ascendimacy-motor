@@ -6,6 +6,7 @@
   "main": "./dist/server.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "postbuild": "mkdir -p dist/prompts && cp src/prompts/*.txt dist/prompts/",
     "test": "vitest run",
     "start": "node dist/server.js",
     "clean": "rm -rf dist"
