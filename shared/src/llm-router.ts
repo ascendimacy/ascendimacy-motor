@@ -17,7 +17,28 @@
  *   PERSONA_SIM_MODEL=mistral3
  */
 
-export type LlmProvider = "anthropic" | "infomaniak";
+/**
+ * Provider canônicos:
+ *  - "anthropic"      — Anthropic API direta (claude-sonnet-4-6, etc.)
+ *  - "infomaniak"     — Infomaniak OpenAI-compat (Kimi K2.5, Mistral3, etc.)
+ *  - "openai-compat"  — endpoint OpenAI-compat genérico (LLM local
+ *                       llama.cpp SYCL, vLLM-XPU, etc.). Não tem entrada
+ *                       no DEFAULT_PROVIDERS porque é override per-callsite
+ *                       (ex: LLM-LOCAL integration tests, dev iteration).
+ *                       D-3-PROV (ops#1055).
+ */
+export type LlmProvider = "anthropic" | "infomaniak" | "openai-compat";
+
+/**
+ * Subconjunto de `LlmProvider` que passa pelo `llm-gateway` (rede paga,
+ * retry/fallback/bucket coordinado). `openai-compat` NÃO faz parte —
+ * é local, accessed direto per-callsite, sem retry coordenado.
+ *
+ * Usado pelos maps exhaustivos do Router (`FALLBACK_MAP`, `providers`,
+ * `buckets`). Mantém invariante: gateway só conhece anthropic/infomaniak.
+ * D-3-PROV (ops#1055).
+ */
+export type GatewayLlmProvider = "anthropic" | "infomaniak";
 
 /** Steps válidos com config defaults. */
 export const LLM_STEPS = [
@@ -93,9 +114,13 @@ function envKey(step: string, suffix: string): string {
  */
 export function getProviderForStep(step: string): LlmProvider {
   const perStep = process.env[envKey(step, "PROVIDER")];
-  if (perStep === "anthropic" || perStep === "infomaniak") return perStep;
+  if (perStep === "anthropic" || perStep === "infomaniak" || perStep === "openai-compat") {
+    return perStep;
+  }
   const global = process.env["LLM_PROVIDER"];
-  if (global === "anthropic" || global === "infomaniak") return global;
+  if (global === "anthropic" || global === "infomaniak" || global === "openai-compat") {
+    return global;
+  }
   return DEFAULT_PROVIDERS[step as LlmStep] ?? "infomaniak";
 }
 
@@ -123,6 +148,13 @@ export function getModelForStep(step: string, provider?: LlmProvider): string {
   const p = provider ?? getProviderForStep(step);
   if (p === "anthropic") {
     return ANTHROPIC_FALLBACK_MODELS[step as LlmStep] ?? "claude-sonnet-4-6";
+  }
+  // D-3-PROV (ops#1055): openai-compat = LLM local. Modelo vem da env
+  // específica LLM_LOCAL_MODEL (canônico nos LLM-LOCAL integration tests),
+  // não dos defaults por step. "unknown" quando env ausente — força
+  // o operador a setar explicitamente o modelo que está rodando.
+  if (p === "openai-compat") {
+    return process.env["LLM_LOCAL_MODEL"] ?? "unknown";
   }
   return DEFAULT_MODELS[step as LlmStep] ?? "moonshotai/Kimi-K2.5";
 }
@@ -173,6 +205,9 @@ export function getMaxTokensForStep(step: string, model: string): number {
  * haiku-* (rerank simples, thinking custa latência).
  */
 export function shouldEnableThinking(step: string, provider: LlmProvider, debugMode: boolean): boolean {
+  // D-3-PROV (ops#1055): openai-compat (LLM local) não tem thinking mode
+  // equivalente — qwen3-30b-a3b-instruct-2507 não emite reasoning_content
+  // separado do conteúdo. Sempre false; tratado igual a infomaniak.
   if (provider !== "anthropic") return false;
   if (!debugMode) return false;
   const noThinkSteps = new Set(["haiku-triage", "haiku-bullying"]);
