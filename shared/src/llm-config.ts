@@ -8,6 +8,8 @@
  * Override via env var por step ou global.
  */
 
+import type { LlmProvider } from "./llm-router.js";
+
 /** Timeouts default em ms, por step. */
 export const LLM_TIMEOUT_DEFAULTS: Record<string, number> = {
   // Sonnet 4.6 planejador — prompts moderados, reasoning budget 1024
@@ -213,25 +215,39 @@ export function getPricesForModel(model: string): ModelPricing | null {
   return PRICING_TABLE[model] ?? null;
 }
 
-/** Calcula cost_usd_est dado modelo + tokens de input/output.
+/** Calcula cost_usd_est dado modelo + tokens de input/output (+ provider).
  *
  * Retorno:
  *  - 0 se ambos tokens=0 (steps stub não custam — distingue 'sem tokens'
  *    de 'modelo desconhecido'; S-J-01-03)
+ *  - 0 se provider="openai-compat" (LLM local, sem custo de API —
+ *    D-3-PROV ops#1055; distingue de `null` que é "modelo desconhecido")
  *  - null se model é null OR modelo desconhecido (com warn na console)
- *  - número positivo caso contrário (qwen3-8b sempre = 0 por price=0)
+ *  - número positivo caso contrário (qwen3-8b sempre = 0 por price=0
+ *    mesmo sem passar provider)
  *
- * Tokens negativos são tratados como 0 (defensivo — não deve acontecer em produção
- * mas evita cost negativo se serializer falhar). */
+ * O parâmetro `provider` é OPCIONAL pra preservar back-compat com callers
+ * pré-D-3-PROV. Quando ausente, a lookup pela PRICING_TABLE continua
+ * autoritativa (qwen3-8b cadastrado lá com price=0).
+ *
+ * Tokens negativos são tratados como 0 (defensivo — não deve acontecer
+ * em produção mas evita cost negativo se serializer falhar). */
 export function calculateCostUsd(
   model: string | null,
   tokensIn: number,
   tokensOut: number,
+  provider?: LlmProvider | null,
 ): number | null {
   const safeIn = Math.max(0, tokensIn);
   const safeOut = Math.max(0, tokensOut);
   // S-J-01-03: zero tokens overrides everything — sem tokens consumidos = sem custo
   if (safeIn === 0 && safeOut === 0) return 0;
+  // D-3-PROV: openai-compat = LLM local, custo de API = 0 mesmo se modelo
+  // não estiver cadastrado no PRICING_TABLE. Resolve o caso de runtime
+  // alias do llama-server (qwen3-30b, ministral-q4, etc.) sem precisar
+  // de whitelist por modelo. Cadastro explícito na PRICING_TABLE continua
+  // sendo defensive layer pros casos onde caller não passa provider.
+  if (provider === "openai-compat") return 0;
   if (model == null) return null;
   const prices = getPricesForModel(model);
   if (prices == null) {

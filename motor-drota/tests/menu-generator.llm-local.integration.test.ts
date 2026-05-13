@@ -86,10 +86,9 @@ function localLlmCall(): LlmCall {
         out: json.usage?.completion_tokens ?? 0,
         reasoning: 0,
       },
-      // LLM local não bate com o enum LlmProvider canônico ("anthropic" |
-      // "infomaniak") — usamos "infomaniak" como rótulo informativo (o
-      // endpoint OpenAI-compat do llama.cpp comporta-se análogo).
-      provider: "infomaniak" as const,
+      // D-3-PROV (ops#1055): provider canônico para LLM local. Antes
+      // (workaround pre-PR) cast pra "infomaniak" — mentia no NDJSON.
+      provider: "openai-compat",
       model: LOCAL_MODEL,
     };
   };
