@@ -294,7 +294,19 @@ function buildRetryPrompt(
   ].join("\n");
 }
 
-/** Tenta emitir telemetria — silencia falhas (telemetria não pode quebrar prod). */
+/**
+ * Tenta emitir telemetria — silencia falhas (telemetria não pode quebrar prod).
+ *
+ * D-4-TELO (ops#1056): outcome passa direto, sem colapsar:
+ *  - "ok"       — sucesso na primeira tentativa (1 LLM call)
+ *  - "ok-retry" — sucesso após retry (2 LLM calls; primeiro output rejeitado)
+ *  - "degraded" — sucesso parcial: ISA labels stripped após 2 retries falharem
+ *  - "error"    — falha hard: null retornado, exception, ou JSON garbage 2x
+ *
+ * Granularidade necessária pra análise longitudinal (H-AC-08 painel, H-AC-12
+ * pass-rate). Antes a função colapsava tudo não-"error" em "ok", perdendo
+ * sinal entre runs saudáveis e runs que precisaram de retry/degradação.
+ */
 function emitTelemetry(args: {
   personaId: string;
   sessionId?: string;
@@ -317,7 +329,7 @@ function emitTelemetry(args: {
       latency_ms: args.latencyMs,
       prompt: args.prompt,
       response: args.response,
-      outcome: args.outcome === "error" ? "error" : "ok",
+      outcome: args.outcome,
     });
   } catch {
     // No-op — telemetria não pode quebrar produção.
