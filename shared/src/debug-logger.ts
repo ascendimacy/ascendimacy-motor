@@ -90,7 +90,17 @@ export interface DebugEventInput {
   reasoning?: string | null;
   snapshots_pre?: Record<string, unknown> | null;
   snapshots_post?: Record<string, unknown> | null;
-  outcome: "ok" | "error" | "skip";
+  /**
+   * Granularidade de outcome (D-4-TELO, ops#1056):
+   *  - "ok"       — sucesso na primeira tentativa
+   *  - "ok-retry" — sucesso após retry (ex: schema invalid no primeiro output, recuperado)
+   *  - "degraded" — sucesso parcial (ex: ISA labels stripped, dados secundários perdidos)
+   *  - "error"    — falha hard (null retornado, exception)
+   *  - "skip"     — step ignorado (config/feature flag)
+   *
+   * Legado ("ok" | "error" | "skip") continua válido — só amplia o enum.
+   */
+  outcome: "ok" | "ok-retry" | "degraded" | "error" | "skip";
   error_class?: string | null;
 }
 
@@ -121,7 +131,8 @@ export interface DebugEventLine {
   reasoning_hash: string | null;
   snapshots_pre: Record<string, string> | null;
   snapshots_post: Record<string, string> | null;
-  outcome: "ok" | "error" | "skip";
+  /** Mesma semântica granular do DebugEventInput.outcome (ver acima, D-4-TELO). */
+  outcome: "ok" | "ok-retry" | "degraded" | "error" | "skip";
   error_class: string | null;
 }
 
@@ -347,7 +358,9 @@ export const DebugEventLineSchema = z
     reasoning_hash: HashSchema.nullable(),
     snapshots_pre: z.record(z.string(), z.string()).nullable(),
     snapshots_post: z.record(z.string(), z.string()).nullable(),
-    outcome: z.enum(["ok", "error", "skip"]),
+    // D-4-TELO (ops#1056): outcome ganha "ok-retry" e "degraded" entre
+    // sucesso e falha. Legado ("ok" | "error" | "skip") continua válido.
+    outcome: z.enum(["ok", "ok-retry", "degraded", "error", "skip"]),
     error_class: z.string().nullable(),
   })
   .refine(
