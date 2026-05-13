@@ -1,5 +1,5 @@
 /**
- * ActionMenu schema (S-T-09-01).
+ * ActionMenu schema — contrato compartilhado entre workspaces.
  *
  * Estrutura do menu de ação pré-cozido pelo Estrategista pós-compaction:
  * cinco categorias de itens (curiosidades, desafios, estratégias, jogadas
@@ -11,7 +11,15 @@
  * (action-menu-persistence.ts) e antes de qualquer save. Per-turn lookup
  * NÃO revalida (assume schema-valid em memória).
  *
- * Refs: ops#989 (capability C-T-09), ops#991 (Sprint 1 tracker).
+ * **Histórico de localização:**
+ * - S-T-09-01 (motor#85): nascimento em `planejador/src/strategist/`.
+ * - H-AC-01 (motor#87 → #89): bump v0.2 com campos ISA opcionais.
+ * - S-T-09-02 + H-AC-02 (motor#88): movido para `shared/src/contracts/` —
+ *   motor-drota também passa a consumir (gerador LLM), schema vira
+ *   contrato cross-workspace canônico.
+ *
+ * Refs: ops#989 (capability C-T-09), ops#991 (Sprint 1 tracker), ops#993
+ * (S-T-09-02), motor#88 (H-AC-02).
  */
 
 import { z } from "zod";
