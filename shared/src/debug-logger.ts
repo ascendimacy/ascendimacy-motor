@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { calculateCostUsd } from "./llm-config.js";
+import type { LlmProvider } from "./llm-router.js";
 
 export const DEBUG_MODE_SCHEMA_VERSION = "1.1"; // 1.1 — Sprint 0 PR3: adiciona scope_id (motor#75)
 
@@ -229,7 +230,14 @@ export function logDebugEvent(input: DebugEventInput): void {
       cost_usd_est:
         input.cost_usd_est ??
         (input.tokens
-          ? calculateCostUsd(input.model ?? null, input.tokens.in ?? 0, input.tokens.out ?? 0)
+          ? calculateCostUsd(
+              input.model ?? null,
+              input.tokens.in ?? 0,
+              input.tokens.out ?? 0,
+              // D-3-PROV (ops#1055): passa provider pro cost calc — distingue
+              // LLM local (openai-compat → 0) de modelo desconhecido (null).
+              input.provider as LlmProvider | null | undefined,
+            )
           : null),
       prompt_hash: promptHash,
       response_hash: responseHash,
