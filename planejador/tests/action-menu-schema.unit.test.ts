@@ -13,6 +13,8 @@ import {
   ACTION_MENU_ITEM_TYPES,
   ACTION_MENU_SCHEMA_VERSION,
   ActionMenuSchema,
+  INTENSITY_VALUES,
+  PLAYED_AS_VALUES,
   parseActionMenu,
   type ActionMenu,
   type ActionMenuItem,
@@ -144,5 +146,130 @@ describe("ActionMenuSchema — negative cases", () => {
     menu.persona_id = "";
     const result = ActionMenuSchema.safeParse(menu);
     expect(result.success).toBe(false);
+  });
+});
+
+describe("ActionMenuSchema — ISA pedagogical labels (H-AC-01)", () => {
+  it("accepts item labeled with played_as + intensity + is_critical", () => {
+    const menu = baseValidMenu();
+    menu.items[0] = {
+      id: "curio-01",
+      type: "curiosity",
+      content: "labeled item",
+      weight: 0.8,
+      played_as: "bridge",
+      intensity: "medium",
+      is_critical: false,
+    };
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("accepts item without any of the 3 new fields (backward compat)", () => {
+    const menu = baseValidMenu();
+    expect(menu.items[0]).not.toHaveProperty("played_as");
+    expect(menu.items[0]).not.toHaveProperty("intensity");
+    expect(menu.items[0]).not.toHaveProperty("is_critical");
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("accepts a menu mixing labeled and unlabeled items", () => {
+    const menu = baseValidMenu();
+    menu.items.push({
+      id: "play-01",
+      type: "play",
+      content: "labeled play",
+      weight: 0.55,
+      played_as: "diamante",
+      intensity: "firm",
+      is_critical: true,
+    });
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("accepts all played_as enum values", () => {
+    const menu = baseValidMenu();
+    menu.items = PLAYED_AS_VALUES.map((played_as, i) => ({
+      id: `it-${i}`,
+      type: "play" as const,
+      content: `seed for ${played_as}`,
+      weight: 0.5,
+      played_as,
+    }));
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("accepts all intensity enum values", () => {
+    const menu = baseValidMenu();
+    menu.items = INTENSITY_VALUES.map((intensity, i) => ({
+      id: `it-${i}`,
+      type: "challenge" as const,
+      content: `seed for ${intensity}`,
+      weight: 0.5,
+      intensity,
+    }));
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("rejects played_as outside the canonical enum", () => {
+    const menu = baseValidMenu();
+    (menu.items[0] as unknown as { played_as: string }).played_as = "scaffold";
+    expect(() => parseActionMenu(menu)).toThrow();
+  });
+
+  it("rejects intensity outside the canonical enum", () => {
+    const menu = baseValidMenu();
+    (menu.items[0] as unknown as { intensity: string }).intensity = "savage";
+    expect(() => parseActionMenu(menu)).toThrow();
+  });
+
+  it("rejects non-boolean is_critical", () => {
+    const menu = baseValidMenu();
+    (menu.items[0] as unknown as { is_critical: unknown }).is_critical = "yes";
+    expect(() => parseActionMenu(menu)).toThrow();
+  });
+
+  it("exposes the canonical played_as enum (bridge/espelho/canal/diamante/arena/recovery)", () => {
+    expect(new Set(PLAYED_AS_VALUES)).toEqual(
+      new Set([
+        "bridge",
+        "espelho",
+        "canal",
+        "diamante",
+        "arena",
+        "recovery",
+      ]),
+    );
+  });
+
+  it("exposes the canonical intensity enum (soft/medium/firm)", () => {
+    expect(new Set(INTENSITY_VALUES)).toEqual(
+      new Set(["soft", "medium", "firm"]),
+    );
+  });
+
+  it("schema_version is bumped to v0.2 (minor, non-breaking)", () => {
+    expect(ACTION_MENU_SCHEMA_VERSION).toMatch(/^v0\.2(\.|$)/);
+  });
+
+  it("parses the canonical exemplo-menu fixture (legacy, no ISA fields)", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const path = await import("node:path");
+    const fixturePath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "fixtures",
+      "profiles",
+      "exemplo-menu.json",
+    );
+    const raw = JSON.parse(await readFile(fixturePath, "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    // Fixture predates v0.2 bump — patch version locally so parse focuses on
+    // the items-level backward compat guarantee. (Migration of fixture
+    // versions is out-of-scope per issue motor#87.)
+    raw.schema_version = ACTION_MENU_SCHEMA_VERSION;
+    expect(() => parseActionMenu(raw)).not.toThrow();
   });
 });
