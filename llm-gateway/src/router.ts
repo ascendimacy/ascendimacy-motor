@@ -9,7 +9,12 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { getProviderForStep, getModelForStep, type LlmProvider } from "@ascendimacy/shared";
+import {
+  getProviderForStep,
+  getModelForStep,
+  type GatewayLlmProvider,
+  type LlmProvider,
+} from "@ascendimacy/shared";
 import {
   type ChatCompletionInput,
   type ChatCompletionOutput,
@@ -43,17 +48,20 @@ export interface RouterOptions {
 
 interface DegradedState {
   /** Map provider → ts when degraded was set; expires after degradedTtlMs. */
-  marks: Map<LlmProvider, number>;
+  marks: Map<GatewayLlmProvider, number>;
 }
 
-const FALLBACK_MAP: Record<LlmProvider, LlmProvider> = {
+// D-3-PROV (ops#1055): GatewayLlmProvider narrow exclui openai-compat —
+// LLM local não passa pelo gateway, então fallback/buckets só conhecem
+// anthropic ↔ infomaniak. Invariante preserved.
+const FALLBACK_MAP: Record<GatewayLlmProvider, GatewayLlmProvider> = {
   anthropic: "infomaniak",
   infomaniak: "anthropic",
 };
 
 export class Router {
-  private readonly providers: Record<LlmProvider, ProviderClient>;
-  private readonly buckets: Record<LlmProvider, TokenBucket>;
+  private readonly providers: Record<GatewayLlmProvider, ProviderClient>;
+  private readonly buckets: Record<GatewayLlmProvider, TokenBucket>;
   private readonly logger: GatewayLogger;
   private readonly primaryHardTimeoutMs: number;
   private readonly totalBudgetMs: number;
@@ -84,7 +92,20 @@ export class Router {
     const runId = req.run_id ?? randomUUID();
     const t0 = this.now();
 
-    const primary = req.provider ?? getProviderForStep(req.step);
+    const resolved = req.provider ?? getProviderForStep(req.step);
+    // D-3-PROV (ops#1055): gateway só conhece anthropic/infomaniak.
+    // openai-compat é LLM local — accessed direto per-callsite, não
+    // tem SDK/bucket/retry coordenado aqui. Caller que mandar openai-compat
+    // pro gateway está usando o componente errado.
+    if (resolved === "openai-compat") {
+      throw new GatewayError(
+        "PROVIDER_DOWN",
+        `provider="openai-compat" não é roteável pelo llm-gateway — ` +
+          `LLM local deve ser chamado direto (LLM_LOCAL_ENDPOINT, sem retry/fallback). ` +
+          `step=${req.step}`,
+      );
+    }
+    const primary: GatewayLlmProvider = resolved;
     const fallback = FALLBACK_MAP[primary];
     const primaryDegraded = this.isDegraded(primary);
 
@@ -142,14 +163,14 @@ export class Router {
   }
 
   private async callOnce(args: {
-    providerName: LlmProvider;
+    providerName: GatewayLlmProvider;
     req: ChatCompletionInput;
     requestId: string;
     runId: string;
     startTs: number;
     budgetMs: number;
     wasFallback: boolean;
-    primaryAttempted?: LlmProvider;
+    primaryAttempted?: GatewayLlmProvider;
   }): Promise<ChatCompletionOutput> {
     const { providerName, req, requestId, runId, budgetMs, wasFallback, primaryAttempted } = args;
     const provider = this.providers[providerName];
@@ -233,7 +254,7 @@ export class Router {
     }
   }
 
-  private isDegraded(provider: LlmProvider): boolean {
+  private isDegraded(provider: GatewayLlmProvider): boolean {
     const ts = this.degraded.marks.get(provider);
     if (ts === undefined) return false;
     if (this.now() - ts > this.degradedTtlMs) {
@@ -243,7 +264,7 @@ export class Router {
     return true;
   }
 
-  private markDegraded(provider: LlmProvider): void {
+  private markDegraded(provider: GatewayLlmProvider): void {
     this.degraded.marks.set(provider, this.now());
   }
 }
