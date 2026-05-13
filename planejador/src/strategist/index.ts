@@ -15,11 +15,17 @@ export {
   ActionMenuItemTypeSchema,
   ActionMenuSchema,
   ActionMenuSourceSchema,
+  INTENSITY_VALUES,
+  IntensitySchema,
   parseActionMenu,
+  PLAYED_AS_VALUES,
+  PlayedAsSchema,
   type ActionMenu,
   type ActionMenuItem,
   type ActionMenuItemType,
   type ActionMenuSource,
+  type Intensity,
+  type PlayedAs,
 } from "./action-menu-schema.js";
 
 export {
