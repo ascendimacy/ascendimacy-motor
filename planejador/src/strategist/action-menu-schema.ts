@@ -28,6 +28,41 @@ export const ACTION_MENU_ITEM_TYPES = [
 export const ActionMenuItemTypeSchema = z.enum(ACTION_MENU_ITEM_TYPES);
 export type ActionMenuItemType = z.infer<typeof ActionMenuItemTypeSchema>;
 
+/**
+ * Jogada da ISA pedagógica eBrota Kids instanciada por este item.
+ *
+ * Cinco jogadas canônicas + recovery. Refs:
+ * `ascendimacy-ops/docs/specs/jogada-cases-v0.1/` (7 samples),
+ * `ascendimacy-ops/docs/architecture/2026-05-12-maquina-pedagogia-norte.md` §3.2,
+ * Delta §5.6 — mapeamento 5 jogadas ↔ movimentos genéricos.
+ *
+ * Adicionado em v0.2 (motor#87, H-AC-01). Opcional para preservar backward
+ * compat com menus persistidos pré-v0.2.
+ */
+export const PLAYED_AS_VALUES = [
+  "bridge",
+  "espelho",
+  "canal",
+  "diamante",
+  "arena",
+  "recovery",
+] as const;
+
+export const PlayedAsSchema = z.enum(PLAYED_AS_VALUES);
+export type PlayedAs = z.infer<typeof PlayedAsSchema>;
+
+/**
+ * Intensidade da jogada — `soft` / `medium` / `firm`. Combina com
+ * `played_as` para qualificar a entrega (ex: `challenge` + `firm`
+ * dispara guardrail crítico futuro em H-AC-07).
+ *
+ * Adicionado em v0.2 (motor#87, H-AC-01).
+ */
+export const INTENSITY_VALUES = ["soft", "medium", "firm"] as const;
+
+export const IntensitySchema = z.enum(INTENSITY_VALUES);
+export type Intensity = z.infer<typeof IntensitySchema>;
+
 const ISO_8601_PREFIX = /^\d{4}-\d{2}-\d{2}T/;
 
 const iso8601String = z.string().refine(
@@ -43,6 +78,20 @@ export const ActionMenuItemSchema = z.object({
   weight: z.number().min(0).max(1),
   /** ISO 8601. Item ignorado pelo lookup quando `now > expires_at`. */
   expires_at: iso8601String.optional(),
+  /**
+   * Rotulagem ISA pedagógica (v0.2, motor#87 H-AC-01). Opcional —
+   * legacy menus sem esses campos continuam válidos. População LLM
+   * automática fica para H-AC-02; emissão de `move_emitted` no trace
+   * para H-AC-03.
+   */
+  played_as: PlayedAsSchema.optional(),
+  intensity: IntensitySchema.optional(),
+  /**
+   * `true` para movimentos críticos — `recovery` (regulate) e
+   * `diamante` + `firm` (challenge.firm). Guardrail correspondente
+   * fica em H-AC-07; aqui apenas o rótulo. Default omitido = `false`.
+   */
+  is_critical: z.boolean().optional(),
 });
 export type ActionMenuItem = z.infer<typeof ActionMenuItemSchema>;
 
@@ -87,8 +136,14 @@ export const ActionMenuSchema = z
   });
 export type ActionMenu = z.infer<typeof ActionMenuSchema>;
 
-/** Versão atual do schema serializado. Bumpa em quebras de compat. */
-export const ACTION_MENU_SCHEMA_VERSION = "v0.1.0";
+/**
+ * Versão atual do schema serializado. Bumpa em quebras de compat.
+ *
+ * - v0.1.0: shape inicial (motor#85, S-T-09-01).
+ * - v0.2.0: campos opcionais `played_as` / `intensity` / `is_critical`
+ *   em sub-items (motor#87, H-AC-01). Não-breaking; legacy menus parseiam.
+ */
+export const ACTION_MENU_SCHEMA_VERSION = "v0.2.0";
 
 /** Parse + throw em invalido. Usado em load e antes de save. */
 export function parseActionMenu(raw: unknown): ActionMenu {
