@@ -1,0 +1,178 @@
+{
+  "sessions_seen": [
+    {
+      "session_id": "5e8a7505-d055-4ee9-9286-fd50fff72ae0",
+      "started_at": "2026-05-07T18:32:30.256Z",
+      "completed_at": "2026-05-07T18:53:33.177Z",
+      "total_turns": 12,
+      "trace_file": "ryo-ochiai-2026-05-07T18-53-33-177Z.json"
+    },
+    {
+      "session_id": "0ac76202-6ae6-41ca-82d7-a54ad19110e7",
+      "started_at": "2026-05-07T19:20:42.626Z",
+      "completed_at": "2026-05-07T19:51:22.682Z",
+      "total_turns": 12,
+      "trace_file": "ryo-ochiai-2026-05-07T19-51-22-682Z.json"
+    },
+    {
+      "session_id": "a610ac08-4e31-44ea-aa72-d545953a3b32",
+      "started_at": "2026-05-07T20:15:43.833Z",
+      "completed_at": "2026-05-07T20:48:05.872Z",
+      "total_turns": 12,
+      "trace_file": "ryo-ochiai-2026-05-07T20-48-05-873Z.json"
+    }
+  ],
+  "profile": {
+    "preferences": {
+      "interests": [
+        "tênis",
+        "animes (especialmente Dragon Ball, com foco em Gohan e Cell)",
+        "relações fraternas (com Kei)",
+        "silêncio como forma de expressão",
+        "gestos não verbais e presença física",
+        "ver o Gohan no Cell (momento épico da série)",
+        "relacionamento com o irmão Kei",
+        "silêncio compartilhado durante o jantar",
+        "gestos não verbais de afeto (como o arroz no prato)",
+        "transformação e força interior (associada a Gohan)",
+        "animação e histórias de Dragon Ball (especialmente Gohan no Cell Saga)",
+        "tênis e rotina esportiva",
+        "relações com o irmão Kei",
+        "gestos simbólicos de afeto (como deixar a raquete no lugar certo)",
+        "exploração de identidade e emoções por meio de metáforas (ex: fogo vs ferrugem)"
+      ],
+      "aversions": [
+        "ser ignorado",
+        "não ser visto ou entendido sem falar",
+        "pressão para se comparar ao Kei",
+        "situações de conflito sem apoio emocional",
+        "ser ignorado ou não visto pelo Kei",
+        "pensar em responsabilidades futuras (sete gerações)",
+        "expressar emoções complexas sem palavras",
+        "situações de pressão que exigem decisão imediata",
+        "sentir que não é igual aos outros (especialmente ao irmão Kei)",
+        "não saber como fazer alguém rir",
+        "sentir que sua raiva é algo negativo ou problemático"
+      ],
+      "learning_style": "aprende melhor por meio de metáforas narrativas, comparações com personagens de histórias e reflexão sobre gestos cotidianos, especialmente quando conectados a emoções profundas."
+    },
+    "family_anchors": [
+      {
+        "name": "Kei",
+        "role": "irmão",
+        "gestures_observed": [
+          "aparecer no banheiro depois do incidente",
+          "dizer apenas 'tô aqui' sem palavras",
+          "compartilhar raquete sem pedir",
+          "está sempre no treino",
+          "não olha para o kid",
+          "coloca mais arroz no prato do kid sem falar",
+          "esquece o uniforme e corre pra casa",
+          "ri da cara de bosta que Ryo faz no treino",
+          "diz que Ryo é igual a ele, mas Ryo sente que não é"
+        ],
+        "emotional_role": "fonte de conexão afetiva, mesmo que por meio de humor e ironia; representa um espelho que Ryo tenta se igualar, mas que também o faz questionar sua própria identidade."
+      },
+      {
+        "name": "papai",
+        "role": "pai",
+        "gestures_observed": [
+          "deixa a raquete de Ryo no lugar certo após o jogo"
+        ],
+        "emotional_role": "representa afeto silencioso e presente em pequenos gestos, sem palavras, o que Ryo valoriza profundamente como forma de cuidado."
+      }
+    ],
+    "recurring_themes": [
+      "desejo de ser visto sem precisar gritar",
+      "pressão de se comparar ao irmão (Kei)",
+      "valor do silêncio como força",
+      "necessidade de reconhecimento emocional",
+      "sentimento de invisibilidade em contextos sociais",
+      "espera pelo Kei",
+      "silêncio no jantar como forma de presença",
+      "desejo de ser visto e reconhecido, como Gohan no Cell",
+      "raiva guardada e transformação interna",
+      "afeto expresso por gestos simples, não palavras",
+      "diferença entre si e o irmão Kei",
+      "afeto expresso por gestos silenciosos",
+      "raiva como força que pode ser transformadora",
+      "identidade pessoal ligada a atos únicos (como a cara de bosta)",
+      "transformação sob pressão (Gohan no Cell Saga como modelo)"
+    ],
+    "emotional_arcs": [
+      {
+        "session_id": "5e8a7505-d055-4ee9-9286-fd50fff72ae0",
+        "opening_tone": "distraído, com desinteresse e cansaço",
+        "closing_tone": "aberto e vulnerável, com um desejo claro de ser compreendido",
+        "key_disclosures": [
+          "ficou no banheiro da escola após um conflito e foi procurado apenas pelo Kei",
+          "revelou que sente que está presente mesmo sem falar, mas quer que alguém entenda isso",
+          "expressou que o silêncio é uma forma de tentar achar o jeito certo de ser"
+        ],
+        "flags": [
+          "sentimento persistente de invisibilidade",
+          "isolamento emocional após conflitos",
+          "dificuldade em buscar apoio, mesmo quando necessário",
+          "necessidade de validação não verbal"
+        ]
+      },
+      {
+        "session_id": "0ac76202-6ae6-41ca-82d7-a54ad19110e7",
+        "opening_tone": "distraído, passivo, com foco na espera",
+        "closing_tone": "entediado com um fio de vulnerabilidade",
+        "key_disclosures": [
+          "desejo de ser visto pelo Kei, como Gohan é visto no Cell",
+          "sentir que carrega tudo sozinho",
+          "reconhecer que a raiva é uma força que pode se tornar incontrolável"
+        ],
+        "flags": [
+          "desejo intenso de reconhecimento que não é atendido",
+          "sentimento de invisibilidade dentro da família",
+          "pressão emocional acumulada, expressa por silêncio e metáforas de explosão"
+        ]
+      },
+      {
+        "session_id": "a610ac08-4e31-44ea-aa72-d545953a3b32",
+        "opening_tone": "distraído, com foco no fim da aula de tênis e no desejo de ver o episódio",
+        "closing_tone": "refletivo e vulnerável, com consciência de suas emoções e identidade",
+        "key_disclosures": [
+          "não lembra da última vez que fez alguém rir",
+          "sentimento de que não é igual ao irmão Kei, mesmo quando ele diz que são iguais",
+          "aceitação de que sua raiva é explosiva, mas que pode ser usada por algo que vale a pena"
+        ],
+        "flags": [
+          "sentimento de inadequação em relação ao irmão",
+          "dificuldade em expressar afeto ou criar conexões emocionais positivas",
+          "pressão interna sobre a raiva como força negativa, mas também como potencial de transformação"
+        ]
+      }
+    ],
+    "open_loops": [
+      "desejo de ser entendido sem falar",
+      "exploração do que significa 'estar presente' no dia a dia",
+      "como o silêncio pode ser uma forma de força no tênis e na vida",
+      "o desejo de ser visto como Gohan no Cell — queria explorar esse momento de transformação e reconhecimento",
+      "a possibilidade de usar a raiva como força, não como destruição — aberto para diálogo sobre isso",
+      "a busca por palavras para nomear o que sente — ainda não encontrou vocabulário emocional",
+      "desejo de ver o novo episódio do Gohan no Cell Saga — pode ser um gancho para próxima sessão",
+      "reflexão sobre como usar sua 'diferença' como força, especialmente em relação ao irmão Kei",
+      "possível interesse em explorar mais sobre o que significa ser 'forte' de forma não violenta, como Gohan"
+    ],
+    "off_screen_completions": [
+      "ficar no banheiro da escola após um conflito",
+      "trocar de raquete com o Kei durante o treino",
+      "observar o Kei em momentos de jogo e comparação",
+      "esperar o Kei terminar o treino",
+      "comer juntos em casa",
+      "assistir ao Gohan no Cell",
+      "assistir ao novo episódio do Gohan no Cell Saga",
+      "refletir sobre a divisão de chocolate com Kei como gesto de confiança"
+    ],
+    "notes_for_next_session": [
+      "Perguntar como foi assistir ao episódio do Gohan no Cell Saga e o que Ryo sentiu sobre a transformação de Gohan.",
+      "Explorar mais o que significa ser 'igual' ou 'diferente' em relação ao irmão Kei, com foco em valorização da singularidade.",
+      "Sugerir uma atividade criativa: desenhar ou contar uma cena onde Ryo escolhe dividir algo com Kei, como um ato de confiança."
+    ]
+  },
+  "last_updated": "2026-05-07T23:39:29.458Z"
+}
