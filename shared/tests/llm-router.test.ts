@@ -67,12 +67,38 @@ describe("getProviderForStep", () => {
   });
 
   it("valor inválido em env → fallback default", () => {
-    process.env["PLANEJADOR_PROVIDER"] = "openai"; // não é "anthropic" nem "infomaniak"
+    process.env["PLANEJADOR_PROVIDER"] = "openai-direct"; // não bate com nenhum enum
     expect(getProviderForStep("planejador")).toBe("infomaniak"); // default
   });
 
   it("step desconhecido → infomaniak fallback", () => {
     expect(getProviderForStep("unknown-step")).toBe("infomaniak");
+  });
+
+  // D-3-PROV (ops#1055): openai-compat habilitado para LLM local.
+  it("aceita openai-compat em env per-step", () => {
+    process.env["DROTA_PROVIDER"] = "openai-compat";
+    expect(getProviderForStep("drota")).toBe("openai-compat");
+    expect(getProviderForStep("planejador")).toBe("infomaniak"); // não afeta outros
+  });
+
+  it("aceita openai-compat em LLM_PROVIDER global", () => {
+    process.env["LLM_PROVIDER"] = "openai-compat";
+    expect(getProviderForStep("planejador")).toBe("openai-compat");
+    expect(getProviderForStep("drota")).toBe("openai-compat");
+  });
+
+  it("defaults inalterados: openai-compat NÃO entra em DEFAULT_PROVIDERS", () => {
+    // Garantia explícita: prod continua infomaniak sem env override.
+    for (const step of [
+      "planejador",
+      "drota",
+      "persona-sim",
+      "haiku-triage",
+      "haiku-bullying",
+    ]) {
+      expect(DEFAULT_PROVIDERS[step as keyof typeof DEFAULT_PROVIDERS]).toBe("infomaniak");
+    }
   });
 });
 
@@ -107,6 +133,25 @@ describe("getModelForStep", () => {
     process.env["DROTA_MODEL"] = "qwen3";
     process.env["MOTOR_DROTA_MODEL"] = "mistral3";
     expect(getModelForStep("drota")).toBe("qwen3");
+  });
+
+  // D-3-PROV (ops#1055): provider=openai-compat resolve model via LLM_LOCAL_MODEL.
+  it("provider=openai-compat resolve model via LLM_LOCAL_MODEL env", () => {
+    process.env["LLM_LOCAL_MODEL"] = "qwen3-30b";
+    expect(getModelForStep("drota", "openai-compat")).toBe("qwen3-30b");
+    expect(getModelForStep("planejador", "openai-compat")).toBe("qwen3-30b");
+  });
+
+  it("provider=openai-compat sem LLM_LOCAL_MODEL retorna \"unknown\"", () => {
+    delete process.env["LLM_LOCAL_MODEL"];
+    expect(getModelForStep("drota", "openai-compat")).toBe("unknown");
+  });
+
+  it("env per-step (DROTA_MODEL) beats LLM_LOCAL_MODEL no openai-compat", () => {
+    process.env["DROTA_MODEL"] = "qwen3-14b";
+    process.env["LLM_LOCAL_MODEL"] = "qwen3-30b";
+    // Per-step explicit é resolvido antes de checar provider.
+    expect(getModelForStep("drota", "openai-compat")).toBe("qwen3-14b");
   });
 });
 
@@ -170,6 +215,14 @@ describe("shouldEnableThinking", () => {
   it("OFF em haiku-triage/haiku-bullying mesmo com Anthropic + debug ON", () => {
     expect(shouldEnableThinking("haiku-triage", "anthropic", true)).toBe(false);
     expect(shouldEnableThinking("haiku-bullying", "anthropic", true)).toBe(false);
+  });
+
+  // D-3-PROV (ops#1055): openai-compat sempre OFF (qwen3-30b-a3b-instruct-2507
+  // não tem thinking mode equivalente). Tratamento igual a infomaniak.
+  it("OFF se provider=openai-compat (mesmo em debug, mesmo em steps reasoning)", () => {
+    expect(shouldEnableThinking("planejador", "openai-compat", true)).toBe(false);
+    expect(shouldEnableThinking("drota", "openai-compat", true)).toBe(false);
+    expect(shouldEnableThinking("persona-sim", "openai-compat", false)).toBe(false);
   });
 });
 
