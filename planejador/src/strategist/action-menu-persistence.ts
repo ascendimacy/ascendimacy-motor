@@ -19,7 +19,7 @@ import path from "node:path";
 import {
   parseActionMenu,
   type ActionMenu,
-} from "./action-menu-schema.js";
+} from "@ascendimacy/shared";
 
 /** Nome canônico do arquivo de menu pra um persona_id. */
 export function actionMenuFilename(personaId: string): string {

@@ -18,7 +18,7 @@ import {
   parseActionMenu,
   type ActionMenu,
   type ActionMenuItem,
-} from "../src/strategist/action-menu-schema.js";
+} from "@ascendimacy/shared";
 
 function baseValidMenu(): ActionMenu {
   return {
