@@ -22,7 +22,7 @@ import {
 import {
   ACTION_MENU_SCHEMA_VERSION,
   type ActionMenu,
-} from "../src/strategist/action-menu-schema.js";
+} from "@ascendimacy/shared";
 
 let scratchDir: string;
 
