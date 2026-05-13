@@ -29,3 +29,23 @@ export {
   type TelemetryEvent,
   type TelemetryEventType,
 } from "./telemetry-event.js";
+
+export {
+  ACTION_MENU_ITEM_TYPES,
+  ACTION_MENU_SCHEMA_VERSION,
+  ActionMenuItemSchema,
+  ActionMenuItemTypeSchema,
+  ActionMenuSchema,
+  ActionMenuSourceSchema,
+  INTENSITY_VALUES,
+  IntensitySchema,
+  parseActionMenu,
+  PLAYED_AS_VALUES,
+  PlayedAsSchema,
+  type ActionMenu,
+  type ActionMenuItem,
+  type ActionMenuItemType,
+  type ActionMenuSource,
+  type Intensity,
+  type PlayedAs,
+} from "./action-menu.js";
