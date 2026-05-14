@@ -84,8 +84,16 @@ export const ActionMenuItemSchema = z.object({
   content: z.string().min(1),
   /** Peso de relevância normalizado em [0, 1]. */
   weight: z.number().min(0).max(1),
-  /** ISO 8601. Item ignorado pelo lookup quando `now > expires_at`. */
-  expires_at: iso8601String.optional(),
+  /**
+   * ISO 8601. Item ignorado pelo lookup quando `now > expires_at`.
+   *
+   * `.nullable().optional()` (`nullish`) — aceita ausência do campo, `null`
+   * explícito, ou string ISO. Fix simétrico ao comportamento observado em
+   * LLMs (Qwen3-30B emite `"expires_at": null` em vez de omitir o campo).
+   * Ref: ops#TBD diagnose 2026-05-14 — schema_error_first em ~50% dos runs
+   * causado por `expires_at: null` falhando Zod optional check.
+   */
+  expires_at: iso8601String.nullable().optional(),
   /**
    * Rotulagem ISA pedagógica (v0.2, motor#87 H-AC-01). Opcional —
    * legacy menus sem esses campos continuam válidos. População LLM
