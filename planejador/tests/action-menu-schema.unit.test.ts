@@ -195,6 +195,32 @@ describe("ActionMenuSchema — negative cases", () => {
     };
     expect(() => parseActionMenu(menu)).toThrow();
   });
+
+  // Fix 2026-05-14 (segundo round): nullable também em source.profile_hash,
+  // source.eixos_state_hash, valid_until. Qwen3 emite null em todos.
+  it("aceita source.profile_hash: null (Qwen3 emit pattern)", () => {
+    const menu = baseValidMenu();
+    menu.source.profile_hash = null as unknown as undefined;
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("aceita source.eixos_state_hash: null (Qwen3 emit pattern)", () => {
+    const menu = baseValidMenu();
+    menu.source.eixos_state_hash = null as unknown as undefined;
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("aceita valid_until: null no top-level (Qwen3 emit pattern)", () => {
+    const menu = baseValidMenu();
+    menu.valid_until = null as unknown as undefined;
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("rejeita valid_until: 'ontem' (validação ISO ainda ativa quando string)", () => {
+    const menu = baseValidMenu();
+    menu.valid_until = "ontem";
+    expect(() => parseActionMenu(menu)).toThrow();
+  });
 });
 
 describe("ActionMenuSchema — ISA pedagogical labels (H-AC-01)", () => {
