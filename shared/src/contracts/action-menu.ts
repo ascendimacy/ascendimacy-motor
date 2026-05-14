@@ -114,11 +114,16 @@ export type ActionMenuItem = z.infer<typeof ActionMenuItemSchema>;
 /**
  * Procedência do menu — facilita audit (qual hash de profile / eixos)
  * e fallback (se trust_level baixo, lookup pode ser conservador).
+ *
+ * `profile_hash` / `eixos_state_hash`: `.nullable().optional()` — LLMs
+ * (Qwen3-30B observado) emitem `null` em vez de omitir o campo. Mesmo
+ * padrão do fix em `expires_at` (motor#98). Ref: ops#1058 diagnose
+ * 2026-05-14 — schema_error_first por null em campo opt.
  */
 export const ActionMenuSourceSchema = z.object({
   trust_level: z.number().min(0).max(1),
-  profile_hash: z.string().optional(),
-  eixos_state_hash: z.string().optional(),
+  profile_hash: z.string().nullable().optional(),
+  eixos_state_hash: z.string().nullable().optional(),
 });
 export type ActionMenuSource = z.infer<typeof ActionMenuSourceSchema>;
 
@@ -132,8 +137,12 @@ export const ActionMenuSchema = z
     /** Bump quando o shape muda. Consumers checam antes de parse. */
     schema_version: z.string().min(1),
     generated_at: iso8601String,
-    /** Quando `now > valid_until`, o menu inteiro é considerado stale. */
-    valid_until: iso8601String.optional(),
+    /**
+     * Quando `now > valid_until`, o menu inteiro é considerado stale.
+     * `.nullable().optional()` — simétrico aos outros campos optional ISO
+     * (LLMs emitem null em vez de omitir). Ref: motor#98.
+     */
+    valid_until: iso8601String.nullable().optional(),
     source: ActionMenuSourceSchema,
     items: z.array(ActionMenuItemSchema),
   })
