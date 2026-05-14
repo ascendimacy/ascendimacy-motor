@@ -17,9 +17,16 @@
 #   bash scripts/weekly-variance.sh --qwen3     # força Qwen3-only (skip prompt)
 #   bash scripts/weekly-variance.sh --no-comment # não posta em ops#1058 (sandbox)
 #
+# Env vars opcionais:
+#   - ASC_DEBUG_MODE=false  → desativa NDJSON (default: true, recomendado pra
+#                              debugar run errors após o fato)
+#   - ASC_DEBUG_RUN_ID=...  → run id custom; default hac12-bash-<UTC timestamp>
+#   - REPORT_OUT=/path/...  → override do markdown path (default /tmp/...)
+#
 # Output:
-#   - Markdown report no stdout
-#   - Salvo em /tmp/h-ac-12-latest-report.md (override via REPORT_OUT)
+#   - Markdown report no stdout + REPORT_OUT (default /tmp/h-ac-12-latest-report.md)
+#   - NDJSON em motor-drota/logs/debug/$ASC_DEBUG_RUN_ID/events.ndjson
+#     (warnings detalhados por run — útil pra investigar outcome=error)
 #   - Posted como comment em ops#1058 (a menos que --no-comment)
 
 set -euo pipefail
@@ -99,9 +106,22 @@ if ! npm run build > /tmp/h-ac-12-build.log 2>&1; then
 fi
 echo "  ✓ build OK"
 
+# ── Debug mode (NDJSON canônico, spec §5.1) ──────────────────────────────
+# Ativa logDebugEvent → motor-drota/logs/debug/$ASC_DEBUG_RUN_ID/events.ndjson
+# Captura warnings detalhados por run (schema_error_first, isa_labels_stripped,
+# llm_error, parse_error_retry, etc) — essencial pra debugar "error" outcomes
+# após o agregado. Pra desativar (ex: dev quick iteration): export
+# ASC_DEBUG_MODE=false antes de chamar este script.
+export ASC_DEBUG_MODE="${ASC_DEBUG_MODE:-true}"
+export ASC_DEBUG_RUN_ID="${ASC_DEBUG_RUN_ID:-hac12-bash-$(date -u +%Y%m%dT%H%M%SZ)}"
+NDJSON_PATH="motor-drota/logs/debug/${ASC_DEBUG_RUN_ID}/events.ndjson"
+
 # ── Run ──────────────────────────────────────────────────────────────────
 echo "▶ Executando measure-menu-variance.mjs $MODE_ARGS…"
 echo "  (latência esperada: ~5min Kimi por persona, ~7min Qwen3 por persona)"
+if [ "$ASC_DEBUG_MODE" = "true" ]; then
+    echo "  NDJSON: $NDJSON_PATH"
+fi
 echo ""
 
 COMMENT_ARG=""
@@ -119,6 +139,10 @@ set -e
 echo ""
 echo "▶ Done."
 echo "  Report: $REPORT_OUT"
+if [ "$ASC_DEBUG_MODE" = "true" ] && [ -f "$NDJSON_PATH" ]; then
+    EVENT_COUNT=$(wc -l < "$NDJSON_PATH" 2>/dev/null || echo "0")
+    echo "  NDJSON: $NDJSON_PATH ($EVENT_COUNT events)"
+fi
 if [ "$SKIP_COMMENT" = "0" ]; then
     echo "  Comment posted: https://github.com/ascendimacy/ascendimacy-ops/issues/1058"
 fi
