@@ -60,15 +60,23 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** Caminho default do template — em prod/test vem do mesmo lugar. */
+/** Caminho default do template — em prod/test vem do mesmo lugar.
+ *
+ * v0.2 (2026-05-14): bump após diagnose H-AC-12 — adiciona §4b clarificando
+ * distinção `type` ↔ `played_as` (Qwen3 confundia os 2 enums em ~50% dos
+ * runs) + nota sobre omitir campos opcionais em vez de emitir null.
+ *
+ * v0.1 (motor#94, S-T-09-02 + H-AC-02): nascimento. Preservado como
+ * `menu-generator-v0.1.txt` pra reversão emergencial caso v0.2 regrida.
+ */
 const PROMPT_TEMPLATE_PATH = join(
   __dirname,
   "prompts",
-  "menu-generator-v0.1.txt",
+  "menu-generator-v0.2.txt",
 );
 
 /** Versão do prompt — bump quando estrutura mudar (não conteúdo). */
-export const PROMPT_TEMPLATE_VERSION = "v0.1";
+export const PROMPT_TEMPLATE_VERSION = "v0.2";
 
 /** Input canônico do gerador. */
 export interface GenerateActionMenuInput {
