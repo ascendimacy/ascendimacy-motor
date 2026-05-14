@@ -1,0 +1,76 @@
+# H-AC-12 weekly variance — Kimi K2.5 + Qwen3-30B-A3B local
+#
+# Spec: ascendimacy-ops/docs/specs/H-AC-12-variancia-geracao-v0.md (v1)
+# Issue: ascendimacy-ops#1058
+#
+# **v0 STATUS**: workflow_dispatch only (manual). Cron seg 03:00 UTC fica
+# comentado até Jun:
+#   (1) Setar INFOMANIAK_API_KEY + INFOMANIAK_PRODUCT_ID em repo secrets
+#   (2) Configurar self-hosted Windows runner com llama.cpp SYCL up
+#       servindo qwen3-30b em http://172.28.160.1:9000 (ou config equivalente)
+#   (3) Ativar cron + remover `if: false`
+#
+# Modo: --full (N=30 por persona × 2 modelos). Self-hosted Windows runner
+# por causa do Qwen3-30B local. Tempo estimado: ~3-4h sob PSU cap atual.
+
+name: H-AC-12 weekly variance (Kimi + Qwen3 local)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode (full=N30, quick=N10)"
+        required: false
+        default: "full"
+      comment_on:
+        description: "Posta comment em ref (default: ops#1058 — feed longitudinal)"
+        required: false
+        default: "ops#1058"
+
+  # TODO v0.1: ativar cron após Jun confirmar secrets + self-hosted runner up.
+  # schedule:
+  #   - cron: "0 3 * * 1"  # segunda 03:00 UTC
+
+jobs:
+  measure:
+    # TODO v0.1: trocar pra self-hosted Windows runner com stack Qwen3 up
+    runs-on: self-hosted
+    timeout-minutes: 360
+    if: false  # guard: NÃO roda automaticamente até Jun habilitar
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install
+        run: npm ci --workspaces --include-workspace-root
+
+      - name: Build
+        run: npm run build
+
+      - name: Confirm Qwen3 stack up (sanity check)
+        env:
+          LLM_LOCAL_ENDPOINT: ${{ vars.LLM_LOCAL_ENDPOINT || 'http://172.28.160.1:9000' }}
+        run: |
+          curl -fsS "${LLM_LOCAL_ENDPOINT}/v1/models" > /dev/null || {
+            echo "Qwen3 stack offline em ${LLM_LOCAL_ENDPOINT}; falhando run cedo."
+            exit 1
+          }
+
+      - name: Run weekly variance (--full)
+        env:
+          INFOMANIAK_API_KEY: ${{ secrets.INFOMANIAK_API_KEY }}
+          INFOMANIAK_PRODUCT_ID: ${{ secrets.INFOMANIAK_PRODUCT_ID }}
+          LLM_LOCAL_ENDPOINT: ${{ vars.LLM_LOCAL_ENDPOINT || 'http://172.28.160.1:9000/v1/chat/completions' }}
+          LLM_LOCAL_MODEL: "qwen3-30b"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/measure-menu-variance.mjs \
+            --${{ github.event.inputs.mode || 'full' }} \
+            --comment-on ${{ github.event.inputs.comment_on || 'ops#1058' }}
