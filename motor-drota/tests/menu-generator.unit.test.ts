@@ -496,4 +496,128 @@ describe("generateActionMenu — telemetria outcome granular", () => {
     const lastEvent = calls[calls.length - 1]![0] as { outcome: string };
     expect(lastEvent.outcome).toBe("error");
   });
+
+  // Fix: error paths capturam prompt + response (motor#95-followup).
+  // Antes: outcome=error emitia evento sem prompt/response → debug pos-mortem cego.
+
+  it("error path (hard failure parse 2x): captura prompt + response do attempt2", async () => {
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: "garbage no JSON aqui",
+        tokens: { in: 100, out: 20, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      })
+      .mockResolvedValueOnce({
+        content: "ainda mais garbage final",
+        tokens: { in: 100, out: 10, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      });
+
+    const menu = await generateActionMenu(validRyoInput(), { llmCall: llm });
+    expect(menu).toBeNull();
+
+    const calls = mockLogDebugEvent.mock.calls;
+    const lastEvent = calls[calls.length - 1]![0] as {
+      outcome: string;
+      prompt?: string;
+      response?: string;
+    };
+    expect(lastEvent.outcome).toBe("error");
+    // Prompt + response presentes pra debug pos-mortem
+    expect(lastEvent.prompt).toBeDefined();
+    expect(lastEvent.response).toBe("ainda mais garbage final");
+    // Prompt inclui system prompt + retry user message (com instrução correção)
+    expect(lastEvent.prompt!.toLowerCase()).toContain("retry");
+  });
+
+  it("error path (LLM throw em retry): captura prompt + response do attempt1", async () => {
+    const bad = JSON.parse(fullLabeledLlmJson("ryo-ochiai")) as ActionMenu;
+    (bad.items[0] as unknown as { played_as: string }).played_as = "scaffold";
+
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: JSON.stringify(bad),
+        tokens: { in: 1200, out: 380, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      })
+      .mockRejectedValueOnce(new Error("network timeout no retry"));
+
+    const menu = await generateActionMenu(validRyoInput(), { llmCall: llm });
+    expect(menu).toBeNull();
+
+    const calls = mockLogDebugEvent.mock.calls;
+    const lastEvent = calls[calls.length - 1]![0] as {
+      outcome: string;
+      prompt?: string;
+      response?: string;
+    };
+    expect(lastEvent.outcome).toBe("error");
+    // Response do attempt1 (o que motivou o retry) preservado
+    expect(lastEvent.response).toBe(JSON.stringify(bad));
+    expect(lastEvent.prompt).toBeDefined();
+  });
+
+  it("error path (LLM throw 2x consecutivo): captura prompt (sem response, LLM nunca respondeu)", async () => {
+    const llm = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network timeout 1"))
+      .mockRejectedValueOnce(new Error("network timeout 2"));
+
+    const menu = await generateActionMenu(validRyoInput(), { llmCall: llm });
+    expect(menu).toBeNull();
+
+    const calls = mockLogDebugEvent.mock.calls;
+    // Antes do fix: emitia 1 evento error prematuro entre attempt1 throw + retry,
+    // + (sem evento final pq sem captura). Agora: 1 evento error só, no final,
+    // com prompt mas sem response.
+    expect(calls.length).toBe(1);
+    const lastEvent = calls[0]![0] as {
+      outcome: string;
+      prompt?: string;
+      response?: string;
+    };
+    expect(lastEvent.outcome).toBe("error");
+    expect(lastEvent.prompt).toBeDefined();
+    expect(lastEvent.response).toBeUndefined();
+  });
+
+  it("error path (degradação falhou também): captura prompt + response do attempt2", async () => {
+    // Schema invalid não-ISA: persona_id vazio (não strippable)
+    const bad1 = JSON.parse(fullLabeledLlmJson("ryo-ochiai")) as ActionMenu;
+    bad1.persona_id = "";  // structural failure — strip não recupera
+    const bad2 = { ...bad1 };  // 2x mesma falha
+
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        content: JSON.stringify(bad1),
+        tokens: { in: 1200, out: 380, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify(bad2),
+        tokens: { in: 1300, out: 400, reasoning: 0 },
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+      });
+
+    const menu = await generateActionMenu(validRyoInput(), { llmCall: llm });
+    expect(menu).toBeNull();
+
+    const calls = mockLogDebugEvent.mock.calls;
+    const lastEvent = calls[calls.length - 1]![0] as {
+      outcome: string;
+      prompt?: string;
+      response?: string;
+    };
+    expect(lastEvent.outcome).toBe("error");
+    // Response do attempt2 (último output do LLM, mesmo que invalido) preservado
+    expect(lastEvent.response).toBe(JSON.stringify(bad2));
+  });
 });
