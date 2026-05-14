@@ -1,0 +1,67 @@
+# H-AC-12 pre-merge gate — variância de geração contra Kimi K2.5
+#
+# Spec: ascendimacy-ops/docs/specs/H-AC-12-variancia-geracao-v0.md (v1)
+# Issue: ascendimacy-ops#1058
+#
+# **v0 STATUS**: workflow_dispatch only (manual). Cron + paths-trigger
+# ficam comentados até Jun setar INFOMANIAK_API_KEY no repo + ativar.
+# Tracker: ops#1058 / ops#TBD (issue follow-up "ativar automação H-AC-12").
+#
+# Modo: --quick (N=10 por persona, só Kimi). Roda em GitHub-hosted runner.
+# Self-hosted Windows runner é apenas pro workflow weekly (Qwen3 local).
+
+name: H-AC-12 pre-merge gate (variance vs Kimi K2.5)
+
+on:
+  workflow_dispatch:
+    inputs:
+      persona:
+        description: "Persona a medir (ryo | kei | both)"
+        required: false
+        default: "both"
+      comment_on:
+        description: "Posta comment em ref (ex: ops#1058) — vazio = só stdout"
+        required: false
+        default: ""
+
+  # TODO v0.1: ativar após Jun confirmar INFOMANIAK_API_KEY no repo settings
+  # pull_request:
+  #   paths:
+  #     - 'motor-drota/src/prompts/**'
+  #     - 'motor-drota/src/persona-hints.ts'
+  #     - 'motor-drota/src/menu-generator.ts'
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci --workspaces --include-workspace-root
+
+      - name: Build (postbuild copia prompts pra dist/)
+        run: npm run build
+
+      - name: Run pre-merge variance gate (--quick)
+        env:
+          INFOMANIAK_API_KEY: ${{ secrets.INFOMANIAK_API_KEY }}
+          INFOMANIAK_PRODUCT_ID: ${{ secrets.INFOMANIAK_PRODUCT_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS="--quick --persona ${{ github.event.inputs.persona || 'both' }}"
+          if [ -n "${{ github.event.inputs.comment_on }}" ]; then
+            ARGS="$ARGS --comment-on ${{ github.event.inputs.comment_on }}"
+          fi
+          node scripts/measure-menu-variance.mjs $ARGS
