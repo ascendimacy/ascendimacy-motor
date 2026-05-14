@@ -84,10 +84,15 @@ function printHelp() {
 
 function findLatestNdjson() {
   // Procura em ordem: ASC_DEBUG_DIR env, /tmp/menu-gen-debug,
-  // $REPO/motor-drota/logs/debug
+  // $REPO/logs/debug (weekly-variance.sh escreve aqui),
+  // $REPO/motor-drota/logs/debug (unit tests workspace local).
+  //
+  // Bug 2026-05-14: auto-find faltava REPO_ROOT/logs/debug, retornava
+  // NDJSON stale em /tmp/ enquanto baseline real estava em logs/debug.
   const candidates = [
     process.env.ASC_DEBUG_DIR,
     "/tmp/menu-gen-debug",
+    path.join(REPO_ROOT, "logs", "debug"),
     path.join(REPO_ROOT, "motor-drota", "logs", "debug"),
   ].filter(Boolean);
 
