@@ -82,8 +82,17 @@ export const ActionMenuItemSchema = z.object({
   id: z.string().min(1),
   type: ActionMenuItemTypeSchema,
   content: z.string().min(1),
-  /** Peso de relevância normalizado em [0, 1]. */
-  weight: z.number().min(0).max(1),
+  /**
+   * Peso de relevância normalizado em [0, 1].
+   *
+   * `.default(0.5)`: defensive — Qwen3 ocasionalmente omite o campo apesar
+   * do prompt anatomy mostrar o shape. Default neutral (meio do range)
+   * aplica antes da validação Zod. Não mascara bug do LLM (item ainda
+   * vira items com weight); só evita rejeitar menu inteiro por causa de
+   * um campo defensivo omisso. Ref: baseline N=30 2026-05-14, error Ryo
+   * run 7 (weight omitido em todos items).
+   */
+  weight: z.number().min(0).max(1).default(0.5),
   /**
    * ISO 8601. Item ignorado pelo lookup quando `now > expires_at`.
    *
