@@ -87,9 +87,12 @@ function parseArgs(argv) {
     args.n = args.mode === "quick" ? 10 : args.mode === "full" ? 30 : 30;
   }
   if (!args.model) {
+    // Decisão Jun 2026-05-13: default de --manual é LOCAL (qwen3), não Kimi.
+    // Local é grátis e disponível pra iteração de prompt sem custo.
+    // --quick e --full preservam semântica fixa (Kimi pra gate, both pra weekly).
     args.model =
       args.mode === "quick" ? "kimi" :
-      args.mode === "full" ? "both" : "kimi";
+      args.mode === "full" ? "both" : "qwen3";
   }
   return args;
 }
@@ -106,7 +109,7 @@ Modes:
 Options:
   --n <N>                   tamanho de amostra
   --persona <ryo|kei|both>  default: both
-  --model <kimi|qwen3|both> default: depende do mode
+  --model <kimi|qwen3|both> default: --quick=kimi, --full=both, --manual=qwen3
   --comment-on <ref>        posta comment via gh CLI; ex: "ops#1058" ou "motor#42"
   --output <path>           salva markdown em arquivo (além do stdout)
   --prompt-version <vX.Y>   default: v0.1
