@@ -147,6 +147,54 @@ describe("ActionMenuSchema — negative cases", () => {
     const result = ActionMenuSchema.safeParse(menu);
     expect(result.success).toBe(false);
   });
+
+  // Fix 2026-05-14: nullable expires_at (Qwen3-30B emite null em vez de omitir).
+  it("aceita expires_at: null no item (nullable, simétrico ao output LLM)", () => {
+    const menu = baseValidMenu();
+    menu.items[0] = {
+      id: "curio-01",
+      type: "curiosity",
+      content: "item com expires_at null",
+      weight: 0.5,
+      expires_at: null as unknown as undefined,
+    };
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("aceita expires_at: undefined no item (campo ausente)", () => {
+    const menu = baseValidMenu();
+    menu.items[0] = {
+      id: "curio-01",
+      type: "curiosity",
+      content: "item sem expires_at",
+      weight: 0.5,
+    };
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("aceita expires_at: ISO 8601 válida no item (caminho default)", () => {
+    const menu = baseValidMenu();
+    menu.items[0] = {
+      id: "curio-01",
+      type: "curiosity",
+      content: "item com expires_at válido",
+      weight: 0.5,
+      expires_at: "2026-05-15T13:00:00.000Z",
+    };
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("rejeita expires_at não-ISO string (validação ainda ativa quando presente)", () => {
+    const menu = baseValidMenu();
+    menu.items[0] = {
+      id: "curio-01",
+      type: "curiosity",
+      content: "item",
+      weight: 0.5,
+      expires_at: "ontem" as unknown as string,
+    };
+    expect(() => parseActionMenu(menu)).toThrow();
+  });
 });
 
 describe("ActionMenuSchema — ISA pedagogical labels (H-AC-01)", () => {
