@@ -4,6 +4,8 @@ import { z } from "zod";
 import { loadInventory } from "./loader.js";
 import { getState, logEvent, getDbInstance } from "./state-manager.js";
 import { executePlaybook } from "./executor.js";
+import { createProdActionMenuDeps } from "./action-menu-deps.js";
+import type { OnboardingTriggerDeps } from "./onboarding-trigger.js";
 import {
   startProgram,
   advanceProgram,
@@ -61,8 +63,35 @@ server.registerTool("get_state", {
   return { content: [{ type: "text" as const, text: JSON.stringify(state) }] };
 });
 
+/**
+ * S-T-09-03 wiring (motor#104 + this PR): cache lazy de OnboardingTriggerDeps.
+ * Primeira chamada de `execute_playbook` faz dynamic imports de motor-drota
+ * + planejador; subsequentes reusam singleton.
+ *
+ * Falha silente: se factory falhar (ex: builds sibling indisponíveis), trigger
+ * vira no-op e log de stderr explica. executePlaybook continua funcionando.
+ */
+let _actionMenuDepsCache: OnboardingTriggerDeps | null | undefined;
+async function getActionMenuDeps(): Promise<OnboardingTriggerDeps | undefined> {
+  if (_actionMenuDepsCache !== undefined) return _actionMenuDepsCache ?? undefined;
+  try {
+    _actionMenuDepsCache = await createProdActionMenuDeps();
+    return _actionMenuDepsCache;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[motor-execucao] OnboardingTriggerDeps factory falhou — trigger ` +
+        `desligado pra esta sessão. Causa: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    _actionMenuDepsCache = null; // mark as "tried + failed" — não re-tenta
+    return undefined;
+  }
+}
+
 server.registerTool("execute_playbook", {
-  description: "Executa um playbook escolhido, persiste state e loga evento",
+  description: "Executa um playbook escolhido, persiste state e loga evento. " +
+    "Quando metadata indica conclusão de onboarding, dispara fire-and-forget " +
+    "trigger de generateActionMenu (S-T-09-03, motor#104+wiring).",
   inputSchema: {
     sessionId: z.string(),
     playbookId: z.string(),
@@ -71,7 +100,12 @@ server.registerTool("execute_playbook", {
     metadata: z.record(z.string(), z.unknown()).optional().default({}),
   } as any,
 }, async ({ sessionId, playbookId, selectedContentId, output, metadata }: { sessionId: string; playbookId: string; selectedContentId?: string; output: string; metadata?: Record<string, unknown> }) => {
-  const result = executePlaybook({ sessionId, playbookId, selectedContentId, output, metadata: metadata ?? {} }, inventory);
+  const actionMenuTriggerDeps = await getActionMenuDeps();
+  const result = executePlaybook(
+    { sessionId, playbookId, selectedContentId, output, metadata: metadata ?? {} },
+    inventory,
+    { actionMenuTriggerDeps },
+  );
   return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
 });
 
