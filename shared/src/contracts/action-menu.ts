@@ -115,15 +115,21 @@ export type ActionMenuItem = z.infer<typeof ActionMenuItemSchema>;
  * Procedência do menu — facilita audit (qual hash de profile / eixos)
  * e fallback (se trust_level baixo, lookup pode ser conservador).
  *
- * `profile_hash` / `eixos_state_hash`: `.nullable().optional()` — LLMs
- * (Qwen3-30B observado) emitem `null` em vez de omitir o campo. Mesmo
- * padrão do fix em `expires_at` (motor#98). Ref: ops#1058 diagnose
- * 2026-05-14 — schema_error_first por null em campo opt.
+ * `profile_hash` / `eixos_state_hash`:
+ * - `.nullable().optional()` — LLMs (Qwen3-30B observado) emitem `null`
+ *   em vez de omitir o campo. Mesmo padrão do fix em `expires_at` (motor#98).
+ * - `.max(128)` — defensive contra degeneration loops em LLM. Hash real
+ *   (sha256) tem 64 chars hex; 128 dá margem ampla pra schemes alternativos
+ *   (sha512 ou prefixos) mas rejeita "x9k2m4n7p1q3r5..." infinito observado
+ *   em 2 errors do baseline N=30 Qwen3-30B (2026-05-14). Rejeita response
+ *   degenerated na 1ª parse — não desperdiça LLM call de retry inteira.
+ *
+ * Ref: ops#1058 diagnose round 3 — 2026-05-14 baseline full smoke.
  */
 export const ActionMenuSourceSchema = z.object({
   trust_level: z.number().min(0).max(1),
-  profile_hash: z.string().nullable().optional(),
-  eixos_state_hash: z.string().nullable().optional(),
+  profile_hash: z.string().max(128).nullable().optional(),
+  eixos_state_hash: z.string().max(128).nullable().optional(),
 });
 export type ActionMenuSource = z.infer<typeof ActionMenuSourceSchema>;
 

@@ -221,6 +221,34 @@ describe("ActionMenuSchema — negative cases", () => {
     menu.valid_until = "ontem";
     expect(() => parseActionMenu(menu)).toThrow();
   });
+
+  // Fix 2026-05-14 round 3: max(128) em hash fields — guard contra
+  // degeneration loops de Qwen3 (observados em 2 errors do baseline N=30).
+  it("rejeita source.profile_hash > 128 chars (degeneration loop guard)", () => {
+    const menu = baseValidMenu();
+    menu.source.profile_hash = "x".repeat(200);
+    expect(() => parseActionMenu(menu)).toThrow();
+  });
+
+  it("rejeita source.eixos_state_hash > 128 chars (degeneration loop guard)", () => {
+    const menu = baseValidMenu();
+    menu.source.eixos_state_hash = "y".repeat(500);
+    expect(() => parseActionMenu(menu)).toThrow();
+  });
+
+  it("aceita hash exatamente em 128 chars (boundary)", () => {
+    const menu = baseValidMenu();
+    menu.source.profile_hash = "a".repeat(128);
+    menu.source.eixos_state_hash = "b".repeat(128);
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
+
+  it("aceita hash sha256 hex normal (64 chars)", () => {
+    const menu = baseValidMenu();
+    menu.source.profile_hash =
+      "e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8";
+    expect(() => parseActionMenu(menu)).not.toThrow();
+  });
 });
 
 describe("ActionMenuSchema — ISA pedagogical labels (H-AC-01)", () => {
