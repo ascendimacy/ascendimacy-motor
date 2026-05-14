@@ -62,21 +62,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Caminho default do template — em prod/test vem do mesmo lugar.
  *
- * v0.2 (2026-05-14): bump após diagnose H-AC-12 — adiciona §4b clarificando
- * distinção `type` ↔ `played_as` (Qwen3 confundia os 2 enums em ~50% dos
- * runs) + nota sobre omitir campos opcionais em vez de emitir null.
+ * v0.3 (2026-05-14, post-baseline N=30): adiciona §6b explicitando "NUNCA
+ * invente hash". 2 errors do baseline foram degeneration loops em
+ * profile_hash/eixos_state_hash. Schema motor#101 reforça com .max(128).
  *
- * v0.1 (motor#94, S-T-09-02 + H-AC-02): nascimento. Preservado como
- * `menu-generator-v0.1.txt` pra reversão emergencial caso v0.2 regrida.
+ * v0.2 (motor#99): adiciona §4b clarificando distinção `type` ↔ `played_as`.
+ *
+ * v0.1 (motor#94): nascimento.
+ *
+ * Versões anteriores preservadas em `menu-generator-v0.{1,2}.txt` pra
+ * reversão emergencial.
  */
 const PROMPT_TEMPLATE_PATH = join(
   __dirname,
   "prompts",
-  "menu-generator-v0.2.txt",
+  "menu-generator-v0.3.txt",
 );
 
 /** Versão do prompt — bump quando estrutura mudar (não conteúdo). */
-export const PROMPT_TEMPLATE_VERSION = "v0.2";
+export const PROMPT_TEMPLATE_VERSION = "v0.3";
 
 /** Input canônico do gerador. */
 export interface GenerateActionMenuInput {
