@@ -35,7 +35,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 
 // Imports do build output do motor-drota (postbuild copia prompts/).
-const { generateActionMenu } = await import(
+const { generateActionMenu, PROMPT_TEMPLATE_VERSION } = await import(
   path.join(REPO_ROOT, "motor-drota", "dist", "menu-generator.js")
 );
 const { RYO_HINT, KEI_HINT } = await import(
@@ -57,7 +57,11 @@ function parseArgs(argv) {
     model: null,
     commentOn: null,
     output: null,
-    promptVersion: "v0.1",
+    // Default: importa PROMPT_TEMPLATE_VERSION canônico do menu-generator
+    // (fonte da verdade). Antes era hardcode "v0.1" que ficou stale após
+    // bump pra v0.2 em motor#99 — report metadata mentia sobre qual prompt
+    // foi usado de fato. Override manual ainda funciona via --prompt-version.
+    promptVersion: PROMPT_TEMPLATE_VERSION,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -112,7 +116,7 @@ Options:
   --model <kimi|qwen3|both> default: --quick=kimi, --full=both, --manual=qwen3
   --comment-on <ref>        posta comment via gh CLI; ex: "ops#1058" ou "motor#42"
   --output <path>           salva markdown em arquivo (além do stdout)
-  --prompt-version <vX.Y>   default: v0.1
+  --prompt-version <vX.Y>   default: PROMPT_TEMPLATE_VERSION do menu-generator (atual: ${PROMPT_TEMPLATE_VERSION})
   -h, --help                este help
 
 Spec: ascendimacy-ops/docs/specs/H-AC-12-variancia-geracao-v0.md
