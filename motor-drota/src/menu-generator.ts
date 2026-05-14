@@ -367,13 +367,9 @@ export async function generateActionMenu(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     warn({ code: "llm_error", message: `LLM call failed (attempt 1): ${msg}` });
-    emitTelemetry({
-      personaId: input.personaId,
-      sessionId: input.sessionId,
-      latencyMs: Date.now() - t0,
-      outcome: "error",
-    });
-    // Retry once on LLM error too.
+    // Retry once on LLM error. Premature `error` emit removido (ops#TBD)
+    // — antes emitia evento error pré-retry que era confuso quando retry
+    // recuperava (criava 2 events num run só). Só emite no final.
     try {
       attempt1 = await llmCall(systemPrompt, userMessage);
     } catch (err2) {
@@ -381,6 +377,14 @@ export async function generateActionMenu(
       warn({
         code: "llm_error",
         message: `LLM call failed (retry): ${msg2}`,
+      });
+      // Captura prompt — não há response (LLM throw 2x consecutivo).
+      emitTelemetry({
+        personaId: input.personaId,
+        sessionId: input.sessionId,
+        latencyMs: Date.now() - t0,
+        outcome: "error",
+        prompt: systemPrompt + "\n---\n" + userMessage,
       });
       return null;
     }
@@ -430,11 +434,16 @@ export async function generateActionMenu(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     warn({ code: "llm_error", message: `LLM call failed (retry): ${msg}` });
+    // Captura prompt do retry + response do attempt1 (que motivou o retry).
+    // Permite debug: "o que LLM emitiu na 1a tentativa que reprovou parse?"
     emitTelemetry({
       personaId: input.personaId,
       sessionId: input.sessionId,
+      result: attempt1,
       latencyMs: Date.now() - t0,
       outcome: "error",
+      prompt: systemPrompt + "\n---\n" + retryUserMessage,
+      response: attempt1.content,
     });
     return null;
   }
@@ -494,13 +503,17 @@ export async function generateActionMenu(
     });
   }
 
-  // Hard failure.
+  // Hard failure. Captura prompt do retry + response do attempt2
+  // (último output do LLM que não parseou + não recuperou via strip).
+  // Crítico pra debug: permite ver o que LLM emitiu que confundiu o parser.
   emitTelemetry({
     personaId: input.personaId,
     sessionId: input.sessionId,
     result: attempt2,
     latencyMs: Date.now() - t0,
     outcome: "error",
+    prompt: systemPrompt + "\n---\n" + retryUserMessage,
+    response: attempt2.content,
   });
   return null;
 }
