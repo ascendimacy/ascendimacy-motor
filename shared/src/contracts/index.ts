@@ -78,3 +78,24 @@ export {
   type KidsHelixExtensionRecommendation,
   type CaselDimensionPair,
 } from "./kids-helix-state.js";
+
+// Trio runtime engine (ops#1086) — types puros; lógica em
+// orchestrator/src/trio-runtime.ts. Doctrine §10 + §11 dinamicas-grupo.
+export {
+  GROUP_MODES,
+  DEFAULT_TRIO_RUNTIME_CONFIG,
+  TURN_SPEAKER_TYPES,
+  TRIO_WARNING_KINDS,
+  NEXT_SPEAKER_TARGETS,
+  type GroupMode,
+  type TrioRuntimeConfig,
+  type TurnSpeakerType,
+  type TurnHistoryEntry,
+  type TrioParticipant,
+  type BrejoSignal,
+  type TrioState,
+  type TrioWarningKind,
+  type TrioWarning,
+  type NextSpeakerTarget,
+  type TrioDecision,
+} from "./trio-runtime.js";
