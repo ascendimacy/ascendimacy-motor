@@ -173,7 +173,8 @@ describe("passesV0Thresholds — Opção B (multi-KPI)", () => {
   });
 
   it("error_rate acima do limiar → fail", () => {
-    const r = passesV0Thresholds({ ...baselineHealthy, errorRate: 0.1 }, 0.15);
+    // v0.1 limite = 0.10; usa 0.15 pra ficar acima
+    const r = passesV0Thresholds({ ...baselineHealthy, errorRate: 0.15 }, 0.15);
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.failures.join(" ")).toMatch(/error_rate/);
@@ -195,7 +196,7 @@ describe("passesV0Thresholds — Opção B (multi-KPI)", () => {
         passRateFirst: 0.2,
         recoveryRate: 0.6,
         degradationRate: 0.15,
-        errorRate: 0.1,
+        errorRate: 0.20,  // v0.1: bumpado pra acima do novo limite 0.10
       },
       0.8,
     );
@@ -205,11 +206,13 @@ describe("passesV0Thresholds — Opção B (multi-KPI)", () => {
     }
   });
 
-  it("constantes KPI_THRESHOLDS_V0 expostas e válidas", () => {
+  it("constantes KPI_THRESHOLDS_V0 expostas e válidas (v0.1 — 2026-05-14)", () => {
     expect(KPI_THRESHOLDS_V0.passRateFirstMin).toBe(0.5);
     expect(KPI_THRESHOLDS_V0.recoveryRateMax).toBe(0.4);
     expect(KPI_THRESHOLDS_V0.degradationRateMax).toBe(0.1);
-    expect(KPI_THRESHOLDS_V0.errorRateMax).toBe(0.05);
+    // v0.1: bumped from 0.05 → 0.10 post-baseline 2026-05-14 (Qwen3 local
+    // empírico mostrou 5-7% error rate natural; v0 criava false negative).
+    expect(KPI_THRESHOLDS_V0.errorRateMax).toBe(0.10);
     expect(KPI_THRESHOLDS_V0.distAlignmentMax).toBe(0.3);
   });
 });
