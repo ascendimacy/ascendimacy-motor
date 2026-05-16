@@ -35,6 +35,11 @@ import {
   triageForParents,
   logDebugEvent,
   getProviderForStep,
+  computeChallengeCost,
+  computeTrustRatio,
+  isItemAllowedUnderBudgetExhaustion,
+  extractPersonaSensitivity,
+  isExhausted,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
@@ -421,6 +426,75 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       contextHints["partner_status_gates"] = allGates(input.state.partnerStatusMatrix);
     }
   }
+
+  // G-22 (ops#1033, Jun ratify B 2026-05-16) — sacrifice fórmula PARCIAL.
+  // Gaps cobertos: 1+2+3+4+8+9. Deferred: 5 (outcome), 6/7 (onda), 10 (boss).
+  //
+  // - Gap 8 budget exhaustion: se isExhausted(state), flag contextHints +
+  //   compute soft-degrade allowed_item_ids para drota saber quais filtrar.
+  // - Gap 9 trust ratio: computeTrustRatio(state.trustLevel) → drota interpreta.
+  // - Gaps 1+2+3+4 breakdown: top-K items × cost (observability/debug).
+  //
+  // recentUsageCount não disponível aqui (content_usage_repo é motor-execucao;
+  // planejador roda sem db handle direto). Default 0 → consumption_mult=1.0;
+  // future hydration via pool-builder com db handle resolverá.
+  const personaSensitivity = extractPersonaSensitivity(
+    input.persona.profile as Record<string, unknown> | undefined,
+  );
+  const trustRatio = computeTrustRatio(input.state.trustLevel);
+  contextHints["prazer_sacrifice_ratio"] = {
+    prazer_quota: Number(trustRatio.prazerQuota.toFixed(4)),
+    sacrifice_quota: Number(trustRatio.sacrificeQuota.toFixed(4)),
+  };
+
+  const budgetExhausted = isExhausted(input.state);
+  if (budgetExhausted) {
+    const allowedIds = topK
+      .filter((s) => isItemAllowedUnderBudgetExhaustion(s.item))
+      .map((s) => s.item.id);
+    contextHints["budget_state"] = "exhausted_soft_degrade";
+    contextHints["budget_exhausted_allowed_ids"] = allowedIds;
+    try {
+      logDebugEvent({
+        side: "motor",
+        step: "budget_exhausted_soft_degrade",
+        user_id: input.persona.id,
+        session_id: input.sessionId,
+        motor_target: "planejador-strategist",
+        outcome: "ok",
+        snapshots_post: {
+          budget: {
+            budget_remaining: input.state.budgetRemaining,
+            allowed_ids_count: allowedIds.length,
+            top_k_count: topK.length,
+          },
+        },
+      });
+    } catch {
+      // Telemetry não bloqueia.
+    }
+  } else {
+    contextHints["budget_state"] = "ok";
+  }
+
+  // G-22 breakdown — top-K cost preview (observability; não modifica scoring).
+  const sacrificeBreakdown = topK.slice(0, 5).map((s) => {
+    const cost = computeChallengeCost({
+      item: s.item,
+      personaSensitivity,
+      intensity: s.isaLabels?.intensity,
+    });
+    return {
+      id: s.item.id,
+      base_effort: cost.baseEffort,
+      consumption_mult: Number(cost.consumptionMult.toFixed(4)),
+      sensitivity_mult: cost.sensitivityMult,
+      challenge_mult: cost.challengeMult,
+      total: Number(cost.total.toFixed(4)),
+    };
+  });
+  contextHints["sacrifice_breakdown"] = sacrificeBreakdown;
+  contextHints["persona_sensitivity"] = personaSensitivity;
 
   // motor#25 (handoff #24 Tarefa 1): slim pool antes do drota.
   // Filtra used_in_session (score≤0) + char budget 2000.
