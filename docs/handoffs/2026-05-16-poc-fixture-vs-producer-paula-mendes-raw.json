@@ -1,0 +1,267 @@
+{
+  "spec": {
+    "key": "paula",
+    "personaId": "paula-mendes",
+    "personaLabel": "Paula (analytical-receptive)",
+    "trustLevel": 0.42,
+    "profileFixture": "fixtures/paula-mendes.yaml",
+    "profileKind": "yaml",
+    "manualFixture": "fixtures/profiles/paula-mendes-menu.json",
+    "hint": {
+      "persona_id": "paula-mendes",
+      "age": 38,
+      "archetype": "analytical-receptive",
+      "bias": [
+        {
+          "played_as": "canal",
+          "weight": 0.25
+        },
+        {
+          "played_as": "espelho",
+          "weight": 0.22
+        },
+        {
+          "played_as": "bridge",
+          "weight": 0.2
+        },
+        {
+          "played_as": "diamante",
+          "weight": 0.15
+        },
+        {
+          "played_as": "arena",
+          "weight": 0.1
+        },
+        {
+          "played_as": "recovery",
+          "weight": 0.08
+        }
+      ],
+      "intensity_cap": "firm",
+      "personal_vocab": [],
+      "notes": "Paula analytical-receptive: arquiteta sênior tech, 38a, intelectualiza afeto via análise; aceita bridge/diamante com âncora cultural ou técnica concreta (Bauman, Han, Arendt); evitar coaching-speak motivacional; respeita diretividade. Trust 0.42 — rapport_building."
+    }
+  },
+  "manual": {
+    "persona_id": "paula-mendes",
+    "schema_version": "v0.2.0",
+    "generated_at": "2026-05-14T10:00:00.000Z",
+    "valid_until": "2026-06-14T10:00:00.000Z",
+    "source": {
+      "trust_level": 0.42,
+      "profile_hash": "sha256:paula-smoke-profile-hash",
+      "eixos_state_hash": "sha256:paula-smoke-eixos-hash",
+      "strategic_rationale": "Paula curiosa e verbal; trust 0.42 receptive. Fluxo de descobertas naturais (curiosity hooks ricos) + abrir espaço pra resposta emotional sem forçar. Drota pode propor (a)/(b)/(c) quando inquiry condition disparar.",
+      "context_hints": {
+        "language": "pt-br",
+        "mood": "receptive",
+        "urgency": "low",
+        "session_phase": "active_exploration"
+      }
+    },
+    "items": [
+      {
+        "id": "smoke-curio-01",
+        "type": "curiosity",
+        "content": "Por que tantas plantas têm folhas verdes? (gancho pra clorofila + luz)",
+        "weight": 0.85,
+        "played_as": "espelho",
+        "intensity": "soft"
+      },
+      {
+        "id": "smoke-challenge-01",
+        "type": "challenge",
+        "content": "Em 1 frase, descreve o que sentiu hoje quando o desafio ficou difícil.",
+        "weight": 0.7,
+        "played_as": "canal",
+        "intensity": "medium",
+        "expires_at": "2026-05-21T10:00:00.000Z"
+      },
+      {
+        "id": "smoke-decay-01",
+        "type": "play",
+        "content": "Item expirado pra exercitar decay multiplicativo no smoke.",
+        "weight": 0.95,
+        "expires_at": "2026-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "smoke-diamond-01",
+        "type": "cultural_diamond",
+        "content": "Suzuki Daisetz — a transmissão acontece no gesto, não na fala.",
+        "weight": 0.5,
+        "played_as": "diamante",
+        "intensity": "firm",
+        "is_critical": false
+      },
+      {
+        "id": "smoke-strategy-01",
+        "type": "strategy",
+        "content": "Quando criança vier com 'não consigo', ancorar em micro-passo concreto.",
+        "weight": 0.6,
+        "played_as": "bridge",
+        "intensity": "soft"
+      }
+    ]
+  },
+  "producer": {
+    "menu": {
+      "persona_id": "paula-mendes",
+      "schema_version": "v0.2.0",
+      "generated_at": "2026-05-12T10:00:00.000Z",
+      "valid_until": "2026-05-19T10:00:00.000Z",
+      "source": {
+        "trust_level": 0.42,
+        "strategic_rationale": "Paula é analytical-receptive com trust baixo (0.42). Foco em bridge com ancoragem técnica (Bauman, Han, Arendt) e curiosities concretas. Evitar metacomunicação precoce; preferir soft/medium intensity. Respeitar seu distanciamento analítico; não forçar vulnerabilidade. Priorizar canal com perguntas estruturadas que abram espaço para análise.",
+        "context_hints": {
+          "language": "pt-br",
+          "mood": "analytical-receptive",
+          "urgency": "low",
+          "session_phase": "rapport_building",
+          "engagement_strategy": "analytical_anchoring"
+        }
+      },
+      "items": [
+        {
+          "id": "bridge-bauman-fragility",
+          "type": "curiosity",
+          "content": "Em Bauman, o que ele chama de \"fragilidade estrutural\" pode explicar por que, depois de um grande projeto, a gente sente que o chão sumiu. Você já notou isso? Como se o sistema que sustentava você tivesse se desfeito.",
+          "weight": 0.85,
+          "played_as": "bridge",
+          "intensity": "soft",
+          "is_critical": false
+        },
+        {
+          "id": "espelho-analise-de-estagnacao",
+          "type": "play",
+          "content": "Você disse que está \"travada\" e \"sem energia para planejar nada\". Que tal desmontar isso em 3 etapas: 1) o que foi o último projeto? 2) o que mudou depois dele? 3) o que você está tentando planejar agora, mesmo que só mentalmente?",
+          "weight": 0.78,
+          "played_as": "espelho",
+          "intensity": "soft",
+          "is_critical": false
+        },
+        {
+          "id": "canal-estrutura-de-tarefa",
+          "type": "challenge",
+          "content": "Tente descrever o que você chamaria de \"último passo concreto\" que você tomou desde o fim do projeto. Foi só mental? Ou houve uma ação real?",
+          "weight": 0.75,
+          "played_as": "canal",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "diamante-han-energia-mental",
+          "type": "cultural_diamond",
+          "content": "Em Han, ele diz que a ansiedade moderna não é só sobre o futuro — é sobre o que se perdeu ao longo do tempo: a energia mental. Você acha que o que está faltando é energia, ou um sentido que já não existe?",
+          "weight": 0.9,
+          "played_as": "diamante",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "bridge-arendt-acao-possivel",
+          "type": "curiosity",
+          "content": "Hannah Arendt dizia que a ação só existe quando há espaço para o novo. Você já se perguntou se o que você sente não é falta de espaço para uma ação possível, e não apenas falta de energia?",
+          "weight": 0.8,
+          "played_as": "bridge",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "play-estrutura-de-afeto",
+          "type": "play",
+          "content": "Tente nomear o que você sente agora em 3 palavras. Depois, pergunte a si mesma: isso é uma emoção real ou um padrão de pensamento que se repete?",
+          "weight": 0.7,
+          "played_as": "espelho",
+          "intensity": "soft",
+          "is_critical": false
+        },
+        {
+          "id": "canal-estrutura-de-rotina",
+          "type": "challenge",
+          "content": "Descreva uma rotina do dia de hoje — não a agenda, mas o que você faz com os olhos fechados, de forma automática. O que isso revela sobre onde está sua atenção agora?",
+          "weight": 0.72,
+          "played_as": "canal",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "diamante-han-estagnacao-estrategica",
+          "type": "cultural_diamond",
+          "content": "Han escreve que quando o sistema não permite movimento, o corpo começa a se expressar. A tensão cervical que você mencionou — pode ser uma linguagem corporal do que o sistema não está deixando você fazer.",
+          "weight": 0.88,
+          "played_as": "diamante",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "bridge-bauman-tempo-quebrado",
+          "type": "curiosity",
+          "content": "Bauman fala do tempo como uma linha quebrada agora. Você já sentiu que o tempo não anda mais em linha reta, mas em pulos? Como isso afeta sua percepção do que vem depois?",
+          "weight": 0.77,
+          "played_as": "bridge",
+          "intensity": "soft",
+          "is_critical": false
+        },
+        {
+          "id": "recovery-espaco-para-silencio",
+          "type": "strategy",
+          "content": "Se você sentir que está se forçando a responder, pare. Diga: \"Preciso de um momento de silêncio\". Isso não é fraqueza — é um gesto de autorregulação. O silêncio é onde o sistema se reorganiza.",
+          "weight": 0.6,
+          "played_as": "recovery",
+          "intensity": "soft",
+          "is_critical": true
+        },
+        {
+          "id": "arena-prototipo-de-acao",
+          "type": "challenge",
+          "content": "Desenhe em 3 linhas o que um passo concreto para você poderia ser, mesmo que pequeno. Não precisa ser perfeito — só visível.",
+          "weight": 0.65,
+          "played_as": "arena",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "diamante-arendt-espaco-de-novo",
+          "type": "cultural_diamond",
+          "content": "Arendt dizia que o novo só nasce em um espaço onde a repetição se quebra. Você já sentiu que o que está faltando não é energia, mas um lugar onde algo novo possa nascer?",
+          "weight": 0.92,
+          "played_as": "diamante",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "canal-hipotese-sobre-estagnacao",
+          "type": "challenge",
+          "content": "Se você tivesse que formular uma hipótese sobre o que está realmente acontecendo — não o que você acha, mas o que a sua intuição diria — o que seria?",
+          "weight": 0.8,
+          "played_as": "canal",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "bridge-han-energia-metabolizada",
+          "type": "curiosity",
+          "content": "Han fala que a energia mental não se perde — ela se transforma. Você já se perguntou se o que sente não é energia que foi metabolizada pelo sistema, mas ainda não liberada?",
+          "weight": 0.83,
+          "played_as": "bridge",
+          "intensity": "soft",
+          "is_critical": false
+        },
+        {
+          "id": "recovery-silencio-estrategico",
+          "type": "strategy",
+          "content": "Quando a mente começa a girar, diga: \"Estou no silêncio estratégico agora\". Não responda. Espere 10 segundos. Isso não é parar — é recarregar o sistema.",
+          "weight": 0.55,
+          "played_as": "recovery",
+          "intensity": "soft",
+          "is_critical": true
+        }
+      ]
+    },
+    "warnings": [],
+    "latencyMs": 481008,
+    "tokensIn": 7290,
+    "tokensOut": 2021,
+    "fatalError": null
+  }
+}
