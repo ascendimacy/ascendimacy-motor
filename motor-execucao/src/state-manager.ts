@@ -7,6 +7,7 @@ import { GARDNER_PROGRAM_DDL, getProgramState } from "./gardner-program.js";
 import { PARENT_DECISIONS_DDL } from "./parent-decisions.js";
 import { EMITTED_CARDS_DDL } from "./cards-repo.js";
 import { CONTENT_USAGE_DDL } from "./content-usage-repo.js";
+import { KIDS_HELIX_STATE_DDL } from "./kids-helix-state.js";
 import { getNow, resolveDbPath } from "./clock.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +41,7 @@ function getDb(dbPath?: string): Database.Database {
       ${PARENT_DECISIONS_DDL}
       ${EMITTED_CARDS_DDL}
       ${CONTENT_USAGE_DDL}
+      ${KIDS_HELIX_STATE_DDL}
     `);
   }
   return db;
