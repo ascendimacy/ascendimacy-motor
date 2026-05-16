@@ -1,0 +1,141 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# kids.group.playbook.yaml
+#
+# PROPOSTA v1 (2026-04-24) — para ser copiada para ebrota/playbooks/ pelo CC.
+# Sessões em dyad/grupo pequeno via WhatsApp group chat.
+# Dyad Ryo+Kei natural no piloto Nagareyama.
+# ──────────────────────────────────────────────────────────────────────────────
+
+schema_version: "1.1.0"
+version: "1.0"
+name: "kids.group"
+extends_playbook: "kids.base.playbook.yaml"
+deployment_profile: "kids-group"
+
+# ─── Ambição overrides ─────────────────────────────────────────────────────────
+ambition:
+  max_challenge_scale: grande
+  sessions_per_week: 1                       # 1 sessão grupo/semana no v1
+  minutes_per_session: 20                    # sessões grupo são mais longas
+  sacrifice_budget_weekly: 20
+  sacrifice_budget_screen: 20
+
+# ─── Escopo ────────────────────────────────────────────────────────────────────
+subjects:
+  mode: open
+  weight_on_weakness: 0.3
+  focus_techniques:                          # técnicas especialmente potentes em grupo
+    - Tribunal
+    - Tier List
+    - Profecia
+    - Teach Back
+    - Quest Chain
+    - Detetive
+    - Comedia
+
+# ─── Mixins ─────────────────────────────────────────────────────────────────────
+base_mixins:
+  - name: withConversation
+    config:
+      confirmation_mode: minimal
+      batch_mode: true
+
+  - name: withMemory
+    config:
+      ttl: "30d"
+      scope: group                           # memória compartilhada entre membros
+
+  - name: withTree
+    config:
+      zones: 6
+      half_life_days:
+        raiz: null
+        tronco: 90
+        galho: 60
+        folha: 30
+        crossing: 45
+        preferencia: 180
+
+  - name: withCrossing
+    config:
+      mode: multi_child                      # NOVO valor (além de parent_child)
+      max_group_size: 3                      # trio (Saki entry) por ops#1086 Jun 2026-05-16
+      moderation_protocol: asynchronous_whatsapp
+      moderation_rules:
+        max_consecutive_bot_turns: 2         # §10 invariante 2 (dyad + trio)
+        silence_tolerance_seconds: 30
+        # bot_turn_ratio: 0.25 em dyad → 0.20 em trio (§11.1 ops#1086)
+        bot_turn_ratio_dyad: 0.25
+        bot_turn_ratio_trio: 0.20            # bot ≤ 20% em 3-child
+        # dominance_threshold: 0.60 em dyad → 0.50 em trio (§11.2 ops#1086)
+        dominance_threshold_dyad: 0.6        # >60% → cede palavra (dyad)
+        dominance_threshold_trio: 0.5        # >50% → cede palavra (trio: 50% já é 1.5× equal-share)
+        absence_threshold_rounds_default: 3  # ping silencioso 3+ rounds
+        absence_threshold_rounds_saki: 5     # Saki ASD nível 1 — autorregulação, NÃO ping cedo (§11.3 ops#1086)
+        synthesis_at_end: true
+        # Brejo unilateral trio (§11.4 ops#1086):
+        # - sensory + Saki em brejo → partial pause (skip Saki rotation, Ryo/Kei continuam)
+        # - emocional qualquer membro → full pause (§10 invariante 6 dyad mantém)
+        brejo_pause_policy_trio:
+          sensory_saki: partial               # bot stops convidando Saki, Ryo/Kei continuam
+          emotional_any: full                 # qualquer membro afetivo → pause total
+
+# ─── Regras de composição ─────────────────────────────────────────────────────
+composition_rules:
+  - when: { signal: "first_group_session" }
+    apply_mixins:
+      - name: withOnboarding
+        config:
+          group_onboarding: true
+          mediator_required: false           # não exige pais presentes em dyad
+    priority: 10
+
+  - when: { signal: "conflict_detected" }
+    apply_mixins:
+      - name: withCrossing
+        config:
+          mode: parent_child                 # escala pra sessão conjunta pais+filho se persistir
+          trigger: "3 rounds unresolved disagreement"
+    priority: 15
+
+# ─── Fases ────────────────────────────────────────────────────────────────────
+phases:
+  onboarding:
+    mixins: [withConversation, withMemory, withOnboarding]
+    duration_sessions: 2
+    graduation:
+      type: completion
+      params:
+        completed_steps: [introductions, group_agreement]
+
+  regular:
+    mixins: [withConversation, withMemory, withTree, withCrossing]
+    graduation:
+      type: group_cohesion
+      params:
+        min_sessions: 4
+        engagement_balance: 0.7              # nenhum membro com engagement < 70% da média
+
+  graduated:
+    mixins: [withConversation, withMemory, withCrossing]
+    mixin_config_overrides:
+      withMemory:
+        ttl: "90d"
+
+signal_sources:
+  - type: webhook
+    config:
+      endpoint: /kids/group-signals
+      auth_ref: "secrets.webhook_kids_group"
+
+external_bridges: []
+
+metadata:
+  author: "Jun Ochiai"
+  product: "kids-group"
+  target_audience: "dyads e pequenos grupos (irmãos/primos/amigos próximos)"
+  description: "Sessões em grupo via WhatsApp com moderação assíncrona. v1 suporta dyad apenas."
+  tags: [kids, group, dyad, crossing, async_moderation]
+  v1_status: active
+  v1_supported_size: [2]
+  v2_planned_sizes: [2, 3, 4, 5, 6, 7, 8]

@@ -7,6 +7,7 @@ composition rules e fases.
 ## Origem
 
 - `kids.session.playbook.yaml` — importado de `ebrota/playbooks/kids.session.playbook.yaml`.
+- `kids.group.playbook.yaml` — importado de `ascendimacy-ops/docs/playbooks/kids.group.playbook.yaml` (canon doctrine §10+§11 dinâmicas-grupo; trio runtime config via `moderation_rules`).
 
 Referência: Handoff #17 Bloco 1.3, spec `ascendimacy-ops/docs/specs/2026-04-24-materialization-strategy.md`.
 
