@@ -172,7 +172,10 @@
       "Perguntar como foi assistir ao episódio do Gohan no Cell Saga e o que Ryo sentiu sobre a transformação de Gohan.",
       "Explorar mais o que significa ser 'igual' ou 'diferente' em relação ao irmão Kei, com foco em valorização da singularidade.",
       "Sugerir uma atividade criativa: desenhar ou contar uma cena onde Ryo escolhe dividir algo com Kei, como um ato de confiança."
-    ]
+    ],
+    "repetition_inquiry": {
+      "default_on_skip": "b"
+    }
   },
   "last_updated": "2026-05-07T23:39:29.458Z"
 }
