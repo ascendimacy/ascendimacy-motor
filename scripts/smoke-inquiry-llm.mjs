@@ -27,7 +27,7 @@ import { Agent, setGlobalDispatcher } from "undici";
 // undici default headersTimeout=300s; Qwen3 30B com prompt grande
 // pode demorar +5min até primeira resposta. Bump global.
 setGlobalDispatcher(
-  new Agent({ headersTimeout: 600_000, bodyTimeout: 600_000 }),
+  new Agent({ headersTimeout: 2_400_000, bodyTimeout: 2_400_000 }),
 );
 
 // USE_MOCK_LLM=true só pra planejador (que vai mockar rationale).
@@ -67,7 +67,7 @@ async function callQwen3(systemPrompt, userMessage) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(600_000), // 10min — prompt processing + gen pode passar 5min
+    signal: AbortSignal.timeout(2_400_000), // 10min — prompt processing + gen pode passar 5min
   });
   if (!resp.ok) throw new Error(`Qwen3 HTTP ${resp.status}: ${await resp.text()}`);
   const json = await resp.json();

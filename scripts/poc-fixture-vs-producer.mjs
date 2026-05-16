@@ -43,7 +43,7 @@ import yaml from "js-yaml";
 // pode demorar +5min até primeira resposta. Bump global (mesma config
 // que poc-isa-labels-quality.mjs).
 setGlobalDispatcher(
-  new Agent({ headersTimeout: 1_200_000, bodyTimeout: 1_200_000 }),
+  new Agent({ headersTimeout: 2_400_000, bodyTimeout: 2_400_000 }),
 );
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -134,7 +134,7 @@ function makeQwen3LlmCall() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(1_200_000),
+      signal: AbortSignal.timeout(2_400_000),
     });
     if (!resp.ok) throw new Error(`LLM local HTTP ${resp.status}`);
     const json = await resp.json();

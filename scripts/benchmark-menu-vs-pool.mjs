@@ -30,7 +30,7 @@ import { Agent, setGlobalDispatcher } from "undici";
 
 // undici default headersTimeout=300s; Qwen3 30B pode demorar +5min.
 setGlobalDispatcher(
-  new Agent({ headersTimeout: 600_000, bodyTimeout: 600_000 }),
+  new Agent({ headersTimeout: 2_400_000, bodyTimeout: 2_400_000 }),
 );
 
 // ─── Config ─────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ async function callQwen3(systemPrompt, userMessage) {
       max_tokens: 600,
       temperature: 0.7,
     }),
-    signal: AbortSignal.timeout(600_000),
+    signal: AbortSignal.timeout(2_400_000),
   });
   if (!resp.ok) throw new Error(`Qwen3 HTTP ${resp.status}`);
   const json = await resp.json();
