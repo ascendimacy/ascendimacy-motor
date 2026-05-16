@@ -370,6 +370,13 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   // ops#1068 — repetition_inquiry decision (Jun ratificado 2026-05-14).
   // Conjunção (i)-(vii); drota só pergunta quando todas valem.
   // Brejo afetivo é override absoluto (sub-decisão 8 §vi).
+  //
+  // eligiblePoolIds usa `eligible` (post-age/joint filter, PRÉ-scoring/slim).
+  // slimPool exclui items used-in-session via score≤0 — exatamente os items
+  // que faria sentido perguntar "quer de novo?". Paradoxo descoberto em smoke
+  // E2E (ops#1068 follow-up #4): sem eligible, candidate_ids ficava sempre
+  // vazio e contextHints.repetition_inquiry nunca era injetado.
+  // Sub-decisão 6 ("expirados fora de (a)") cobre cooldown_expired separadamente.
   const inquiryEventLog = (input.state.eventLog ?? []) as ReadonlyArray<EventEntry>;
   const inquiryProfileConfig = extractProfileConfig(
     input.persona.profile as Record<string, unknown> | undefined,
@@ -384,7 +391,7 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     brejoActive: inquiryBrejoActive,
     inquiriesThisSession: countInquiriesInSession(inquiryEventLog),
     turnsSinceLastInquiry: turnsSinceLastInquiry(inquiryEventLog),
-    eligiblePoolIds: slimPool.map((s) => s.item.id),
+    eligiblePoolIds: eligible.map((item) => item.id),
   });
   if (inquiryDecision.ask) {
     contextHints["repetition_inquiry"] = {
