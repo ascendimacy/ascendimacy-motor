@@ -37,7 +37,7 @@ import path from "node:path";
 import { Agent, setGlobalDispatcher } from "undici";
 
 setGlobalDispatcher(
-  new Agent({ headersTimeout: 1_200_000, bodyTimeout: 1_200_000 }),
+  new Agent({ headersTimeout: 2_400_000, bodyTimeout: 2_400_000 }),
 );
 
 const argv = process.argv.slice(2);
@@ -76,7 +76,7 @@ async function callQwen3(systemPrompt, userMessage, maxTokens = 600) {
       max_tokens: maxTokens,
       temperature: 0.7,
     }),
-    signal: AbortSignal.timeout(1_200_000),
+    signal: AbortSignal.timeout(2_400_000),
   });
   if (!resp.ok) throw new Error(`Qwen3 HTTP ${resp.status}`);
   const json = await resp.json();

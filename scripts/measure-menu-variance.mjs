@@ -154,7 +154,7 @@ function makeQwen3LocalLlmCall() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(600_000),
+      signal: AbortSignal.timeout(2_400_000),
     });
     if (!resp.ok) throw new Error(`LLM local HTTP ${resp.status}`);
     const json = await resp.json();

@@ -1,0 +1,244 @@
+{
+  "spec": {
+    "key": "ryo",
+    "personaId": "ryo-ochiai",
+    "personaLabel": "Ryo (deflective)",
+    "trustLevel": 0.42,
+    "profileFixture": "fixtures/profiles/ryo-ochiai.pre-phase2.json",
+    "profileKind": "json",
+    "manualFixture": "fixtures/profiles/ryo-ochiai-menu.json",
+    "hint": {
+      "persona_id": "ryo-ochiai",
+      "age": 13,
+      "archetype": "deflective",
+      "bias": [
+        {
+          "played_as": "espelho",
+          "weight": 0.3
+        },
+        {
+          "played_as": "canal",
+          "weight": 0.28
+        },
+        {
+          "played_as": "bridge",
+          "weight": 0.15
+        },
+        {
+          "played_as": "diamante",
+          "weight": 0.12
+        },
+        {
+          "played_as": "arena",
+          "weight": 0.08
+        },
+        {
+          "played_as": "recovery",
+          "weight": 0.07
+        }
+      ],
+      "intensity_cap": "medium",
+      "personal_vocab": [
+        "tipo",
+        "rola"
+      ],
+      "notes": "Ryo deflective: priorize espelho/canal (devolve material próprio, preserva silêncio); bridge/diamante apenas com diamante cultural de peso afetivo (Gohan-Cell, Djokovic) e intensity ≤ medium. Aversão a comparações com Kei."
+    }
+  },
+  "manual": {
+    "persona_id": "ryo-ochiai",
+    "schema_version": "v0.2.0",
+    "generated_at": "2026-05-14T12:00:00.000Z",
+    "valid_until": "2026-06-14T12:00:00.000Z",
+    "source": {
+      "trust_level": 0.42,
+      "profile_hash": "sha256:ryo-bench-profile-hash",
+      "eixos_state_hash": "sha256:ryo-bench-eixos-hash",
+      "strategic_rationale": "Ryo é deflective; trust ainda baixo (0.42). Foco em curiosities visuais/concretas + ancorar em micro-gestos físicos (grip, postura) sem forçar verbalização. Evitar metacomunicação cedo na sessão.",
+      "context_hints": {
+        "language": "pt-br",
+        "mood": "deflective",
+        "urgency": "low",
+        "session_phase": "rapport_building",
+        "engagement_strategy": "concrete_physical_anchors"
+      }
+    },
+    "items": [
+      {
+        "id": "bench-curio-01",
+        "type": "curiosity",
+        "content": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único e os outros chamam por ele.",
+        "weight": 0.85,
+        "played_as": "espelho",
+        "intensity": "soft"
+      },
+      {
+        "id": "bench-challenge-01",
+        "type": "challenge",
+        "content": "Em 1 frase, descreve o que sentiu no último ponto perdido do treino.",
+        "weight": 0.7,
+        "played_as": "canal",
+        "intensity": "medium"
+      },
+      {
+        "id": "bench-diamond-01",
+        "type": "cultural_diamond",
+        "content": "Suzuki Daisetz — no kendo, mestre e discípulo se entendem mais pelo gesto que pela fala.",
+        "weight": 0.6,
+        "played_as": "diamante",
+        "intensity": "firm"
+      },
+      {
+        "id": "bench-strategy-01",
+        "type": "strategy",
+        "content": "Quando vier 'não sei', ancorar em micro-detalhe físico (cotovelo, grip, postura).",
+        "weight": 0.55,
+        "played_as": "bridge",
+        "intensity": "soft"
+      },
+      {
+        "id": "bench-play-01",
+        "type": "play",
+        "content": "Desmontar mentalmente uma jogada do dia em 3 frames: antes, durante, depois.",
+        "weight": 0.5,
+        "played_as": "arena",
+        "intensity": "medium"
+      }
+    ]
+  },
+  "producer": {
+    "menu": {
+      "persona_id": "ryo-ochiai",
+      "schema_version": "v0.2.0",
+      "generated_at": "2026-05-08T12:00:00.000Z",
+      "valid_until": "2026-05-15T12:00:00.000Z",
+      "source": {
+        "trust_level": 0.42,
+        "strategic_rationale": "Ryo é deflective; trust ainda baixo (0.42). Foco em curiosities visuais/concretas + ancorar em micro-gestos físicos (grip, postura) sem forçar verbalização. Evitar metacomunicação cedo na sessão.",
+        "context_hints": {
+          "language": "pt-br",
+          "mood": "deflective",
+          "urgency": "low",
+          "session_phase": "rapport_building",
+          "engagement_strategy": "concrete_physical_anchors"
+        }
+      },
+      "items": [
+        {
+          "id": "grip-notice",
+          "type": "curiosity",
+          "content": "Tipo, você reparou como o aperto da raquete muda quando você está calmo vs quando está ligado? Tem um momento no treino que o grip é mais leve — como se a raquete fosse parte do corpo.",
+          "weight": 0.35,
+          "played_as": "espelho",
+          "intensity": "soft"
+        },
+        {
+          "id": "arroz-no-prato",
+          "type": "curiosity",
+          "content": "Quando o papai coloca mais arroz no seu prato, você sente que ele tá dizendo algo sem falar. Tipo, o arroz é como uma palavra que só você entende. Você já pensou o que ele tá dizendo?",
+          "weight": 0.3,
+          "played_as": "bridge",
+          "intensity": "soft",
+          "is_critical": false
+        },
+        {
+          "id": "gohan-cell-silencio",
+          "type": "cultural_diamond",
+          "content": "No momento do Cell, o Gohan não grita. Ele só olha, e o silêncio dele é mais forte que todos os berros. Tipo, ele tá lá, presente, mas não precisa falar. É como se o silêncio fosse a última coisa que ele tem antes de explodir.",
+          "weight": 0.4,
+          "played_as": "diamante",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "desafio-silencio-treino",
+          "type": "challenge",
+          "content": "Tenta fazer um ponto no treino só com o corpo — sem falar, sem gritar. Só movimento. Tipo, como se o silêncio fosse o seu gol.",
+          "weight": 0.2,
+          "played_as": "canal",
+          "intensity": "medium"
+        },
+        {
+          "id": "gesto-afeto-kei",
+          "type": "curiosity",
+          "content": "Quando o Kei coloca a raquete no lugar certo depois do jogo, ele não olha pra você. Tipo, ele tá ali, mas não precisa te ver pra saber que você tá presente. Você já sentiu isso?",
+          "weight": 0.25,
+          "played_as": "espelho",
+          "intensity": "soft"
+        },
+        {
+          "id": "cara-de-bosta",
+          "type": "curiosity",
+          "content": "A cara de bosta que você faz no treino — tipo, quando erra o smash. Você já reparou que o Kei ri só de ver isso? Tipo, ele tá vendo você, mas não precisa falar nada.",
+          "weight": 0.3,
+          "played_as": "espelho",
+          "intensity": "soft"
+        },
+        {
+          "id": "raiva-ferrugem",
+          "type": "strategy",
+          "content": "Quando a raiva começa a subir, pensa em ferrugem. Não em fogo. Ferrugem. Ela não explode — ela corrode. E se você deixar ela corroer, ela pode te deixar mais forte sem que ninguém perceba.",
+          "weight": 0.2,
+          "played_as": "bridge",
+          "intensity": "soft",
+          "is_critical": false
+        },
+        {
+          "id": "jantar-silencio",
+          "type": "play",
+          "content": "Convida a desmontar o jantar silencioso em 3 etapas: 1) quem chegou primeiro? 2) quem colocou o arroz? 3) quem não falou nada, mas estava lá?",
+          "weight": 0.15,
+          "played_as": "canal",
+          "intensity": "soft"
+        },
+        {
+          "id": "gohan-igual",
+          "type": "cultural_diamond",
+          "content": "Gohan não é igual ao Cell. Ele é diferente. Mas o Cell só tem força. Gohan tem força e escolha. Quando ele olha pro Cell e diz 'não vou deixar', ele tá dizendo: 'eu sou eu'.",
+          "weight": 0.45,
+          "played_as": "diamante",
+          "intensity": "medium",
+          "is_critical": false
+        },
+        {
+          "id": "grip-antes-do-smash",
+          "type": "curiosity",
+          "content": "Antes de fazer o smash, você fecha os olhos por um segundo. Tipo, só pra sentir o peso da raquete. Isso é um tipo de ritual? Ou é só como você se prepara pra ser forte?",
+          "weight": 0.25,
+          "played_as": "canal",
+          "intensity": "soft"
+        },
+        {
+          "id": "divisao-chocolate",
+          "type": "curiosity",
+          "content": "Quando você divide o chocolate com o Kei, ele não pega o maior pedaço. Ele pega o que tá no meio. Tipo, ele tá dizendo que não quer ganhar, só quer estar junto. Você já sentiu isso?",
+          "weight": 0.3,
+          "played_as": "espelho",
+          "intensity": "soft"
+        },
+        {
+          "id": "recovery-silencio",
+          "type": "strategy",
+          "content": "Se sentir que tá prestes a explodir, respira fundo e pensa no silêncio do treino depois do jogo. Só o som da bola, o ar, e o suor. Tipo, o silêncio é onde você volta pra si mesmo.",
+          "weight": 0.2,
+          "played_as": "recovery",
+          "intensity": "soft",
+          "is_critical": true
+        },
+        {
+          "id": "gohan-transformacao",
+          "type": "play",
+          "content": "Tenta contar a história do Gohan no Cell só com gestos. Sem falar. Tipo, só com o corpo, como se o silêncio fosse o diálogo.",
+          "weight": 0.18,
+          "played_as": "arena",
+          "intensity": "medium"
+        }
+      ]
+    },
+    "warnings": [],
+    "latencyMs": 466169,
+    "tokensIn": 6811,
+    "tokensOut": 1665,
+    "fatalError": null
+  }
+}
