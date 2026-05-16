@@ -1,6 +1,7 @@
 {
   "sessions_seen": [],
   "profile": {
+    "sensitivity": "sensory",
     "preferences": {
       "interests": [
         "rotinas e repetição (ASD nível 1 — repetir cumpre função sensorial/regulatória)",
@@ -29,7 +30,9 @@
     ],
     "repetition_inquiry": {
       "enabled": false
-    }
+    },
+    "regulation_strategy": "sensory",
+    "silence_tolerance_rounds": 5
   },
-  "last_updated": "2026-05-14T12:00:00.000Z"
+  "last_updated": "2026-05-16T18:00:00.000Z"
 }

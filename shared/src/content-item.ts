@@ -36,12 +36,34 @@ export const GARDNER_CHANNELS = [
 ] as const;
 export type GardnerChannel = (typeof GARDNER_CHANNELS)[number];
 
+/**
+ * Sacrifice type — categoria pedagógica do que o item pede da criança.
+ *
+ * Distinção semântica (ratificada Jun 2026-05-16 via ops#371 audit dos 3 hooks
+ * "expose": `bio_dolphin_names`, `bio_caterpillar_dissolve`, `myth_kintsugi_philosophy`):
+ *
+ *  - `reflect` — pensar/processar internamente. Sacrifice cognitivo.
+ *  - `create` — produzir algo novo (texto, desenho, ação criativa). Sacrifice produtivo.
+ *  - `act` — executar uma ação física/comportamental. Sacrifice de movimento.
+ *  - `share` — oferecer algo (conhecimento, recurso, opinião) ao outro. Sacrifice social-leve.
+ *  - `observe` — prestar atenção sem agir. Sacrifice perceptual.
+ *  - `expose` — revelar vulnerabilidade pessoal (luto, ferida, dissolução interior).
+ *                Sacrifice profundo / auto-exposição emocional.
+ *
+ *  `expose` ≠ `share`: share é generoso (oferece algo positivo); expose é
+ *  vulnerável (revela ferida). Items `expose` típicos têm `sacrifice_amount`
+ *  alto (12-16 vs 5-10 default) por refletir profundidade.
+ *
+ *  Ratificação: ops#371 E-080 audit + Jun 2026-05-16 escolha Option A
+ *  (expand enum vs substitute, optando por preservar signal pedagógico).
+ */
 export const SACRIFICE_TYPES = [
   "reflect",
   "create",
   "act",
   "share",
   "observe",
+  "expose",
 ] as const;
 export type SacrificeType = (typeof SACRIFICE_TYPES)[number];
 
@@ -256,6 +278,11 @@ export function isContentItem(value: unknown): value is ContentItem {
     ) {
       return false;
     }
+  }
+  // ops#371: validate sacrifice_type enum strict quando presente.
+  // Previne regressão futura (e.g., re-introdução de "expose" pre-ratification).
+  if (v.sacrifice_type !== undefined) {
+    if (!SACRIFICE_TYPES.includes(v.sacrifice_type as SacrificeType)) return false;
   }
   return true;
 }
