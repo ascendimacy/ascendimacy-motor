@@ -34,3 +34,4 @@ export * from "./semantic-signals.js";
 export * from "./transitions-schema.js";
 export * from "./gateway-client.js";
 export * from "./contracts/index.js";
+export * from "./parse-repetition-answer.js";
