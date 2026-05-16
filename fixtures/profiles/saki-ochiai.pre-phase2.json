@@ -1,0 +1,35 @@
+{
+  "sessions_seen": [],
+  "profile": {
+    "preferences": {
+      "interests": [
+        "rotinas e repetição (ASD nível 1 — repetir cumpre função sensorial/regulatória)",
+        "personagens recorrentes (familiares por design)",
+        "tarefas com sequência previsível",
+        "ambientes silenciosos"
+      ],
+      "communication_style": "respostas curtas, literais; toleria pouco metacomunicação",
+      "regulation_strategy": "repetição é AUTORREGULAÇÃO, não tédio — protocolo Carvalho-pai exige não interromper o ciclo"
+    },
+    "family_anchors": [
+      "irmão Ryo (referência presente; protetiva)",
+      "irmão Kei (jogo paralelo seguro)",
+      "tia/cuidadora (vínculo de confiança)"
+    ],
+    "recurring_themes": [
+      "atividades sensoriais repetitivas",
+      "fluxo de rotina sem surpresa"
+    ],
+    "open_loops": [],
+    "off_screen_completions": [],
+    "notes_for_next_session": [
+      "NÃO oferecer escolhas em cascata — Saki engaja melhor com 'siga seu fluxo'",
+      "Repetir item já visto NÃO é tédio — drota deve NÃO perguntar (sub-decisão 4, enabled=false)",
+      "Brejo sensorial (ruído, mudança brusca) override imediato"
+    ],
+    "repetition_inquiry": {
+      "enabled": false
+    }
+  },
+  "last_updated": "2026-05-14T12:00:00.000Z"
+}
