@@ -41,13 +41,19 @@ function makeMenu(args: {
     is_critical?: boolean;
   }>;
   validUntil?: string;
+  strategicRationale?: string;
+  contextHints?: Record<string, unknown>;
 }): ActionMenu {
   return {
     persona_id: args.personaId ?? "test-persona",
     schema_version: "v0.2.0",
     generated_at: "2026-05-14T10:00:00.000Z",
     valid_until: args.validUntil,
-    source: { trust_level: 0.5 },
+    source: {
+      trust_level: 0.5,
+      strategic_rationale: args.strategicRationale,
+      context_hints: args.contextHints,
+    },
     items: args.items.map((it) => ({
       id: it.id,
       type: it.type ?? "curiosity",
@@ -281,5 +287,43 @@ describe("lookupActionMenu — cache singleton", () => {
       bypassCache: true,
     });
     expect(r2.outcome).toBe("menu_missing");
+  });
+});
+
+describe("lookupActionMenu — source exposure (ops#1069 S-T-10-08)", () => {
+  it("expõe source.strategic_rationale + context_hints quando outcome=ok", async () => {
+    const menu = makeMenu({
+      personaId: "ryo-src",
+      strategicRationale: "Foco em ancoragem física, evitar metacomunicação cedo.",
+      contextHints: { language: "pt-br", mood: "deflective" },
+      items: [{ id: "a", weight: 0.5 }],
+    });
+    await saveActionMenu(menu, scratchDir);
+
+    const result = await lookupActionMenu("ryo-src", scratchDir, { bypassCache: true });
+    expect(result.outcome).toBe("ok");
+    expect(result.source?.strategic_rationale).toBe("Foco em ancoragem física, evitar metacomunicação cedo.");
+    expect(result.source?.context_hints).toEqual({ language: "pt-br", mood: "deflective" });
+    expect(result.source?.trust_level).toBe(0.5);
+  });
+
+  it("source.strategic_rationale=null quando menu não tem rationale baked", async () => {
+    const menu = makeMenu({
+      personaId: "ryo-norat",
+      items: [{ id: "a", weight: 0.5 }],
+    });
+    await saveActionMenu(menu, scratchDir);
+
+    const result = await lookupActionMenu("ryo-norat", scratchDir, { bypassCache: true });
+    expect(result.outcome).toBe("ok");
+    expect(result.source?.strategic_rationale).toBeNull();
+    expect(result.source?.context_hints).toBeNull();
+    expect(result.source?.trust_level).toBe(0.5);
+  });
+
+  it("source ausente quando outcome != ok (menu_missing)", async () => {
+    const result = await lookupActionMenu("not-saved-yet", scratchDir, { bypassCache: true });
+    expect(result.outcome).toBe("menu_missing");
+    expect(result.source).toBeUndefined();
   });
 });

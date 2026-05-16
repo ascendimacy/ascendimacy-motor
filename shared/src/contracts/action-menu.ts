@@ -139,6 +139,27 @@ export const ActionMenuSourceSchema = z.object({
   trust_level: z.number().min(0).max(1),
   profile_hash: z.string().max(128).nullable().optional(),
   eixos_state_hash: z.string().max(128).nullable().optional(),
+  /**
+   * S-T-10-08 (ops#1069) — rationale pré-bakeado pela `generateActionMenu`,
+   * usado pra pular o LLM call do planejador per-turn (`callLlm` em plan.ts).
+   *
+   * Quando presente + menu_hit + sem brejo afetivo, plan.ts skip do LLM call
+   * e usa este rationale + context_hints diretamente. Falha-safe: ausência
+   * cai pro fallback (LLM call original).
+   *
+   * Cadência de refresh: segue `valid_until` do menu inteiro. S-T-09-04 (#995,
+   * trigger pós-compressor) re-gera ambos juntos.
+   *
+   * `.max(2000)` defensive — rationale grande indica drift; LLM de geração
+   * deve ser breve (1-3 sentenças).
+   */
+  strategic_rationale: z.string().max(2000).nullable().optional(),
+  /**
+   * S-T-10-08 — context hints pré-bakeados (language, mood inferido,
+   * urgency, etc). Mesma cadência do rationale. Schema freeform —
+   * downstream drota interpreta.
+   */
+  context_hints: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type ActionMenuSource = z.infer<typeof ActionMenuSourceSchema>;
 
