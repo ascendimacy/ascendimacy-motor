@@ -48,18 +48,14 @@ async function main() {
   const persona = PERSONAS[PERSONA_KEY];
   if (!persona) throw new Error(`unknown persona: ${PERSONA_KEY}`);
 
-  // Env vars precisam estar setadas ANTES dos dynamic imports do runner
   process.env.ASC_USE_ACTION_MENU = "true";
   process.env.ASC_ACTION_MENU_BASE_DIR = "fixtures/profiles";
 
-  // Carregar planejador + menu-lookup (não vêm com o runner — específicos do
-  // setup deste PoC pra gerar rationale Fresh e ler menu Baked).
   const { buildSystemPrompt } = await import("../planejador/dist/plan.js");
   const { lookupActionMenu } = await import(
     "../planejador/dist/strategist/menu-lookup.js"
   );
 
-  // Closure captura buildSystemPrompt + lookupActionMenu + persona pro spec
   const sharedCtx = {};
 
   await runPoc({
@@ -68,7 +64,6 @@ async function main() {
     variantNames: ["A_baked", "B_fresh"],
 
     async setupVariants(deps) {
-      // ─── Variant A: Baked (lê fixture, 0 LLM calls) ─────────────────
       console.log("  [setup] Lookup menu (Baked)...");
       const menuResult = await lookupActionMenu(persona.id, "fixtures/profiles", {
         topK: 5,
@@ -88,11 +83,9 @@ async function main() {
         `  ✓ Baked rationale (${bakedRationale.length} chars): ${bakedRationale.slice(0, 100)}...`,
       );
 
-      // Salva pra selectedContent + markdown
-      sharedCtx.contentPool = menuResult.items;
       sharedCtx.bakedRationale = bakedRationale;
+      sharedCtx.freshRationale = "";
 
-      // ─── Variant B: Fresh (1 Qwen3 call no planejador prompt) ───────
       console.log("  [setup] Rationale Fresh via Qwen3...");
       const planejadorPrompt = buildSystemPrompt({
         sessionId: "poc",
@@ -123,7 +116,6 @@ async function main() {
         `  ✓ Fresh rationale (${freshRationale.length} chars, ${freshResp.latency_ms}ms): ${freshRationale.slice(0, 100)}...`,
       );
       sharedCtx.freshRationale = freshRationale;
-      sharedCtx.freshLatencyMs = freshResp.latency_ms;
 
       return [
         {
@@ -166,18 +158,15 @@ async function main() {
       question: `"O rationale **Baked** (texto static no \`action-menu.json\`, consumido pelo skip path do S-T-10-08) produz drota output **qualitativamente equivalente** ao rationale **Fresh** (gerado per-turn via LLM)?"
 
 Se sim, justifica o skip (motor#115) sem comprometer pedagogia.`,
-      additionalMetrics: (variants) => ({
-        "Rationale source": variants
-          .map((v) =>
-            v.name === "A_baked"
-              ? "fixture (instant read)"
-              : `Qwen3 ${v.setupLatencyMs}ms`,
-          )
-          .join(" | "),
+      additionalMetrics: () => ({
+        "Rationale source": [
+          "fixture (instant read)",
+          "Qwen3 per-turn",
+        ],
         "Rationale chars": [
           sharedCtx.bakedRationale.length,
           sharedCtx.freshRationale.length,
-        ].join(" | "),
+        ],
       }),
       verdictOptions: ["GO", "TUNE", "NO-GO"],
     },
