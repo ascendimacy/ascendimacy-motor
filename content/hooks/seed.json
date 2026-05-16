@@ -22,7 +22,11 @@
       "linguistic",
       "intrapersonal"
     ],
-    "sacrifice_amount": 8
+    "sacrifice_amount": 8,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ling_pirahã_numbers",
@@ -42,7 +46,11 @@
     "bridge": "Se não tivesse números, como decidiria se algo é \"justo\"? Como dividiria comida com o Kei?",
     "quest": "Tenta dividir algo com alguém SEM usar números. Só \"isso parece justo?\" Conta como foi.",
     "sacrifice_type": "reflect",
-    "country": "🇧🇷 Amazônia"
+    "country": "🇧🇷 Amazônia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ling_japanese_silence",
@@ -69,7 +77,11 @@
       "intrapersonal",
       "musical"
     ],
-    "sacrifice_amount": 6
+    "sacrifice_amount": 6,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ling_greek_love",
@@ -98,7 +110,11 @@
       "intrapersonal",
       "existential"
     ],
-    "sacrifice_amount": 18
+    "sacrifice_amount": 18,
+    "dreyfus_level_target": [
+      "apprentice",
+      "practitioner"
+    ]
   },
   {
     "id": "ling_whistled_language",
@@ -118,7 +134,11 @@
     "bridge": "Se só pudesse comunicar com assovio, o que seria mais difícil de dizer? Amor? Raiva? Medo?",
     "quest": "Tenta comunicar algo pro Kei sem palavras. Só gestos ou sons. Ele entendeu? O que foi mais difícil?",
     "sacrifice_type": "reflect",
-    "country": "🇪🇸 Canárias"
+    "country": "🇪🇸 Canárias",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ling_untranslatable",
@@ -138,7 +158,11 @@
     "bridge": "Se você inventasse uma palavra que não existe em nenhum idioma, qual emoção ela descreveria?",
     "quest": "Inventa 1 palavra pra uma emoção que não tem nome. Me conta a palavra e o que significa.",
     "sacrifice_type": "create",
-    "country": "🌍 Global"
+    "country": "🌍 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ling_turkish_evidentiality",
@@ -158,7 +182,11 @@
     "bridge": "Se o português obrigasse a dizer \"eu vi\" ou \"me contaram\" em cada frase, como isso mudaria a escola?",
     "quest": "Hoje, quando contar algo pra alguém, adiciona: \"eu vi\" ou \"me contaram\". Faz diferença?",
     "sacrifice_type": "reflect",
-    "country": "🇹🇷 Turquia"
+    "country": "🇹🇷 Turquia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "bio_octopus_hearts",
@@ -185,7 +213,11 @@
       "spatial",
       "intrapersonal"
     ],
-    "sacrifice_amount": 8
+    "sacrifice_amount": 8,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "bio_trees_communicate",
@@ -210,7 +242,11 @@
       "naturalist",
       "interpersonal"
     ],
-    "sacrifice_amount": 7
+    "sacrifice_amount": 7,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "bio_dolphin_names",
@@ -239,7 +275,11 @@
       "interpersonal",
       "intrapersonal"
     ],
-    "sacrifice_amount": 16
+    "sacrifice_amount": 16,
+    "dreyfus_level_target": [
+      "apprentice",
+      "practitioner"
+    ]
   },
   {
     "id": "bio_elephant_mirror",
@@ -259,7 +299,11 @@
     "bridge": "Se olhar no espelho agora, o que vê ALÉM do rosto? Quem é a pessoa ali?",
     "quest": "Fica 30 segundos olhando no espelho. Não pra aparência — pra se perguntar \"quem é essa pessoa?\" Me conta.",
     "sacrifice_type": "reflect",
-    "country": "🐘 África"
+    "country": "🐘 África",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "bio_ant_sacrifice",
@@ -286,7 +330,11 @@
       "interpersonal",
       "existential"
     ],
-    "sacrifice_amount": 19
+    "sacrifice_amount": 19,
+    "dreyfus_level_target": [
+      "apprentice",
+      "practitioner"
+    ]
   },
   {
     "id": "bio_caterpillar_dissolve",
@@ -306,7 +354,11 @@
     "bridge": "Às vezes pra mudar, precisa se dissolver primeiro. Já sentiu que tava \"derretendo\" antes de virar algo novo?",
     "quest": "Pensa numa mudança grande que viveu. Teve uma fase de \"casulo\" — confuso, perdido — antes de melhorar?",
     "sacrifice_type": "expose",
-    "country": "🦋 Global"
+    "country": "🦋 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "bio_crow_grudge",
@@ -326,7 +378,11 @@
     "bridge": "Corvos guardam rancor por anos. E você? Tem algo que ainda guarda? O peso de carregar isso vale a pena?",
     "quest": "Se tivesse que SOLTAR 1 rancor essa semana, qual seria? Não precisa perdoar — só soltar.",
     "sacrifice_type": "reflect",
-    "country": "🐦‍⬛ Global"
+    "country": "🐦‍⬛ Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_gut_brain",
@@ -353,7 +409,11 @@
       "intrapersonal",
       "naturalist"
     ],
-    "sacrifice_amount": 10
+    "sacrifice_amount": 10,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_tears_different",
@@ -373,7 +433,11 @@
     "bridge": "Seu corpo sabe a diferença entre choro de raiva e choro de alegria. E você — sabe?",
     "quest": "Da última vez que chorou (ou quase), era que tipo de lágrima? Raiva? Alívio? Frustração? Alegria?",
     "sacrifice_type": "reflect",
-    "country": "💧 Corpo"
+    "country": "💧 Corpo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_heartbeat_sync",
@@ -393,7 +457,11 @@
     "bridge": "Seu coração sincroniza com quem tá na sua frente. Isso significa que conversa é conexão FÍSICA, não só mental.",
     "quest": "Conversa com alguém por 5 min olhando nos olhos. Sem celular. Sente algo diferente?",
     "sacrifice_type": "act",
-    "country": "❤️ Corpo"
+    "country": "❤️ Corpo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_smile_muscles",
@@ -413,7 +481,11 @@
     "bridge": "O corpo muda o humor. Não precisa SENTIR felicidade pra sorrir — sorrir GERA felicidade.",
     "quest": "Quando tiver um momento ruim essa semana, força o sorriso por 30 seg. Funcionou? Me conta.",
     "sacrifice_type": "act",
-    "country": "😄 Corpo"
+    "country": "😄 Corpo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_breath_control",
@@ -433,7 +505,11 @@
     "bridge": "Respirar é seu ÚNICO controle sobre o corpo automático. Os monges sabem disso há 3000 anos.",
     "quest": "Quando sentir raiva ou ansiedade: 4 seg inspira, 4 seg segura, 4 seg expira. 3 vezes. Funcionou?",
     "sacrifice_type": "act",
-    "country": "🌬️ Corpo"
+    "country": "🌬️ Corpo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_brain_prune",
@@ -453,7 +529,11 @@
     "bridge": "Seu cérebro AGORA tá decidindo quais habilidades manter e quais cortar. O que você pratica hoje, fica. O que ignora, vai embora.",
     "quest": "Se seu cérebro só pudesse manter 3 habilidades, quais você escolheria? Por quê?",
     "sacrifice_type": "reflect",
-    "country": "🧠 Corpo"
+    "country": "🧠 Corpo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_star_atoms",
@@ -473,7 +553,11 @@
     "bridge": "Se você é feito de estrela, o que faz com essa matéria? A estrela deu a vida pra você existir.",
     "quest": "Olha pro céu à noite. Pensa: \"eu sou feito daquilo\". O que sente?",
     "sacrifice_type": "reflect",
-    "country": "⭐ Universo"
+    "country": "⭐ Universo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_time_relative",
@@ -493,7 +577,11 @@
     "bridge": "O tempo não é igual pra todo mundo. Pra quem sofre, 1 minuto dura 1 hora. Pra quem se diverte, 1 hora dura 1 minuto. Sua emoção distorce o tempo.",
     "quest": "Amanhã, presta atenção: quando o tempo passou rápido? Quando arrastou? O que sentiu em cada momento?",
     "sacrifice_type": "observe",
-    "country": "🌍 Universo"
+    "country": "🌍 Universo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_observer_effect",
@@ -518,7 +606,11 @@
       "logical_mathematical",
       "intrapersonal"
     ],
-    "sacrifice_amount": 6
+    "sacrifice_amount": 6,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "phys_butterfly_effect",
@@ -538,7 +630,11 @@
     "bridge": "Uma palavra gentil pode mudar o dia de alguém. Uma palavra cruel também. Você é a borboleta.",
     "quest": "Escolhe 1 ação pequena positiva pra fazer hoje. Observa: gerou algum efeito cascata?",
     "sacrifice_type": "reflect",
-    "country": "🦋 Global"
+    "country": "🦋 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "geo_mariana_trench",
@@ -558,7 +654,11 @@
     "bridge": "Você vê a superfície das pessoas. Mas o que tá por baixo pode ser mais profundo do que imagina.",
     "quest": "Pensa numa pessoa que parece \"rasa\". Pergunta algo que nunca perguntou. O que descobriu?",
     "sacrifice_type": "reflect",
-    "country": "🌊 Pacífico"
+    "country": "🌊 Pacífico",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "geo_iceland_no_army",
@@ -578,7 +678,11 @@
     "bridge": "Um país INTEIRO decidiu que não precisa de força bruta pra ser seguro. O que usam em vez disso? Confiança.",
     "quest": "Se sua turma/família fosse um \"país sem exército\", como resolveriam conflitos? Que regra criariam?",
     "sacrifice_type": "reflect",
-    "country": "🇮🇸 Islândia"
+    "country": "🇮🇸 Islândia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "geo_bhutan_happiness",
@@ -598,7 +702,11 @@
     "bridge": "Se sua vida fosse medida por felicidade e não por notas, qual seria seu \"FIB\" hoje? De 1 a 10?",
     "quest": "Faz seu \"FIB pessoal\" — mede 5 coisas: saúde, amizade, família, diversão, aprendizado. Qual nota dá pra cada?",
     "sacrifice_type": "reflect",
-    "country": "🇧🇹 Butão"
+    "country": "🇧🇹 Butão",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "geo_amazon_lungs",
@@ -618,7 +726,11 @@
     "bridge": "O que mais importa é invisível. As pessoas que mais ajudam nem sempre são as mais visíveis.",
     "quest": "Quem é o \"fitoplâncton\" da tua vida? Alguém que ajuda sem aparecer? Agradece essa pessoa.",
     "sacrifice_type": "reflect",
-    "country": "🇧🇷 Amazônia"
+    "country": "🇧🇷 Amazônia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "geo_finland_school",
@@ -638,7 +750,11 @@
     "bridge": "Menos pressão = mais aprendizado. Descanso não é preguiça — é estratégia.",
     "quest": "Experimenta: estuda 25 min, descansa 5. Repete 3 vezes. Foi melhor ou pior que estudar 1h direto?",
     "sacrifice_type": "reflect",
-    "country": "🇫🇮 Finlândia"
+    "country": "🇫🇮 Finlândia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "hist_christmas_truce",
@@ -658,7 +774,11 @@
     "bridge": "Por 1 dia, inimigos viram que o outro lado era gente. Se a trégua durasse mais, talvez a guerra parasse. Empatia é perigosa — pra quem quer guerra.",
     "quest": "Tem alguém que você \"trata como inimigo\"? Imagina jogar futebol com essa pessoa. O que mudaria?",
     "sacrifice_type": "reflect",
-    "country": "🇪🇺 Europa"
+    "country": "🇪🇺 Europa",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "hist_rosa_parks",
@@ -678,7 +798,11 @@
     "bridge": "Uma decisão de 3 segundos. \"Não.\" Às vezes coragem é simplesmente não se mover.",
     "quest": "Quando foi a última vez que disse NÃO pra algo que achava errado? O que sentiu?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 EUA"
+    "country": "🇺🇸 EUA",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "hist_samurai_poetry",
@@ -698,7 +822,11 @@
     "bridge": "Os guerreiros mais fortes do Japão escreviam poesia. Força sem sensibilidade é só violência.",
     "quest": "Escreve 1 frase — só 1 — sobre como se sente agora. Samurai faria isso antes da batalha.",
     "sacrifice_type": "create",
-    "country": "🇯🇵 Japão"
+    "country": "🇯🇵 Japão",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "hist_mandela_forgave",
@@ -725,7 +853,11 @@
       "intrapersonal",
       "existential"
     ],
-    "sacrifice_amount": 22
+    "sacrifice_amount": 22,
+    "dreyfus_level_target": [
+      "apprentice",
+      "practitioner"
+    ]
   },
   {
     "id": "hist_viking_democracy",
@@ -745,7 +877,11 @@
     "bridge": "Vikings: brutos? Tinham democracia antes de quase todo mundo. Não julgue pela aparência.",
     "quest": "Pensa em alguém que parece \"bruto\" ou \"difícil\". Que lado escondido pode ter?",
     "sacrifice_type": "reflect",
-    "country": "🇮🇸 Islândia"
+    "country": "🇮🇸 Islândia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "hist_paper_vs_sword",
@@ -765,7 +901,11 @@
     "bridge": "O que você CONSTRÓI dura mais que o que você DESTRÓI.",
     "quest": "Essa semana: 1 ação de construir vs 1 que queria destruir (reclamar, brigar). Qual fez mais efeito?",
     "sacrifice_type": "reflect",
-    "country": "🇲🇳 Mongólia"
+    "country": "🇲🇳 Mongólia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "psych_marshmallow",
@@ -793,7 +933,11 @@
       "intrapersonal",
       "interpersonal"
     ],
-    "sacrifice_amount": 14
+    "sacrifice_amount": 14,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "psych_bystander",
@@ -813,7 +957,11 @@
     "bridge": "Quanto mais gente vê, menos cada um age. Porque \"alguém vai fazer\". Esse \"alguém\" é você.",
     "quest": "Essa semana, se vir algo errado, seja o \"alguém\". Não espere que outro resolva. Me conta o que aconteceu.",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 EUA"
+    "country": "🇺🇸 EUA",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "psych_dunbar_150",
@@ -833,7 +981,11 @@
     "bridge": "Você tem quantas amizades REAIS? Não seguidores — pessoas que ligariam se sumisse.",
     "quest": "Lista 5 pessoas que ligariam se você sumisse por 1 semana. Essas são suas amizades reais.",
     "sacrifice_type": "reflect",
-    "country": "🧠 Global"
+    "country": "🧠 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "psych_halo_effect",
@@ -853,7 +1005,11 @@
     "bridge": "Seu cérebro te engana. Julga pela aparência antes de pensar. E você faz isso sem perceber.",
     "quest": "Pensa em alguém que achou \"legal\" ou \"chato\" antes de conhecer. Tava certo? O que levou ao julgamento?",
     "sacrifice_type": "reflect",
-    "country": "🧠 Global"
+    "country": "🧠 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "cult_bowing_japan",
@@ -873,7 +1029,11 @@
     "bridge": "Seu corpo comunica antes da boca. Braços cruzados = defesa. Olhar desviado = desconforto. Que \"curvatura\" o seu corpo faz sem você perceber?",
     "quest": "Amanhã presta atenção na postura de 3 pessoas. O corpo delas tá dizendo o quê?",
     "sacrifice_type": "observe",
-    "country": "🇯🇵 Japão"
+    "country": "🇯🇵 Japão",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "cult_ethiopian_feeding",
@@ -893,7 +1053,11 @@
     "bridge": "Na Etiópia, amor é dar comida com a mão. Cada cultura mostra amor diferente. Como SUA família mostra amor?",
     "quest": "Faz algo pela família que na sua cultura significa \"eu te amo\" sem dizer a palavra. O que é?",
     "sacrifice_type": "reflect",
-    "country": "🇪🇹 Etiópia"
+    "country": "🇪🇹 Etiópia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "cult_maori_haka",
@@ -913,7 +1077,11 @@
     "bridge": "Homens chorando enquanto dançam com fúria. Força e emoção juntas. Quem disse que não pode?",
     "quest": "Se tivesse uma dança que expressasse TUDO que sente agora, como seria? Descreve (ou faz e filma).",
     "sacrifice_type": "reflect",
-    "country": "🇳🇿 Nova Zelândia"
+    "country": "🇳🇿 Nova Zelândia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "cult_swedish_fika",
@@ -939,7 +1107,11 @@
       "interpersonal",
       "intrapersonal"
     ],
-    "sacrifice_amount": 5
+    "sacrifice_amount": 5,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "cult_navajo_laughter",
@@ -959,7 +1131,11 @@
     "bridge": "O primeiro riso é tão importante que vira festa. Quando foi a última vez que você fez alguém RIR? Não sorrir — GARGALHAR?",
     "quest": "Faz alguém gargalhar essa semana. Não vale cócegas. Conta como conseguiu.",
     "sacrifice_type": "act",
-    "country": "🇺🇸 Navajo"
+    "country": "🇺🇸 Navajo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "math_friendship_paradox",
@@ -979,7 +1155,11 @@
     "bridge": "Parece que todo mundo é mais popular que você? É só matemática. A quantidade de amigos não define a qualidade.",
     "quest": "Prefere: 50 amigos superficiais ou 3 amigos de verdade? Por quê?",
     "sacrifice_type": "reflect",
-    "country": "📊 Matemática"
+    "country": "📊 Matemática",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "math_exponential_kindness",
@@ -999,7 +1179,11 @@
     "bridge": "Uma gentileza não morre em você. Se passar pra frente, vira avalanche.",
     "quest": "Faz 1 gentileza e pede: \"passa pra frente\". Depois me conta se a pessoa passou.",
     "sacrifice_type": "act",
-    "country": "📊 Matemática"
+    "country": "📊 Matemática",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "myth_sisyphus",
@@ -1019,7 +1203,11 @@
     "bridge": "Tem coisas na vida que nunca \"acabam\" — arrumar quarto, estudar, treinar. A questão não é terminar. É encontrar sentido no processo.",
     "quest": "Qual é a tua \"pedra\"? Algo que faz todo dia e parece nunca acabar? Consegue encontrar algo bom NESSE processo?",
     "sacrifice_type": "reflect",
-    "country": "🇬🇷 Grécia"
+    "country": "🇬🇷 Grécia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "myth_kintsugi_philosophy",
@@ -1047,7 +1235,11 @@
       "intrapersonal",
       "existential"
     ],
-    "sacrifice_amount": 12
+    "sacrifice_amount": 12,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "myth_phoenix",
@@ -1074,7 +1266,11 @@
       "existential",
       "intrapersonal"
     ],
-    "sacrifice_amount": 9
+    "sacrifice_amount": 9,
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "myth_odin_eye",
@@ -1094,7 +1290,11 @@
     "bridge": "Odin trocou visão por sabedoria. O que você aceitaria PERDER pra ganhar algo que realmente importa?",
     "quest": "Se tivesse que trocar 1 habilidade por outra, qual daria e qual ganharia? Por quê?",
     "sacrifice_type": "reflect",
-    "country": "🇳🇴 Nórdico"
+    "country": "🇳🇴 Nórdico",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "myth_izanagi_izanami",
@@ -1114,7 +1314,11 @@
     "bridge": "Às vezes respeitar o limite do outro é mais importante que satisfazer sua curiosidade. Mesmo quando QUER olhar.",
     "quest": "Alguém já te pediu pra não fazer algo e você fez mesmo assim? O que aconteceu?",
     "sacrifice_type": "reflect",
-    "country": "🇯🇵 Japão"
+    "country": "🇯🇵 Japão",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "myth_anansi_spider",
@@ -1134,7 +1338,11 @@
     "bridge": "O menor vence o maior com inteligência. Não precisa ser forte — precisa ser esperto. E esperto começa com observar.",
     "quest": "Pensa num problema que parece \"grande demais\". Qual seria a solução \"Anansi\" — esperta, não forte?",
     "sacrifice_type": "reflect",
-    "country": "🇬🇭 Gana"
+    "country": "🇬🇭 Gana",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "myth_maui_sun",
@@ -1154,7 +1362,11 @@
     "bridge": "Maui não aceitou que \"é assim\". Viu um problema e agiu. Mesmo contra o sol.",
     "quest": "Tem algo que \"é assim e pronto\" na tua vida que você gostaria de laçar e mudar? O que é?",
     "sacrifice_type": "reflect",
-    "country": "🇳🇿 Polinésia"
+    "country": "🇳🇿 Polinésia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "theo_golden_rule",
@@ -1174,7 +1386,11 @@
     "bridge": "7 bilhões de pessoas, milhares de religiões, e TODAS concordam em 1 coisa. Deve ser importante.",
     "quest": "Pensa em 1 ação que fez pro outro essa semana. Passaria na \"regra de ouro\"? Gostaria que fizessem com você?",
     "sacrifice_type": "reflect",
-    "country": "🌍 Global"
+    "country": "🌍 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "theo_zen_empty_cup",
@@ -1200,7 +1416,11 @@
       "intrapersonal",
       "existential"
     ],
-    "sacrifice_amount": 17
+    "sacrifice_amount": 17,
+    "dreyfus_level_target": [
+      "apprentice",
+      "practitioner"
+    ]
   },
   {
     "id": "theo_sufi_elephant",
@@ -1220,7 +1440,11 @@
     "bridge": "Cada pessoa vê UMA parte da verdade. Achar que SUA parte é o todo = briga garantida.",
     "quest": "Lembra de uma discussão recente. Qual era a \"parte do elefante\" de cada lado?",
     "sacrifice_type": "reflect",
-    "country": "🕌 Islã (Sufi)"
+    "country": "🕌 Islã (Sufi)",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "theo_jewish_tikkun",
@@ -1240,7 +1464,11 @@
     "bridge": "O mundo não tá quebrado. Tá INCOMPLETO. E cada pessoa tem uma peça pra colocar.",
     "quest": "Qual \"peça\" você pode colocar no mundo essa semana? Algo pequeno que melhore algo pra alguém.",
     "sacrifice_type": "reflect",
-    "country": "🇮🇱 Judaísmo"
+    "country": "🇮🇱 Judaísmo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "theo_indigenous_seven",
@@ -1260,7 +1488,11 @@
     "bridge": "Se toda decisão sua afetasse seus tataranetos, o que mudaria HOJE?",
     "quest": "Pensa numa decisão que tomou recentemente. Passaria no \"teste das 7 gerações\"?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 Iroqueses"
+    "country": "🇺🇸 Iroqueses",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "symb_enso",
@@ -1280,7 +1512,11 @@
     "bridge": "O símbolo mais bonito do Zen é um círculo IMPERFEITO. A beleza tá na falha.",
     "quest": "Desenha um círculo com 1 traço só. Sem levantar a mão. Olha o resultado. Manda foto.",
     "sacrifice_type": "create",
-    "country": "🇯🇵 Zen"
+    "country": "🇯🇵 Zen",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "symb_yin_yang",
@@ -1300,7 +1536,11 @@
     "bridge": "Mesmo no pior dia, tem algo bom. Mesmo no melhor dia, tem algo difícil. Tudo é mistura.",
     "quest": "No teu dia de hoje: qual foi o \"ponto branco no preto\"? E o \"ponto preto no branco\"?",
     "sacrifice_type": "reflect",
-    "country": "🇨🇳 China"
+    "country": "🇨🇳 China",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "symb_ouroboros",
@@ -1320,7 +1560,11 @@
     "bridge": "Toda civilização percebeu que fim é começo. Quando algo termina — amizade, fase, ano — outro começa.",
     "quest": "O que terminou recentemente na tua vida? O que COMEÇOU por causa desse fim?",
     "sacrifice_type": "reflect",
-    "country": "🌍 Global"
+    "country": "🌍 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "symb_colors_culture",
@@ -1340,7 +1584,11 @@
     "bridge": "Nada tem significado fixo. Tudo depende de onde você tá olhando.",
     "quest": "Pensa em algo que pra você é \"óbvio\". Agora imagina alguém de outro país. Seria óbvio pra ele também?",
     "sacrifice_type": "reflect",
-    "country": "🌍 Global"
+    "country": "🌍 Global",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "mil_sun_tzu_win",
@@ -1360,7 +1608,11 @@
     "bridge": "O maior estrategista do mundo achava que brigar é FALHA. Vencer sem brigar é vitória de verdade.",
     "quest": "Pensa num conflito recente. Tinha como resolver SEM brigar? Qual teria sido a jogada \"Sun Tzu\"?",
     "sacrifice_type": "reflect",
-    "country": "🇨🇳 China"
+    "country": "🇨🇳 China",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "mil_spartans_300",
@@ -1380,7 +1632,11 @@
     "bridge": "Às vezes \"perder\" é estratégia. Você perde a discussão mas salva o relacionamento. Perde o jogo mas ganha respeito.",
     "quest": "Já perdeu algo de propósito pra ganhar algo maior? Ou conhece alguém que fez? Me conta.",
     "sacrifice_type": "reflect",
-    "country": "🇬🇷 Grécia"
+    "country": "🇬🇷 Grécia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "mil_navajo_codetalkers",
@@ -1400,7 +1656,11 @@
     "bridge": "O que tentaram destruir virou a maior força. Tua \"diferença\" — idioma, cultura, jeito — pode ser exatamente o que te faz poderoso.",
     "quest": "O que as pessoas acham \"estranho\" em você? E se isso fosse sua arma secreta? Como usaria?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 Navajo"
+    "country": "🇺🇸 Navajo",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "mil_ghandi_salt",
@@ -1420,7 +1680,11 @@
     "bridge": "O ato mais poderoso não precisa de força. Precisa de convicção. 1 pessoa que não recua muda o mundo.",
     "quest": "Qual é o teu \"sal\"? Algo pequeno que defende mesmo quando é difícil?",
     "sacrifice_type": "reflect",
-    "country": "🇮🇳 Índia"
+    "country": "🇮🇳 Índia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "mil_medics_both_sides",
@@ -1440,7 +1704,11 @@
     "bridge": "Mesmo na guerra, existe uma regra: todo humano merece cuidado. Até o \"inimigo\".",
     "quest": "Já ajudou alguém que \"não gosta\" de você? Ou alguém que não te ajudaria? Como foi?",
     "sacrifice_type": "reflect",
-    "country": "🌍 Genebra"
+    "country": "🌍 Genebra",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "biz_nintendo_cards",
@@ -1460,7 +1728,11 @@
     "bridge": "Nintendo fracassou por 100 anos antes de encontrar o caminho. Cada fracasso descartou o que NÃO era. Sobrou o que era.",
     "quest": "Pensa em algo que \"fracassou\". O que aprendeu com esse fracasso que não aprenderia se desse certo?",
     "sacrifice_type": "reflect",
-    "country": "🇯🇵 Japão"
+    "country": "🇯🇵 Japão",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "biz_ikea_names",
@@ -1480,7 +1752,11 @@
     "bridge": "A \"dificuldade\" dele virou o sistema mais famoso de nomenclatura do mundo. O defeito virou método.",
     "quest": "Qual \"defeito\" seu poderia virar método? Algo que atrapalha mas que, visto de outro ângulo, funciona.",
     "sacrifice_type": "reflect",
-    "country": "🇸🇪 Suécia"
+    "country": "🇸🇪 Suécia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "biz_post_it_accident",
@@ -1500,7 +1776,11 @@
     "bridge": "O \"erro\" só é erro se você não olhar de outro ângulo. Cola fraca = post-it. Fracasso = aprendizado.",
     "quest": "Pensa num erro recente. Tem outro ângulo pra olhar? Aquele \"erro\" serve pra alguma coisa?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 EUA / 3M"
+    "country": "🇺🇸 EUA / 3M",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "biz_patagonia_dont_buy",
@@ -1520,7 +1800,11 @@
     "bridge": "Quando alguém é honesto sobre fraquezas, a confiança AUMENTA. Fingir que é perfeito afasta.",
     "quest": "Fala 1 coisa honesta sobre você pra alguém — algo que normalmente esconderia. O que muda na reação?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 EUA"
+    "country": "🇺🇸 EUA",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "biz_toyota_andon",
@@ -1540,7 +1824,11 @@
     "bridge": "Na melhor fábrica do mundo, qualquer um pode dizer \"PARA\". Porque esconder problema é PIOR que parar.",
     "quest": "Na escola ou em casa, você \"puxa a corda\" quando vê problema? Ou fica quieto? O que aconteceria se falasse?",
     "sacrifice_type": "reflect",
-    "country": "🇯🇵 Japão"
+    "country": "🇯🇵 Japão",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "chem_diamond_pencil",
@@ -1560,7 +1848,11 @@
     "bridge": "Mesmos ingredientes, organização diferente, resultado oposto. Duas pessoas com as mesmas oportunidades podem virar coisas completamente diferentes. O que faz a diferença é a ESTRUTURA.",
     "quest": "Você e o Kei são \"feitos do mesmo carbono\" (mesma família). O que faz vocês serem diferentes? Organização ou matéria?",
     "sacrifice_type": "reflect",
-    "country": "⚗️ Química"
+    "country": "⚗️ Química",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "chem_water_anomaly",
@@ -1580,7 +1872,11 @@
     "bridge": "A \"anomalia\" — o diferente, o que não se encaixa — é exatamente o que salva. Ser \"estranho\" pode ser o que protege todo mundo.",
     "quest": "Qual é sua \"anomalia\"? Algo diferente de todo mundo que talvez seja exatamente o que te faz necessário.",
     "sacrifice_type": "reflect",
-    "country": "💧 Química"
+    "country": "💧 Química",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "chem_rust_fire",
@@ -1600,7 +1896,11 @@
     "bridge": "Raiva explodida = fogo. Raiva guardada = ferrugem. A mesma emoção. Velocidades diferentes. As duas destroem.",
     "quest": "Você é mais \"fogo\" (explode rápido) ou \"ferrugem\" (guarda por dentro)? Os dois são a mesma coisa. Qual faz mais estrago em você?",
     "sacrifice_type": "reflect",
-    "country": "⚗️ Química"
+    "country": "⚗️ Química",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "chem_catalyst",
@@ -1620,7 +1920,11 @@
     "bridge": "Tem pessoas que são catalisadores: fazem as coisas acontecerem sem precisar de crédito. Quem é o catalisador na tua vida?",
     "quest": "Identifica 1 \"catalisador\" na tua vida — alguém que faz acontecer sem aparecer. Agradece essa pessoa.",
     "sacrifice_type": "reflect",
-    "country": "⚗️ Química"
+    "country": "⚗️ Química",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ideo_veil_ignorance",
@@ -1640,7 +1944,11 @@
     "bridge": "Se não soubesse quem seria, criaria regras JUSTAS pra todo mundo. Porque poderia ser qualquer um.",
     "quest": "Se fosse criar 3 regras pra escola sem saber se seria o melhor aluno, o pior, o popular ou o excluído — quais seriam?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 Filosofia"
+    "country": "🇺🇸 Filosofia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ideo_tragedy_commons",
@@ -1660,7 +1968,11 @@
     "bridge": "Wi-Fi da escola é lento? Todo mundo usando ao mesmo tempo. Banheiro sujo? Ninguém cuida porque \"é de todos\". Quando é de todos, é de ninguém.",
     "quest": "O que é \"de todos\" na sua vida que tá sendo destruído porque ninguém cuida? O que faria pra mudar?",
     "sacrifice_type": "reflect",
-    "country": "🌍 Economia"
+    "country": "🌍 Economia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ideo_prisoners_dilemma",
@@ -1680,7 +1992,11 @@
     "bridge": "Trair parece vantagem no curto prazo. Cooperar vence no longo prazo. Toda amizade é esse dilema.",
     "quest": "Já \"traiu\" a confiança de alguém pra ganhar algo? Valeu a pena no longo prazo?",
     "sacrifice_type": "reflect",
-    "country": "🎮 Teoria dos Jogos"
+    "country": "🎮 Teoria dos Jogos",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "ideo_overton_window",
@@ -1700,7 +2016,11 @@
     "bridge": "O que TODO MUNDO acha \"normal\" nem sempre é certo. O que TODO MUNDO acha \"louco\" nem sempre é errado.",
     "quest": "Pensa em algo que hoje é \"normal\" mas que você acha errado. Por que ninguém questiona?",
     "sacrifice_type": "reflect",
-    "country": "🌍 Política"
+    "country": "🌍 Política",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "comp_bug_moth",
@@ -1720,7 +2040,11 @@
     "bridge": "Um probleminha pequeno (mariposa) pode travar um sistema inteiro. Pequenas coisas ignoradas viram grandes problemas.",
     "quest": "Qual é a \"mariposa\" na tua vida agora? Algo pequeno que tá ignorando mas pode travar tudo se não resolver?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 EUA"
+    "country": "🇺🇸 EUA",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "comp_ai_bias",
@@ -1740,7 +2064,11 @@
     "bridge": "Você é treinado pelos dados da sua vida: família, escola, amigos. Se os dados são enviesados, suas decisões também são. Sem perceber.",
     "quest": "Pensa num preconceito que tem (todo mundo tem). De onde veio? Dos seus \"dados de treinamento\" (família, mídia, amigos)?",
     "sacrifice_type": "reflect",
-    "country": "🇺🇸 EUA"
+    "country": "🇺🇸 EUA",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "comp_undo_life",
@@ -1760,7 +2088,11 @@
     "bridge": "Na vida não tem Ctrl+Z. O que disse, disse. O que fez, fez. Por isso pensar antes > corrigir depois.",
     "quest": "Se tivesse Ctrl+Z na vida, o que desfaria da última semana? Agora pensa: como evitar precisar de Ctrl+Z?",
     "sacrifice_type": "reflect",
-    "country": "💻 Computação"
+    "country": "💻 Computação",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "comp_open_source",
@@ -1780,7 +2112,11 @@
     "bridge": "Ele deu de graça e recebeu mais do que se vendesse. Generosidade pode ser a estratégia mais inteligente.",
     "quest": "O que você sabe fazer que poderia ENSINAR pra alguém de graça? O que ganharia com isso?",
     "sacrifice_type": "reflect",
-    "country": "🇫🇮 Finlândia"
+    "country": "🇫🇮 Finlândia",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   },
   {
     "id": "comp_recursion",
@@ -1800,6 +2136,10 @@
     "bridge": "Pra resolver problemas grandes, divide em versões menores do MESMO problema. Até chegar num que sabe resolver.",
     "quest": "Pensa num problema grande que tem. Qual seria a \"versão menor\" desse mesmo problema? E a menor ainda? Até chegar numa que consiga resolver.",
     "sacrifice_type": "reflect",
-    "country": "💻 Computação"
+    "country": "💻 Computação",
+    "dreyfus_level_target": [
+      "novice",
+      "apprentice"
+    ]
   }
 ]

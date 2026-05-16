@@ -67,6 +67,25 @@ export const SACRIFICE_TYPES = [
 ] as const;
 export type SacrificeType = (typeof SACRIFICE_TYPES)[number];
 
+/**
+ * Dreyfus skill acquisition model levels — ordered from novice to expert.
+ *
+ * Used by ContentItem.dreyfus_level_target as a `[from, to]` range expressing
+ * the band of skill in which an item is pedagogically appropriate. A criança
+ * progredindo through this range remains served by the item; below `from` é
+ * cedo demais, acima de `to` é repetitivo/sem desafio.
+ *
+ * Spec ops#1015 G-01 (CASEL × Dreyfus × Gardner), Jun ratificado 2026-05-16.
+ */
+export const DREYFUS_LEVELS = [
+  "novice",
+  "apprentice",
+  "practitioner",
+  "proficient",
+  "expert",
+] as const;
+export type DreyfusLevel = (typeof DREYFUS_LEVELS)[number];
+
 export const CARD_RARITIES = ["common", "rare", "epic", "legendary"] as const;
 export type CardRarity = (typeof CARD_RARITIES)[number];
 
@@ -116,6 +135,21 @@ export interface ContentItemBase {
   /** Pin parental — quando true, score máximo, sem decay. */
   parent_pinned?: boolean;
   pinned_until?: string | null;
+
+  /**
+   * Banda Dreyfus em que o item é pedagogicamente apropriado, expressa como
+   * tuple `[from, to]` (mirror semantics de `age_range`). Item serve criança
+   * cuja mastery está dentro do range — abaixo de `from` é cedo demais,
+   * acima de `to` o item perde valor (repetitivo / sem desafio).
+   *
+   * Derivado automaticamente via `deriveDreyfusLevel()` a partir de signals
+   * existentes (type, sacrifice_amount, surprise, rarity, verified). Field
+   * opcional pra backward compat — quando ausente, consumers devem aplicar
+   * derivação defensiva em runtime (planejador/motor-drota fallback).
+   *
+   * Spec ops#1015 G-01 (CASEL × Dreyfus × Gardner), Jun ratificado 2026-05-16.
+   */
+  dreyfus_level_target?: [DreyfusLevel, DreyfusLevel];
 }
 
 export interface CuriosityHookItem extends ContentItemBase {
@@ -235,6 +269,16 @@ export function isContentItem(value: unknown): value is ContentItem {
   if (typeof v.surprise !== "number") return false;
   if (typeof v.verified !== "boolean") return false;
   if (typeof v.base_score !== "number") return false;
+  if (v.dreyfus_level_target !== undefined) {
+    if (
+      !Array.isArray(v.dreyfus_level_target) ||
+      v.dreyfus_level_target.length !== 2 ||
+      !DREYFUS_LEVELS.includes(v.dreyfus_level_target[0] as DreyfusLevel) ||
+      !DREYFUS_LEVELS.includes(v.dreyfus_level_target[1] as DreyfusLevel)
+    ) {
+      return false;
+    }
+  }
   // ops#371: validate sacrifice_type enum strict quando presente.
   // Previne regressão futura (e.g., re-introdução de "expose" pre-ratification).
   if (v.sacrifice_type !== undefined) {
