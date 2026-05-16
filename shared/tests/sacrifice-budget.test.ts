@@ -19,6 +19,8 @@ import {
   computeTrustRatio,
   isItemAllowedUnderBudgetExhaustion,
   extractPersonaSensitivity,
+  deriveOutcomeSignal,
+  getCycleWaveMultiplier,
   SENSITIVITY_MULTIPLIERS,
   INTENSITY_MULTIPLIERS,
   CONSUMPTION_MIN,
@@ -26,6 +28,10 @@ import {
   BASE_EFFORT_DEFAULT,
   BUDGET_EXHAUSTED_MAX_SACRIFICE,
   DEFAULT_CYCLE_TARGET_SESSIONS,
+  OUTCOME_MULTIPLIERS,
+  WEEKLY_WAVE_MULTIPLIERS,
+  MAX_SINGLE_ITEM_COST,
+  MIN_SINGLE_ITEM_COST,
 } from "../src/sacrifice-budget.js";
 import type { SessionState } from "../src/types.js";
 
@@ -405,5 +411,336 @@ describe("extractPersonaSensitivity", () => {
   it("default 'medium' quando valor inválido", () => {
     expect(extractPersonaSensitivity({ sensitivity: "extreme" })).toBe("medium");
     expect(extractPersonaSensitivity({ sensitivity: 42 })).toBe("medium");
+  });
+});
+
+// =============================================================================
+// G-22 Sacrifice fórmula — remaining gaps (5+6+7+10).
+// CC defaults Jun 2026-05-16 (ops#1033) aguardando ratify.
+// =============================================================================
+
+describe("computeChallengeCost — Gap 5 outcome_mult", () => {
+  it("default 1.0 quando outcomeSignal undefined (backward-compat motor#124)", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 } });
+    expect(out.outcomeMult).toBe(1.0);
+  });
+
+  it("positive_engagement → 1.1 (boost)", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      outcomeSignal: "positive_engagement",
+    });
+    expect(out.outcomeMult).toBe(OUTCOME_MULTIPLIERS.positive_engagement);
+    expect(out.outcomeMult).toBe(1.1);
+  });
+
+  it("negative_engagement → 0.7 (soften)", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      outcomeSignal: "negative_engagement",
+    });
+    expect(out.outcomeMult).toBe(0.7);
+  });
+
+  it("silence → 0.9 (cautela)", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      outcomeSignal: "silence",
+    });
+    expect(out.outcomeMult).toBe(0.9);
+  });
+
+  it("unknown → 1.0 (neutro)", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      outcomeSignal: "unknown",
+    });
+    expect(out.outcomeMult).toBe(1.0);
+  });
+
+  it("propaga no total: base=10 × positive=1.1 → ~11", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      outcomeSignal: "positive_engagement",
+    });
+    expect(out.total).toBeCloseTo(11.0, 5);
+  });
+});
+
+describe("deriveOutcomeSignal — Gap 5 helper", () => {
+  it("retorna 'unknown' em eventLog vazio", () => {
+    expect(deriveOutcomeSignal([])).toBe("unknown");
+  });
+
+  it("retorna signal_type do último feedback_signal event", () => {
+    const log = [
+      { type: "playbook_executed", data: { id: "x" } },
+      { type: "feedback_signal", data: { signal_type: "positive_engagement" } },
+    ];
+    expect(deriveOutcomeSignal(log)).toBe("positive_engagement");
+  });
+
+  it("respeita ordem (mais recente vence)", () => {
+    const log = [
+      { type: "feedback_signal", data: { signal_type: "negative_engagement" } },
+      { type: "feedback_signal", data: { signal_type: "positive_engagement" } },
+    ];
+    expect(deriveOutcomeSignal(log)).toBe("positive_engagement");
+  });
+
+  it("ignora events fora dos últimos OUTCOME_LOOKBACK_TURNS (5)", () => {
+    // feedback_signal antigo + 5 events vazios depois → ignorado
+    const log = [
+      { type: "feedback_signal", data: { signal_type: "positive_engagement" } },
+      { type: "playbook_executed", data: {} },
+      { type: "playbook_executed", data: {} },
+      { type: "playbook_executed", data: {} },
+      { type: "playbook_executed", data: {} },
+      { type: "playbook_executed", data: {} },
+    ];
+    expect(deriveOutcomeSignal(log)).toBe("unknown");
+  });
+
+  it("retorna 'unknown' para signal_type inválido", () => {
+    const log = [
+      { type: "feedback_signal", data: { signal_type: "random_other" } },
+    ];
+    expect(deriveOutcomeSignal(log)).toBe("unknown");
+  });
+
+  it("retorna 'unknown' quando data.signal_type ausente", () => {
+    const log = [{ type: "feedback_signal", data: {} }];
+    expect(deriveOutcomeSignal(log)).toBe("unknown");
+  });
+});
+
+describe("computeChallengeCost — Gap 6 weekly_mult (onda semanal)", () => {
+  it("default 1.0 quando weekday undefined (backward-compat)", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 } });
+    expect(out.weeklyMult).toBe(1.0);
+  });
+
+  it("Mon (1) leve → 0.8", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 }, weekday: 1 });
+    expect(out.weeklyMult).toBe(WEEKLY_WAVE_MULTIPLIERS[1]);
+    expect(out.weeklyMult).toBe(0.8);
+  });
+
+  it("Wed (3) pico 1 → 1.2", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 }, weekday: 3 });
+    expect(out.weeklyMult).toBe(1.2);
+  });
+
+  it("Thu (4) recovery → 0.85", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 }, weekday: 4 });
+    expect(out.weeklyMult).toBe(0.85);
+  });
+
+  it("Fri (5) pico 2 → 1.15", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 }, weekday: 5 });
+    expect(out.weeklyMult).toBe(1.15);
+  });
+
+  it("Sun (0) e Sat (6) — defaults conservadores", () => {
+    const sun = computeChallengeCost({ item: { sacrifice_amount: 10 }, weekday: 0 });
+    const sat = computeChallengeCost({ item: { sacrifice_amount: 10 }, weekday: 6 });
+    expect(sun.weeklyMult).toBe(0.9);
+    expect(sat.weeklyMult).toBe(0.95);
+  });
+
+  it("weekday inválido (7+) → fallback 1.0", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 }, weekday: 7 });
+    expect(out.weeklyMult).toBe(1.0);
+  });
+
+  it("propaga no total: base=10 × Wed pico=1.2 → ~12", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      weekday: 3,
+    });
+    expect(out.total).toBeCloseTo(12.0, 5);
+  });
+});
+
+describe("getCycleWaveMultiplier — Gap 7", () => {
+  it("d0-2 mínimo → 0.7", () => {
+    expect(getCycleWaveMultiplier(0)).toBe(0.7);
+    expect(getCycleWaveMultiplier(1)).toBe(0.7);
+    expect(getCycleWaveMultiplier(2)).toBe(0.7);
+  });
+
+  it("d3-6 crescente → 0.85", () => {
+    expect(getCycleWaveMultiplier(3)).toBe(0.85);
+    expect(getCycleWaveMultiplier(6)).toBe(0.85);
+  });
+
+  it("d7-9 PICO → 1.3", () => {
+    expect(getCycleWaveMultiplier(7)).toBe(1.3);
+    expect(getCycleWaveMultiplier(8)).toBe(1.3);
+    expect(getCycleWaveMultiplier(9)).toBe(1.3);
+  });
+
+  it("d10-13 plateau → 1.0", () => {
+    expect(getCycleWaveMultiplier(10)).toBe(1.0);
+    expect(getCycleWaveMultiplier(13)).toBe(1.0);
+  });
+
+  it("d14-17 buffer → 0.6", () => {
+    expect(getCycleWaveMultiplier(14)).toBe(0.6);
+    expect(getCycleWaveMultiplier(17)).toBe(0.6);
+  });
+
+  it("cycleDay negativo → 1.0 defensive", () => {
+    expect(getCycleWaveMultiplier(-1)).toBe(1.0);
+  });
+
+  it("cycleDay fora do range (>17) → 1.0 defensive", () => {
+    expect(getCycleWaveMultiplier(18)).toBe(1.0);
+    expect(getCycleWaveMultiplier(99)).toBe(1.0);
+  });
+});
+
+describe("computeChallengeCost — Gap 7 cycle_mult via input.cycleDay", () => {
+  it("default 1.0 quando cycleDay undefined (backward-compat)", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 } });
+    expect(out.cycleMult).toBe(1.0);
+  });
+
+  it("cycleDay=8 (PICO) → 1.3", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 }, cycleDay: 8 });
+    expect(out.cycleMult).toBe(1.3);
+  });
+
+  it("cycleDay=0 (mínimo) → 0.7", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 }, cycleDay: 0 });
+    expect(out.cycleMult).toBe(0.7);
+  });
+
+  it("propaga no total: base=10 × PICO=1.3 → 13.0", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      cycleDay: 8,
+    });
+    expect(out.total).toBeCloseTo(13.0, 5);
+  });
+});
+
+describe("computeChallengeCost — Gap 10 cap/floor enforcement", () => {
+  it("clamp em MAX (50) quando raw_total excede", () => {
+    // Saki sensory (1.5) × firm (1.3) × PICO (1.3) × Fri (1.15) × positive (1.1)
+    // = 1.5 × 1.3 × 1.3 × 1.15 × 1.1 ≈ 3.21 multiplier
+    // base=20 → ~64 sem cap
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 20 },
+      personaSensitivity: "sensory",
+      intensity: "firm",
+      cycleDay: 8,
+      weekday: 5,
+      outcomeSignal: "positive_engagement",
+    });
+    expect(out.rawTotal).toBeGreaterThan(MAX_SINGLE_ITEM_COST);
+    expect(out.total).toBe(MAX_SINGLE_ITEM_COST);
+    expect(out.bounded).toBe(true);
+  });
+
+  it("clamp em MIN (1) quando raw_total fica próximo de zero", () => {
+    // base=5 × low (0.7) × soft (0.8) × buffer (0.6) × neg (0.7) × Mon (0.8)
+    // = 5 × 0.7 × 0.8 × 0.6 × 0.7 × 0.8 ≈ 0.94 — fica abaixo do floor
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 5 },
+      personaSensitivity: "low",
+      intensity: "soft",
+      cycleDay: 14,
+      weekday: 1,
+      outcomeSignal: "negative_engagement",
+    });
+    expect(out.rawTotal).toBeLessThan(MIN_SINGLE_ITEM_COST);
+    expect(out.total).toBe(MIN_SINGLE_ITEM_COST);
+    expect(out.bounded).toBe(true);
+  });
+
+  it("não clampa em range normal (bounded=false)", () => {
+    const out = computeChallengeCost({ item: { sacrifice_amount: 10 } });
+    expect(out.bounded).toBe(false);
+    expect(out.total).toBe(out.rawTotal);
+  });
+
+  it("enforceBounds: false desliga clamp", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 20 },
+      personaSensitivity: "sensory",
+      intensity: "firm",
+      cycleDay: 8,
+      weekday: 5,
+      outcomeSignal: "positive_engagement",
+      enforceBounds: false,
+    });
+    expect(out.total).toBe(out.rawTotal);
+    expect(out.total).toBeGreaterThan(MAX_SINGLE_ITEM_COST);
+    expect(out.bounded).toBe(false);
+  });
+
+  it("rawTotal preservado mesmo com clamp ativo", () => {
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 30 },
+      personaSensitivity: "sensory",
+      intensity: "firm",
+    });
+    // base=30 × 1 × 1.5 × 1.3 = 58.5 — excede MAX
+    expect(out.rawTotal).toBeCloseTo(58.5, 5);
+    expect(out.total).toBe(MAX_SINGLE_ITEM_COST);
+    expect(out.bounded).toBe(true);
+  });
+});
+
+describe("computeChallengeCost — integrated remaining gaps composition", () => {
+  it("Saki sensory + Wed PICO + Fri pico2 + positive — clamped", () => {
+    // base=15 × sensory(1.5) × firm(1.3) × PICO d8(1.3) × Fri(1.15) × positive(1.1)
+    // = 15 × 1.5 × 1.3 × 1.3 × 1.15 × 1.1 ≈ 48.13 → não clampa (< 50)
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 15 },
+      personaSensitivity: "sensory",
+      intensity: "firm",
+      cycleDay: 8,
+      weekday: 5,
+      outcomeSignal: "positive_engagement",
+    });
+    const expected = 15 * 1.5 * 1.3 * 1.3 * 1.15 * 1.1;
+    expect(out.rawTotal).toBeCloseTo(expected, 4);
+    expect(out.bounded).toBe(false);
+    expect(out.total).toBeCloseTo(expected, 4);
+  });
+
+  it("Ryo medium + Mon leve + buffer + negative — gentle", () => {
+    // base=10 × medium(1.0) × medium(1.0) × Mon(0.8) × buffer d14(0.6) × neg(0.7)
+    // = 10 × 1 × 1 × 0.8 × 0.6 × 0.7 = 3.36
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 10 },
+      personaSensitivity: "medium",
+      intensity: "medium",
+      cycleDay: 14,
+      weekday: 1,
+      outcomeSignal: "negative_engagement",
+    });
+    expect(out.rawTotal).toBeCloseTo(3.36, 5);
+    expect(out.bounded).toBe(false);
+  });
+
+  it("backward-compat motor#124 — sem nenhum dos novos params, total inalterado", () => {
+    // Reproduz exatamente o teste existente "composição realista Saki"
+    const out = computeChallengeCost({
+      item: { sacrifice_amount: 15 },
+      personaSensitivity: "sensory",
+      intensity: "firm",
+      recentUsageCount: 14,
+      cycleTargetSessions: 28,
+    });
+    // base=15 × consumption=0.85 × sensory=1.5 × firm=1.3 = 24.86
+    // outcome=1, weekly=1, cycle=1 (defaults)
+    expect(out.total).toBeCloseTo(15 * 0.85 * 1.5 * 1.3, 5);
+    expect(out.outcomeMult).toBe(1.0);
+    expect(out.weeklyMult).toBe(1.0);
+    expect(out.cycleMult).toBe(1.0);
+    expect(out.bounded).toBe(false);
   });
 });
