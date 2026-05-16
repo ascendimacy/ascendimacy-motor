@@ -13,12 +13,14 @@ import type Database from "better-sqlite3";
 import type {
   CaselDimension,
   CaselDimensionPair,
+  KidsHelixCadenceTrigger,
   KidsHelixMode,
   KidsHelixState,
   KidsHelixVacationTrigger,
 } from "@ascendimacy/shared";
 import {
   defaultKidsHelixState,
+  KIDS_HELIX_CADENCE_TRIGGERS,
   KIDS_HELIX_MODES,
   KIDS_HELIX_VACATION_TRIGGERS,
 } from "@ascendimacy/shared";
@@ -40,9 +42,46 @@ CREATE TABLE IF NOT EXISTS kids_helix_state (
   deferred_csv TEXT NOT NULL DEFAULT '',
   vacation_trigger TEXT,
   vacation_started_at TEXT,
+  triggers_fired_csv TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL
 );
 `;
+
+/**
+ * G-07 (ops#1020) — migração idempotente pra databases pré-G-07 que não
+ * têm a coluna `triggers_fired_csv`. Usa try/catch porque `ALTER TABLE`
+ * em SQLite não suporta `IF NOT EXISTS` para colunas.
+ *
+ * Chamada automaticamente em `getKidsHelixState`/`updateKidsHelixState`
+ * via `ensureG07Migration` — efetivamente self-healing.
+ */
+const ENSURE_G07_COLUMN_SQL = `
+ALTER TABLE kids_helix_state ADD COLUMN triggers_fired_csv TEXT NOT NULL DEFAULT ''
+`;
+
+let g07MigrationApplied = false;
+
+function ensureG07Migration(db: Database.Database): void {
+  if (g07MigrationApplied) return;
+  try {
+    db.exec(ENSURE_G07_COLUMN_SQL);
+  } catch (err) {
+    // "duplicate column name" = já migrado (caminho dominante pós-DDL nova).
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/duplicate column name/i.test(msg)) {
+      throw err;
+    }
+  }
+  g07MigrationApplied = true;
+}
+
+/**
+ * Reset cache pra testes (cada test isolation cria DB novo, então flag
+ * cached precisa reset). Exportado pra test-only consumption.
+ */
+export function _resetG07MigrationFlagForTests(): void {
+  g07MigrationApplied = false;
+}
 
 interface KidsHelixRow {
   persona_id: string;
@@ -59,6 +98,8 @@ interface KidsHelixRow {
   deferred_csv: string;
   vacation_trigger: string | null;
   vacation_started_at: string | null;
+  /** G-07: CSV de KidsHelixCadenceTrigger fireados no ciclo atual. */
+  triggers_fired_csv: string | null;
   updated_at: string;
 }
 
@@ -82,6 +123,25 @@ function isMode(value: string): value is KidsHelixMode {
 
 function isVacationTrigger(value: string): value is KidsHelixVacationTrigger {
   return (KIDS_HELIX_VACATION_TRIGGERS as readonly string[]).includes(value);
+}
+
+function isCadenceTrigger(
+  value: string,
+): value is KidsHelixCadenceTrigger {
+  return (KIDS_HELIX_CADENCE_TRIGGERS as readonly string[]).includes(value);
+}
+
+function csvToTriggers(csv: string | null): KidsHelixCadenceTrigger[] {
+  if (!csv) return [];
+  return csv
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .filter(isCadenceTrigger);
+}
+
+function triggersToCsv(triggers: KidsHelixCadenceTrigger[]): string {
+  return triggers.join(",");
 }
 
 function rowToState(row: KidsHelixRow): KidsHelixState {
@@ -112,6 +172,7 @@ function rowToState(row: KidsHelixRow): KidsHelixState {
         ? row.vacation_trigger
         : null,
     vacation_started_at: row.vacation_started_at,
+    triggers_fired_this_cycle: csvToTriggers(row.triggers_fired_csv),
     updated_at: row.updated_at,
   };
 }
@@ -124,6 +185,7 @@ export function getKidsHelixState(
   db: Database.Database,
   personaId: string,
 ): KidsHelixState | null {
+  ensureG07Migration(db);
   const row = db
     .prepare("SELECT * FROM kids_helix_state WHERE persona_id = ?")
     .get(personaId) as KidsHelixRow | undefined;
@@ -142,6 +204,7 @@ export function updateKidsHelixState(
   state: KidsHelixState,
   nowIso?: string,
 ): KidsHelixState {
+  ensureG07Migration(db);
   const ts = getNow(nowIso);
   const updated = { ...state, updated_at: ts };
   db.prepare(
@@ -149,8 +212,8 @@ export function updateKidsHelixState(
       (persona_id, active_pair_0, active_pair_1, cycle_started_at, current_day,
        mode, previous_pair_0, previous_pair_1, cycles_completed, queue_csv,
        completed_csv, deferred_csv, vacation_trigger, vacation_started_at,
-       updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       triggers_fired_csv, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(persona_id) DO UPDATE SET
        active_pair_0 = excluded.active_pair_0,
        active_pair_1 = excluded.active_pair_1,
@@ -165,6 +228,7 @@ export function updateKidsHelixState(
        deferred_csv = excluded.deferred_csv,
        vacation_trigger = excluded.vacation_trigger,
        vacation_started_at = excluded.vacation_started_at,
+       triggers_fired_csv = excluded.triggers_fired_csv,
        updated_at = excluded.updated_at`,
   ).run(
     updated.persona_id,
@@ -181,6 +245,7 @@ export function updateKidsHelixState(
     dimsToCsv(updated.deferred),
     updated.vacation_trigger ?? null,
     updated.vacation_started_at ?? null,
+    triggersToCsv(updated.triggers_fired_this_cycle),
     updated.updated_at,
   );
   return updated;
