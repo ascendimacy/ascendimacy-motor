@@ -119,6 +119,15 @@ function buildDrotaDynamicBody(
   const unilateralBrejo = contextHints?.["joint_unilateral_brejo"] === true;
   const jointPauseReason = contextHints?.["joint_pause_reason"] as string | undefined;
 
+  // ops#1068 — repetition_inquiry. Planejador decide SE perguntar; drota
+  // formula a pergunta. candidate_ids ⊆ contentPool (já elegíveis, não-expirados).
+  const inquiryHint = contextHints?.["repetition_inquiry"] as
+    | { candidate_ids?: string[]; threshold_used?: number; default_on_skip?: "a" | "b" | "c" }
+    | undefined;
+  const inquiryActive = Array.isArray(inquiryHint?.candidate_ids) && inquiryHint!.candidate_ids!.length > 0;
+  const inquiryCandidateIds = inquiryActive ? inquiryHint!.candidate_ids! : [];
+  const inquiryDefaultOnSkip = inquiryHint?.default_on_skip ?? "b";
+
   return `[BLOCO 2 - Dynamic content]
 <persona>
 id: ${persona.id}
@@ -163,9 +172,19 @@ ${instructionAdditionBody}
 6. Língua: "${language}". Gere na MESMA língua que o sujeito.
 7. ${isLimitedProficiency ? `**'pt-br limitado'** descreve o **DESTINATÁRIO** (${persona.name}), NÃO o seu output. SEU output deve ser **pt-br limpo, gramaticalmente correto e simples**: frases curtas, vocabulário básico, zero jargon. **NÃO simule erros de não-nativo no seu output** — o destinatário precisa entender uma fala correta + simples.` : `Gere em ${language} fluente, natural, adequado à idade e contexto.`}
 8. Se <instruction_addition> não está vazio, incorpore-o naturalmente. Exemplos: "day 2 of 5 of chain X" → continuar arco multi-dia; "technique_hint: tribunal" → framear como debate.${
+    inquiryActive
+      ? `
+9. **REPETITION_INQUIRY ATIVO (ops#1068)**: criança ofereceu sinal de repetição (item recente, count ≥ threshold). Em vez de DECIDIR pela criança, **PERGUNTE diretamente** dentro da fala (1 sentença, sem meta-fricção). Itens candidatos a "tentar de novo": ${JSON.stringify(inquiryCandidateIds)}.
+   - **Format**: ofereça 3 opções curtas — "(a) voltar a <item recente>, (b) algo parecido, (c) algo novo?" Adapte linguagem por idade (${persona.age} anos): mais concreta pra <11, mais elaborada pra ≥14.
+   - **Ancore na concretude**: nome do item/atividade, não id técnico. Ex: "aquele desafio do Gohan no Cell" e NÃO "smoke-curio-01".
+   - **Não force**: se criança responder "tanto faz" ou silêncio, o sistema trata como default "${inquiryDefaultOnSkip}" (b=parecido por default) — você não precisa insistir.
+   - **Não pergunte 2x na sessão** (sistema controla cap; este turn é a oportunidade única se condições alinharam).
+   - **Sem meta-tagarela**: "Quer X, Y ou Z?" é o máximo. NÃO explique o porquê de estar perguntando.`
+      : ""
+  }${
     isJoint
       ? `
-9. **MODO JOINT (dyad)**: há dois irmãos nesta sessão. Parceiro: ${partnerName ?? "(nome não fornecido)"}.
+10. **MODO JOINT (dyad)**: há dois irmãos nesta sessão. Parceiro: ${partnerName ?? "(nome não fornecido)"}.
    - **Endereçar ambos por nome explicitamente** na fala — "${persona.name}, ${partnerName ?? "você"}...".
    - **Balancear tempo de fala** — alternar convites, não priorizar um dos dois.
    - **Invariante**: bot nunca > 25% dos turns. Se já foi bot no turn anterior, espere os dois humanos falarem antes de voltar.
