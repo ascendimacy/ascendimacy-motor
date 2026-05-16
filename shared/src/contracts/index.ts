@@ -49,3 +49,23 @@ export {
   type Intensity,
   type PlayedAs,
 } from "./action-menu.js";
+
+export {
+  KIDS_HELIX_MODES,
+  KIDS_HELIX_DEFER_REASONS,
+  KIDS_HELIX_RESUME_REASONS,
+  KIDS_HELIX_VACATION_TRIGGERS,
+  KIDS_HELIX_ACTIVE_DAYS,
+  KIDS_HELIX_TOTAL_DAYS,
+  KIDS_HELIX_BREJO_VACATION_DAYS,
+  KIDS_HELIX_BREJO_DEFER_DAYS,
+  KIDS_HELIX_SACRIFICE_EXHAUSTION_SESSIONS,
+  KIDS_HELIX_DEFAULT_FALLBACK_PAIR,
+  defaultKidsHelixState,
+  type KidsHelixState,
+  type KidsHelixMode,
+  type KidsHelixDeferReason,
+  type KidsHelixResumeReason,
+  type KidsHelixVacationTrigger,
+  type CaselDimensionPair,
+} from "./kids-helix-state.js";
