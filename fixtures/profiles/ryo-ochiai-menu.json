@@ -1,0 +1,53 @@
+{
+  "persona_id": "ryo-ochiai",
+  "schema_version": "v0.2.0",
+  "generated_at": "2026-05-14T12:00:00.000Z",
+  "valid_until": "2026-06-14T12:00:00.000Z",
+  "source": {
+    "trust_level": 0.42,
+    "profile_hash": "sha256:ryo-bench-profile-hash",
+    "eixos_state_hash": "sha256:ryo-bench-eixos-hash"
+  },
+  "items": [
+    {
+      "id": "bench-curio-01",
+      "type": "curiosity",
+      "content": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único e os outros chamam por ele.",
+      "weight": 0.85,
+      "played_as": "espelho",
+      "intensity": "soft"
+    },
+    {
+      "id": "bench-challenge-01",
+      "type": "challenge",
+      "content": "Em 1 frase, descreve o que sentiu no último ponto perdido do treino.",
+      "weight": 0.7,
+      "played_as": "canal",
+      "intensity": "medium"
+    },
+    {
+      "id": "bench-diamond-01",
+      "type": "cultural_diamond",
+      "content": "Suzuki Daisetz — no kendo, mestre e discípulo se entendem mais pelo gesto que pela fala.",
+      "weight": 0.6,
+      "played_as": "diamante",
+      "intensity": "firm"
+    },
+    {
+      "id": "bench-strategy-01",
+      "type": "strategy",
+      "content": "Quando vier 'não sei', ancorar em micro-detalhe físico (cotovelo, grip, postura).",
+      "weight": 0.55,
+      "played_as": "bridge",
+      "intensity": "soft"
+    },
+    {
+      "id": "bench-play-01",
+      "type": "play",
+      "content": "Desmontar mentalmente uma jogada do dia em 3 frames: antes, durante, depois.",
+      "weight": 0.5,
+      "played_as": "arena",
+      "intensity": "medium"
+    }
+  ]
+}
