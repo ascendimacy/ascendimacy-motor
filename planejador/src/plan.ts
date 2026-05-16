@@ -19,6 +19,7 @@ import type {
   GardnerProgramState,
   ParentalProfile,
   ContentItem,
+  EventEntry,
 } from "@ascendimacy/shared";
 import {
   scorePool,
@@ -40,6 +41,13 @@ import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
 import { lookupActionMenu } from "./strategist/menu-lookup.js";
+import {
+  countInquiriesInSession,
+  extractProfileConfig,
+  extractRepetitionCounts,
+  shouldAskRepetitionInquiry,
+  turnsSinceLastInquiry,
+} from "./strategist/repetition-inquiry.js";
 
 /** Quantos items do pool passamos ao drota (top-K). */
 export const TOP_K_POOL = 5;
@@ -358,6 +366,35 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     maxTotalChars: 2000,
     excludeUsedInSession: true,
   });
+
+  // ops#1068 — repetition_inquiry decision (Jun ratificado 2026-05-14).
+  // Conjunção (i)-(vii); drota só pergunta quando todas valem.
+  // Brejo afetivo é override absoluto (sub-decisão 8 §vi).
+  const inquiryEventLog = (input.state.eventLog ?? []) as ReadonlyArray<EventEntry>;
+  const inquiryProfileConfig = extractProfileConfig(
+    input.persona.profile as Record<string, unknown> | undefined,
+  );
+  const inquiryRepetitionCounts = extractRepetitionCounts(inquiryEventLog);
+  const inquiryBrejoActive = shouldPauseProgram(statusMatrix).paused;
+  const inquiryDecision = shouldAskRepetitionInquiry({
+    profileConfig: inquiryProfileConfig,
+    repetitionCounts: inquiryRepetitionCounts,
+    turn: input.state.turn ?? 0,
+    sessionMode,
+    brejoActive: inquiryBrejoActive,
+    inquiriesThisSession: countInquiriesInSession(inquiryEventLog),
+    turnsSinceLastInquiry: turnsSinceLastInquiry(inquiryEventLog),
+    eligiblePoolIds: slimPool.map((s) => s.item.id),
+  });
+  if (inquiryDecision.ask) {
+    contextHints["repetition_inquiry"] = {
+      candidate_ids: inquiryDecision.candidateIds,
+      threshold_used: inquiryDecision.thresholdUsed,
+      default_on_skip: inquiryDecision.defaultOnSkip,
+    };
+  } else if (inquiryDecision.suppressedReason) {
+    contextHints["repetition_inquiry_suppressed"] = inquiryDecision.suppressedReason;
+  }
 
   // motor#25 (handoff #25 B4): Trigger Evaluator — avalia transitions.yaml
   // contra signals capturados nos últimos 5 turns. Read-only — orchestrator
