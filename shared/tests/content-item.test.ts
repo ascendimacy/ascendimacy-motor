@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { isContentItem } from "../src/content-item.js";
-import type { ContentItem } from "../src/content-item.js";
+import { DREYFUS_LEVELS, isContentItem } from "../src/content-item.js";
+import type { ContentItem, DreyfusLevel } from "../src/content-item.js";
 import seed from "../../content/hooks/seed.json" with { type: "json" };
 
 const validHook: ContentItem = {
@@ -46,6 +46,48 @@ describe("isContentItem", () => {
     const { id: _, ...rest } = validHook;
     expect(isContentItem(rest)).toBe(false);
   });
+
+  it("accepts a valid dreyfus_level_target tuple", () => {
+    const withDreyfus: ContentItem = {
+      ...validHook,
+      dreyfus_level_target: ["novice", "apprentice"],
+    };
+    expect(isContentItem(withDreyfus)).toBe(true);
+  });
+
+  it("rejects dreyfus_level_target with bad enum value", () => {
+    expect(
+      isContentItem({
+        ...validHook,
+        dreyfus_level_target: ["novice", "guru"],
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects dreyfus_level_target with wrong arity", () => {
+    expect(
+      isContentItem({
+        ...validHook,
+        dreyfus_level_target: ["novice"],
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts undefined dreyfus_level_target (backward compat)", () => {
+    const { ...rest } = validHook;
+    delete (rest as { dreyfus_level_target?: unknown }).dreyfus_level_target;
+    expect(isContentItem(rest)).toBe(true);
+  });
+
+  it("exports DREYFUS_LEVELS with 5 ordered levels", () => {
+    expect(DREYFUS_LEVELS).toEqual([
+      "novice",
+      "apprentice",
+      "practitioner",
+      "proficient",
+      "expert",
+    ] as const);
+  });
 });
 
 describe("hooks seed integrity", () => {
@@ -75,6 +117,19 @@ describe("hooks seed integrity", () => {
     for (const item of seed) {
       expect(ids.has(item.id), `duplicate id: ${item.id}`).toBe(false);
       ids.add(item.id);
+    }
+  });
+
+  it("every seed item has dreyfus_level_target as valid tuple (ops#1015)", () => {
+    for (const item of seed as ContentItem[]) {
+      expect(
+        item.dreyfus_level_target,
+        `missing dreyfus_level_target: ${item.id}`,
+      ).toBeDefined();
+      const range = item.dreyfus_level_target!;
+      expect(range.length).toBe(2);
+      expect(DREYFUS_LEVELS).toContain(range[0] as DreyfusLevel);
+      expect(DREYFUS_LEVELS).toContain(range[1] as DreyfusLevel);
     }
   });
 });
