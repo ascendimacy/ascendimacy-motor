@@ -36,7 +36,7 @@ import {
   logDebugEvent,
   getProviderForStep,
 } from "@ascendimacy/shared";
-import { callLlm, callLlmMock, callHaiku } from "./llm-client.js";
+import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
@@ -206,6 +206,9 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   // Decay multiplicativo aplicado em items expirados (Jun 2026-05-14).
   const useActionMenu = process.env["ASC_USE_ACTION_MENU"] === "true";
   let topK: ScoredContentItem[] | null = null;
+  // S-T-10-08 (ops#1069): captura source.strategic_rationale + context_hints
+  // do menu pra possível skip do LLM rationale call (sub §3 abaixo).
+  let menuSource: { trust_level: number; strategic_rationale?: string | null; context_hints?: Record<string, unknown> | null } | null = null;
   if (useActionMenu) {
     const menuBaseDir =
       process.env["ASC_ACTION_MENU_BASE_DIR"] ?? "fixtures/profiles";
@@ -227,6 +230,7 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     }
     if (menuResult.outcome === "ok" && menuResult.items.length > 0) {
       topK = menuResult.items;
+      menuSource = menuResult.source ?? null;
     }
     // Fallback to scoring se menuResult.outcome !== "ok"
   }
@@ -271,14 +275,68 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   }
 
   // 3. LLM consulta para rationale + contextHints.
+  //
+  // S-T-10-08 (ops#1069): se menu_hit + rationale pré-bakeado presente E
+  // NÃO há brejo afetivo, SKIP do LLM call. Brejo é override absoluto —
+  // context bakeado pode estar errado sobre estado emocional CORRENTE.
+  //
+  // Defaults Jun 2026-05-16:
+  //  - Schema: source.strategic_rationale + source.context_hints opcionais
+  //  - Staleness: reusa menu valid_until (sem TTL próprio)
+  //  - Fallback: degrada pra LLM call original se rationale ausente
+  //  - Override: brejo afetivo (shouldPauseProgram.paused) → SEMPRE LLM fresh
+  const brejoActive = shouldPauseProgram(statusMatrix).paused;
+  const canSkipLlmRationale =
+    topK !== null &&
+    menuSource?.strategic_rationale != null &&
+    menuSource.strategic_rationale.length > 0 &&
+    !brejoActive;
+
   const systemPrompt = buildSystemPrompt(input);
   const userMessage = `Emita o JSON com rationale + hints.`;
   const t0 = Date.now();
-  const llmResult = useMockLlm
-    ? await callLlmMock(systemPrompt, userMessage)
-    : await callLlm(systemPrompt, userMessage);
-  const llmLatency = Date.now() - t0;
-  const rationale = parseRationale(llmResult.content);
+  let llmResult: LlmCallResult | null = null;
+  let llmLatency = 0;
+  let rationale: { strategicRationale: string; contextHints: Record<string, unknown> };
+  if (canSkipLlmRationale) {
+    rationale = {
+      strategicRationale: menuSource!.strategic_rationale!,
+      contextHints: (menuSource!.context_hints ?? { language: "pt-br" }) as Record<string, unknown>,
+    };
+    try {
+      logDebugEvent({
+        side: "motor",
+        step: "planejador_rationale_skipped",
+        user_id: input.persona.id,
+        session_id: input.sessionId,
+        motor_target: "planejador-strategist",
+        outcome: "ok",
+      });
+    } catch {
+      // Telemetry não bloqueia.
+    }
+  } else {
+    llmResult = useMockLlm
+      ? await callLlmMock(systemPrompt, userMessage)
+      : await callLlm(systemPrompt, userMessage);
+    llmLatency = Date.now() - t0;
+    rationale = parseRationale(llmResult.content);
+    if (topK !== null && menuSource?.strategic_rationale == null) {
+      // Menu hit mas rationale ausente → fallback to LLM. Log pra observability.
+      try {
+        logDebugEvent({
+          side: "motor",
+          step: "planejador_rationale_fallback",
+          user_id: input.persona.id,
+          session_id: input.sessionId,
+          motor_target: "planejador-strategist",
+          outcome: "skip",
+        });
+      } catch {
+        // Telemetry não bloqueia.
+      }
+    }
+  }
 
   // motor#19: debug log (no-op se ASC_DEBUG_MODE off)
   logDebugEvent({
@@ -289,11 +347,11 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     turn_number: input.state.turn,
     model: process.env["PLANEJADOR_MODEL"] ?? "claude-sonnet-4-6",
     provider: "anthropic",
-    tokens: llmResult.tokens,
+    tokens: llmResult?.tokens,
     latency_ms: llmLatency,
     prompt: systemPrompt + "\n\n[USER]\n" + userMessage,
-    response: llmResult.content,
-    reasoning: llmResult.reasoning,
+    response: llmResult?.content ?? "[skipped_via_menu]",
+    reasoning: llmResult?.reasoning,
     snapshots_pre: {
       planejador: {
         persona_age: input.persona.age,
