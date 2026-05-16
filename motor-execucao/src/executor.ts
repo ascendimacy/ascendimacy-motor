@@ -1,12 +1,13 @@
 import { getNow } from "./clock.js";
 import type { ExecutePlaybookInput, ExecutePlaybookOutput } from "@ascendimacy/shared";
-import { getState, updateState, logEvent } from "./state-manager.js";
+import { getState, updateState, logEvent, getDbInstance } from "./state-manager.js";
 import { getPlaybookById } from "./loader.js";
 import type { PlaybookInventory } from "./types.js";
 import {
   triggerActionMenuGeneration,
   type OnboardingTriggerDeps,
 } from "./onboarding-trigger.js";
+import { recordContentUsage } from "./content-usage-repo.js";
 
 /**
  * S-T-09-03 (ops#994): hook opcional pra trigger de generateActionMenu
@@ -54,6 +55,29 @@ export function executePlaybook(
   // responsável por injetar deps em prod; ausente = no-op (legacy).
   if (options.actionMenuTriggerDeps && metadata) {
     triggerActionMenuGeneration(metadata, options.actionMenuTriggerDeps);
+  }
+
+  // ops#1067: UPSERT content_usage cross-session (per-persona, per-item).
+  // Habilita decay temporal real no scorer (shared/scorer.ts) e
+  // observability longitudinal (H-AC-08 future).
+  //
+  // Requer metadata.personaId presente — caller responsabiliza-se. Sem
+  // personaId OR sem selectedContentId, skip silently (backward compat).
+  const personaId =
+    typeof metadata?.["personaId"] === "string" ? metadata["personaId"] : null;
+  if (personaId && selectedContentId) {
+    try {
+      recordContentUsage(getDbInstance(), {
+        personaId,
+        contentId: selectedContentId,
+      });
+    } catch (err) {
+      // Telemetry-style: não bloqueia execute_playbook se UPSERT falhar.
+      // eslint-disable-next-line no-console
+      console.error(
+        `[executor] content_usage UPSERT falhou: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   return { success: true, newState, eventLogged: event };
