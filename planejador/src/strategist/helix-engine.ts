@@ -26,17 +26,25 @@
 
 import type {
   CaselDimension,
+  DreyfusLevel,
 } from "@ascendimacy/shared";
 import {
+  DREYFUS_LEVELS,
   KIDS_HELIX_ACTIVE_DAYS,
+  KIDS_HELIX_BOSS_FIGHT_TRIGGER_DAY,
   KIDS_HELIX_BREJO_DEFER_DAYS,
   KIDS_HELIX_BREJO_VACATION_DAYS,
   KIDS_HELIX_DEFAULT_FALLBACK_PAIR,
+  KIDS_HELIX_EXTENSION_EVOLUTION_THRESHOLD,
+  KIDS_HELIX_MIDCYCLE_ASSESSMENT_DAY,
+  KIDS_HELIX_RETRIEVAL_TRIGGER_DAY,
   KIDS_HELIX_SACRIFICE_EXHAUSTION_SESSIONS,
   KIDS_HELIX_TOTAL_DAYS,
   defaultKidsHelixState,
   type CaselDimensionPair,
+  type KidsHelixCadenceTrigger,
   type KidsHelixDeferReason,
+  type KidsHelixExtensionRecommendation,
   type KidsHelixResumeReason,
   type KidsHelixState,
   type KidsHelixVacationTrigger,
@@ -220,6 +228,8 @@ export function cycleStart(args: {
     cycle_started_at: args.nowIso,
     current_day: 0,
     mode: "active",
+    // G-07: novo ciclo limpa triggers do anterior (idempotência cross-cycle).
+    triggers_fired_this_cycle: [],
     updated_at: args.nowIso,
   };
 }
@@ -298,6 +308,8 @@ export function completeCycle(args: {
     current_day: 0,
     mode: "active",
     cycles_completed: args.state.cycles_completed + 1,
+    // G-07: completeCycle reseta trigger log — próximo ciclo começa limpo.
+    triggers_fired_this_cycle: [],
     updated_at: args.nowIso,
   };
 }
@@ -510,6 +522,11 @@ export function checkDeferTrigger(args: {
 /**
  * Cycle progress 0.0..1.0 — usado por ops#1020 G-07 cadência 18d
  * (50%/100% triggers).
+ *
+ * **Atenção (G-07 GO C)**: este é progress sobre TOTAL_DAYS (18). Quando
+ * spec CLAUDE_6 §5.2 diz "50% → retrieval", refere-se a 50% da fase ATIVA
+ * (= dia 7), não 50% do total (= dia 9). Use `activeCycleProgress` para
+ * computar fronteiras pedagógicas; use `cycleProgress` para audit/UI.
  */
 export function cycleProgress(state: KidsHelixState): number {
   if (state.mode === "vacation") {
@@ -517,6 +534,251 @@ export function cycleProgress(state: KidsHelixState): number {
     return state.current_day / KIDS_HELIX_TOTAL_DAYS;
   }
   return Math.min(1, state.current_day / KIDS_HELIX_TOTAL_DAYS);
+}
+
+/**
+ * G-07: Progress relativo à fase ATIVA (0..1 sobre KIDS_HELIX_ACTIVE_DAYS=14).
+ *
+ * Buffer (days 14-17) reporta 1.0 (active phase já fechou). Vacation reporta
+ * progress congelado em current_day/ACTIVE (preserva intent pedagógico do
+ * "onde paramos quando entrou férias").
+ *
+ * Exemplo: dia 0 → 0.0 ; dia 7 → 0.5 (retrieval fronteira) ; dia 14 → 1.0
+ * (boss fight fronteira) ; dia 17 (buffer) → 1.0 (active phase fechada).
+ */
+export function activeCycleProgress(state: KidsHelixState): number {
+  return Math.min(1, state.current_day / KIDS_HELIX_ACTIVE_DAYS);
+}
+
+/**
+ * G-07: Detecta triggers cadenciais pendentes pra disparar neste turn.
+ *
+ * Idempotência: trigger só fires se NÃO está em `triggers_fired_this_cycle`.
+ * Caller deve persistir via `markTriggerFired` após observar.
+ *
+ * **Regras** (sub-decisão GO C — conservative, fire-once-per-cycle):
+ *  - `retrieval_50` fires quando `current_day >= 7` E não fireado neste ciclo.
+ *  - `midcycle_assessment_7` fires quando `current_day >= 7` E não fireado.
+ *  - `boss_fight_100` fires quando `current_day >= 14` E não fireado.
+ *  - Vacation mode: zero triggers (cycle paused).
+ *  - Mode buffer: triggers anteriores ainda válidos (não re-fire), mas
+ *    boss_fight_100 pode ainda fire se chegou ao buffer sem fire-anterior.
+ *
+ * Retorna array porque dia 7 dispara DOIS triggers simultâneos
+ * (retrieval + midcycle_assessment compartilham fronteira mas têm payload
+ * distinto). Caller decide qual contextHints injetar.
+ *
+ * @returns lista de triggers que devem fire no turn (vazia = nenhum pendente).
+ */
+export function detectCadenceTriggers(
+  state: KidsHelixState,
+): KidsHelixCadenceTrigger[] {
+  if (state.mode === "vacation") return [];
+
+  const pending: KidsHelixCadenceTrigger[] = [];
+  const fired = new Set(state.triggers_fired_this_cycle);
+
+  // Retrieval @ day 7 (50% active phase).
+  if (
+    state.current_day >= KIDS_HELIX_RETRIEVAL_TRIGGER_DAY &&
+    !fired.has("retrieval_50")
+  ) {
+    pending.push("retrieval_50");
+  }
+
+  // Midcycle assessment @ day 7 (mesmo dia, payload diferente — vai pra parent).
+  if (
+    state.current_day >= KIDS_HELIX_MIDCYCLE_ASSESSMENT_DAY &&
+    !fired.has("midcycle_assessment_7")
+  ) {
+    pending.push("midcycle_assessment_7");
+  }
+
+  // Boss fight @ day 14 (100% active phase).
+  if (
+    state.current_day >= KIDS_HELIX_BOSS_FIGHT_TRIGGER_DAY &&
+    !fired.has("boss_fight_100")
+  ) {
+    pending.push("boss_fight_100");
+  }
+
+  return pending;
+}
+
+/**
+ * G-07: Marca trigger como fireado neste ciclo (idempotência).
+ *
+ * Caller chama após `detectCadenceTriggers` + ação observada. Função
+ * idempotente: trigger já marcado retorna state sem alteração.
+ *
+ * Notação: trigger fica gravado até próximo `cycleStart` ou `completeCycle`
+ * (ambos resetam `triggers_fired_this_cycle = []`).
+ */
+export function markTriggerFired(args: {
+  state: KidsHelixState;
+  trigger: KidsHelixCadenceTrigger;
+  nowIso: string;
+}): KidsHelixState {
+  if (args.state.triggers_fired_this_cycle.includes(args.trigger)) {
+    return args.state;
+  }
+  return {
+    ...args.state,
+    triggers_fired_this_cycle: [
+      ...args.state.triggers_fired_this_cycle,
+      args.trigger,
+    ],
+    updated_at: args.nowIso,
+  };
+}
+
+/**
+ * G-07: Avalia se ciclo precisa extensão (2 vs 4 semanas) no midcycle (dia 7).
+ *
+ * Spec canon CLAUDE_6 §5.2/§5.4: "dia 7 → avalia se ciclo precisa de 2 ou
+ * 4 semanas". Esta função NÃO altera o ciclo — apenas emite recomendação
+ * pro orchestrator/parent layer.
+ *
+ * Heurística (sub-decisão GO C — conservative defaults):
+ *  - `extended_4_weeks` se:
+ *     - `evolutionPercentage < KIDS_HELIX_EXTENSION_EVOLUTION_THRESHOLD` (default 0.3), OU
+ *     - alguma dim do `active_pair` está em status "brejo" (statusMatrix), OU
+ *     - persona em flag "needs_more_time" explícito do parental layer.
+ *  - `standard_2_weeks` caso contrário (default conservative).
+ *
+ * Caller responsável por consumir o resultado — extend implementation
+ * (push current_day back, double ACTIVE_DAYS) fica pra G-06+ downstream.
+ *
+ * @returns recomendação + razão textual pra audit.
+ */
+export function assessCycleExtension(args: {
+  state: KidsHelixState;
+  evolutionPercentage?: number;
+  statusMatrix?: Record<string, string>;
+  parentalNeedsMoreTime?: boolean;
+}): {
+  recommendation: KidsHelixExtensionRecommendation;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
+
+  if (args.parentalNeedsMoreTime) {
+    reasons.push("parental_needs_more_time");
+  }
+
+  const evo = args.evolutionPercentage ?? 0;
+  if (evo < KIDS_HELIX_EXTENSION_EVOLUTION_THRESHOLD) {
+    reasons.push(`evolution_below_threshold:${evo.toFixed(2)}<${KIDS_HELIX_EXTENSION_EVOLUTION_THRESHOLD}`);
+  }
+
+  if (args.statusMatrix) {
+    for (const dim of args.state.active_pair) {
+      if (args.statusMatrix[dim] === "brejo") {
+        reasons.push(`active_dim_brejo:${dim}`);
+      }
+    }
+  }
+
+  if (reasons.length > 0) {
+    return { recommendation: "extended_4_weeks", reasons };
+  }
+  return {
+    recommendation: "standard_2_weeks",
+    reasons: ["default_no_extension_signal"],
+  };
+}
+
+/**
+ * G-07: Computa evolution percentage do ciclo atual.
+ *
+ * Combina 3 sinais (média ponderada, sub-decisão GO C):
+ *  - 50% — Dreyfus progression: distância entre `dreyfusBaseline[dim]` e
+ *    `dreyfusObserved[dim]` para cada dim do active_pair, normalizada
+ *    sobre `DREYFUS_LEVELS.length-1` (4 steps possíveis).
+ *  - 30% — Status matrix improvement: dim em "pasto" → 1.0; "baia" → 0.5;
+ *    "brejo" → 0.0 (média sobre active_pair).
+ *  - 20% — Cycle progress: progress temporal (proxy: já avançou no tempo,
+ *    algo está acontecendo).
+ *
+ * Pondering rationale: Dreyfus é o framework canônico de mastery (G-01);
+ * status_matrix é o observable comportamental imediato; cycle_progress é
+ * o "tempo investido". Sem Dreyfus baseline (cycle 1, novo persona), peso
+ * desloca pra status_matrix (60%) + cycle_progress (40%).
+ *
+ * **NOTA HONESTA**: implementação inicial é heurística simples sem
+ * histórico longo. Refinamento (regressão temporal, peso por gardner_channel)
+ * fica pra G-21 sprint review fim de ciclo (ops#1032 downstream).
+ *
+ * @returns 0..1 — percentage de evolução observada no ciclo.
+ */
+export function computeEvolutionAssessment(args: {
+  state: KidsHelixState;
+  dreyfusBaseline?: Partial<Record<CaselDimension, DreyfusLevel>>;
+  dreyfusObserved?: Partial<Record<CaselDimension, DreyfusLevel>>;
+  statusMatrix?: Record<string, string>;
+}): number {
+  const pair = args.state.active_pair;
+
+  // --- Dreyfus progression component ---
+  let dreyfusScore = 0;
+  let dreyfusValidCount = 0;
+  if (args.dreyfusBaseline && args.dreyfusObserved) {
+    for (const dim of pair) {
+      const baseline = args.dreyfusBaseline[dim];
+      const observed = args.dreyfusObserved[dim];
+      if (baseline && observed) {
+        const baselineIdx = DREYFUS_LEVELS.indexOf(baseline);
+        const observedIdx = DREYFUS_LEVELS.indexOf(observed);
+        if (baselineIdx >= 0 && observedIdx >= 0) {
+          const delta = observedIdx - baselineIdx;
+          // Normalize: max possible delta = LEVELS.length-1 (e.g., 4 steps).
+          // Negative delta = regression (clamped 0).
+          const normalized = Math.max(0, delta) / (DREYFUS_LEVELS.length - 1);
+          dreyfusScore += normalized;
+          dreyfusValidCount += 1;
+        }
+      }
+    }
+  }
+  const dreyfusComponent =
+    dreyfusValidCount > 0 ? dreyfusScore / dreyfusValidCount : 0;
+
+  // --- Status matrix component ---
+  let statusScore = 0;
+  let statusValidCount = 0;
+  if (args.statusMatrix) {
+    for (const dim of pair) {
+      const status = args.statusMatrix[dim];
+      if (status === "pasto") {
+        statusScore += 1.0;
+        statusValidCount += 1;
+      } else if (status === "baia") {
+        statusScore += 0.5;
+        statusValidCount += 1;
+      } else if (status === "brejo") {
+        statusScore += 0.0;
+        statusValidCount += 1;
+      }
+    }
+  }
+  const statusComponent =
+    statusValidCount > 0 ? statusScore / statusValidCount : 0;
+
+  // --- Cycle progress component (proxy: time invested) ---
+  const progressComponent = activeCycleProgress(args.state);
+
+  // --- Weight resolution ---
+  // Default: 50/30/20 (Dreyfus/status/progress).
+  // Sem baseline Dreyfus: redistribui pra 0/60/40.
+  const hasDreyfus = dreyfusValidCount > 0;
+  if (hasDreyfus) {
+    return (
+      dreyfusComponent * 0.5 +
+      statusComponent * 0.3 +
+      progressComponent * 0.2
+    );
+  }
+  return statusComponent * 0.6 + progressComponent * 0.4;
 }
 
 // -- Internal helpers --

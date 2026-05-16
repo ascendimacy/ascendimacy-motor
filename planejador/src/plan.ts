@@ -46,7 +46,13 @@ import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
 import { lookupActionMenu } from "./strategist/menu-lookup.js";
-import { cycleProgress } from "./strategist/helix-engine.js";
+import {
+  activeCycleProgress,
+  assessCycleExtension,
+  computeEvolutionAssessment,
+  cycleProgress,
+  detectCadenceTriggers,
+} from "./strategist/helix-engine.js";
 import {
   countInquiriesInSession,
   extractProfileConfig,
@@ -426,6 +432,49 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     }
     if (helixState.deferred.length > 0) {
       contextHints["helix_deferred_dims"] = [...helixState.deferred];
+    }
+
+    // G-07 (ops#1020, ratified GO C 2026-05-16) — Cadência 18d triggers.
+    //
+    // - `helix_active_cycle_progress` (0..1 over 14d active phase) — semântica
+    //   pedagógica do canon CLAUDE_6 §5.2. `helix_cycle_progress` (total 18d)
+    //   acima fica preservado pra audit/UI.
+    // - `helix_pending_triggers` — drota sabe se deve emitir retrieval/boss-fight
+    //   neste turn. Orchestrator é quem chama `markTriggerFired` após observar.
+    // - `helix_midcycle_assessment` — quando midcycle_assessment_7 pendente,
+    //   injeta evolution_percentage + extension_recommendation pra parent layer.
+    //
+    // NÃO mutamos state aqui (plan é puro read); markTriggerFired é
+    // responsabilidade do orchestrator pós-turn. Este bloco apenas SURFACE
+    // sinais — gap honesto que orchestrator wire-up vem em G-06 downstream.
+    contextHints["helix_active_cycle_progress"] = activeCycleProgress(helixState);
+
+    const pendingTriggers = detectCadenceTriggers(helixState);
+    if (pendingTriggers.length > 0) {
+      contextHints["helix_pending_triggers"] = pendingTriggers;
+
+      if (pendingTriggers.includes("midcycle_assessment_7")) {
+        const evolution = computeEvolutionAssessment({
+          state: helixState,
+          statusMatrix: input.state.statusMatrix as
+            | Record<string, string>
+            | undefined,
+          // Dreyfus baseline/observed hooks ficam pra G-21 (sprint review)
+          // ou child-profile expansion downstream — gap honesto F0.
+        });
+        const extension = assessCycleExtension({
+          state: helixState,
+          evolutionPercentage: evolution,
+          statusMatrix: input.state.statusMatrix as
+            | Record<string, string>
+            | undefined,
+        });
+        contextHints["helix_midcycle_assessment"] = {
+          evolution_percentage: Number(evolution.toFixed(4)),
+          extension_recommendation: extension.recommendation,
+          reasons: extension.reasons,
+        };
+      }
     }
   }
 
