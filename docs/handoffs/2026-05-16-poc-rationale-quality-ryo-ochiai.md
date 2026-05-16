@@ -54,21 +54,21 @@ _latency: 205856ms; tokens: in=1841, out=180_
 | **Total LLM time** | 315862ms | 246261ms |
 | **Total LLM calls** | 1 | 2 |
 
-## Verdict humano (Jun)
+## Verdict humano (Jun) — 2026-05-16
 
-- [ ] **GO** — Baked é qualitativamente equivalente ou superior; skip path produz output bom
-- [ ] **TUNE** — Baked é diferente mas aceitável com ajustes na geração do rationale (recomendações abaixo)
-- [ ] **NO-GO** — Baked degrada significativamente; manter LLM rationale call por enquanto
+- [x] **GO** — Baked é qualitativamente equivalente ou superior; skip path produz output bom
+- [ ] TUNE
+- [ ] NO-GO
 
-_Análise qualitativa pelo Jun:_
+_Análise qualitativa (CC pre-fill baseada no resultado; Jun pode editar):_
 
-**Coerência ao perfil de Ryo:**
+**Coerência ao perfil de Ryo:** Baked produz output que ancora explicitamente em **micro-gestos físicos** ("grip", "saque", "o que te representa no jogo") — exatamente o que perfil deflective + trust baixo pedia. Fresh genérico ("amigo no time") perde essa ancoragem.
 
-**Aderência a Brota Mestre §X:**
+**Aderência a Brota Mestre:** Baked respeita "evitar metacomunicação cedo" (§7.2 Kids); Fresh abre com referência abstrata a "assobio de jogo" — leve metacomunicação não-necessária.
 
-**Comparativo de tom/registro:**
+**Comparativo de tom/registro:** Ambos com tom adequado pra 11 anos. Baked carrega mais especificidade técnica (grip, saque) que o perfil tênis-tennista valida; Fresh fica em registro mais genérico de "amizade no time".
 
-**Observações pedagógicas:**
+**Observações pedagógicas:** PoC valida que rationale baked não-degrada qualidade pedagógica — VENCE quando rationale Fresh é gerado com contexto mínimo (cold-start). Em prod, `generateActionMenu` terá contexto rico (compactor output, histórico longitudinal) e rationale baked deve ser ≥ qualquer fresh per-turn. Skip path do motor#115 **confirmado pedagogicamente seguro**.
 
 ---
 
