@@ -57,7 +57,12 @@ function seedPath(): string | undefined {
   return process.env["CONTENT_SEED_PATH"];
 }
 
-function buildSystemPrompt(input: PlanTurnInput): string {
+/**
+ * Exported pra consumo por PoC scripts (ops#1069 follow-up) que precisam
+ * reproduzir prompt do planejador sem passar pelo MCP handler completo.
+ * Sem mudança de comportamento — só visibility.
+ */
+export function buildSystemPrompt(input: PlanTurnInput): string {
   const { persona, state, incomingMessage } = input;
   return `Você é o Planejador do motor Ascendimacy. Seu papel é AUXILIAR de compositor:
 o scoring de content items é determinístico (feito no código). Você só emite:
