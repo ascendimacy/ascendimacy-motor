@@ -201,8 +201,11 @@ ${instructionAdditionBody}
 /**
  * Build full prompt — concatenação stable+dynamic. Mantém compat com chamadas
  * que querem string única. Para cache: usa STABLE_DROTA_PREFIX + buildDrotaDynamicBody.
+ *
+ * Exported pra consumo por smokes/scripts que precisam construir prompt sem
+ * passar pelo MCP handler completo (ex: smoke-inquiry-llm.mjs).
  */
-function buildDrotaPrompt(
+export function buildDrotaPrompt(
   input: EvaluateAndSelectInput,
   selected: ScoredContentItem,
 ): string {
