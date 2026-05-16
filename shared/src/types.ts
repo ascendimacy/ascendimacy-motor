@@ -46,6 +46,18 @@ export interface SessionState {
    */
   kidsHelixState?: KidsHelixState;
 
+  /**
+   * G-22 Gap 2 hydration (ops#1033) — content_usage records per item id,
+   * filtrados pela janela canon (14 dias). Map content_id → times_used.
+   * Hidratado por motor-execucao a partir de `content_usage` (motor#108)
+   * quando personaId é passado pra getState. Planejador consome em
+   * computeChallengeCost.recentUsageCount per item.
+   *
+   * Plain Record (não Map) pra survivir serialização MCP JSON.
+   * Ausente quando personaId não passado (e.g., callers legacy/tests).
+   */
+  recentContentUsage?: Record<string, number>;
+
   // ─── F1 mood (motor#35) ──────────────────────────────────────────────
 
   /**

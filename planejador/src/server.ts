@@ -49,6 +49,11 @@ server.registerTool(
         jointPartnerChildId: z.string().optional(),
         jointPartnerName: z.string().optional(),
         partnerStatusMatrix: z.record(z.string(), z.string()).optional(),
+        // G-22 Gap 2 hydration (ops#1033) — content_usage per item id
+        // (janela 14d). Map {content_id: times_used}. Plain Record pra JSON.
+        recentContentUsage: z.record(z.string(), z.number()).optional(),
+        // G-22 Gap 7 hydration — kids helix state (cycle_day extraído).
+        kidsHelixState: z.record(z.string(), z.unknown()).optional(),
       }),
       incomingMessage: z.string(),
     } as any,

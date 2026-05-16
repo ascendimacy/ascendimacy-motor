@@ -112,3 +112,44 @@ export function countContentUsage(db: Database.Database): number {
     .get() as { n: number };
   return row.n;
 }
+
+/**
+ * G-22 Gap 2 hydration helper (ops#1033) — projeta usage per-persona em
+ * Record<content_id, times_used>, filtrando por janela temporal (14 dias canon).
+ *
+ * Usado por state-manager.getState pra hidratar SessionState.recentContentUsage.
+ * Planejador então consome em `computeChallengeCost.recentUsageCount` por item.
+ *
+ * Filtra rows com `last_used_at` dentro de [now - windowDays, now].
+ * Sem usage → record vazio (não null), pra simplificar callers.
+ *
+ * @param windowDays — janela em dias; default 14 (canon G-22).
+ * @param nowIso     — override pra testabilidade determinística.
+ */
+export function getRecentContentUsageRecord(
+  db: Database.Database,
+  personaId: string,
+  windowDays = 14,
+  nowIso?: string,
+): Record<string, number> {
+  const now = getNow(nowIso);
+  const nowMs = Date.parse(now);
+  if (Number.isNaN(nowMs)) {
+    // Defensive — se nowIso malformado, retorna vazio sem throw
+    return {};
+  }
+  const windowStartMs = nowMs - windowDays * 24 * 60 * 60 * 1000;
+  const windowStartIso = new Date(windowStartMs).toISOString();
+
+  const rows = db
+    .prepare(
+      `SELECT content_id, times_used
+       FROM content_usage
+       WHERE persona_id = ? AND last_used_at >= ?`,
+    )
+    .all(personaId, windowStartIso) as Array<{ content_id: string; times_used: number }>;
+
+  const record: Record<string, number> = {};
+  for (const r of rows) record[r.content_id] = r.times_used;
+  return record;
+}
