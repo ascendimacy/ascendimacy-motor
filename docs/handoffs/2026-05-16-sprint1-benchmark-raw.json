@@ -1,0 +1,119 @@
+{
+  "persona": {
+    "id": "ryo-ochiai",
+    "name": "Ryo",
+    "age": 11,
+    "fixture": "ryo-ochiai.pre-phase2.json"
+  },
+  "turnsPerScenario": 3,
+  "scenarios": [
+    {
+      "scenarioName": "A_no_menu",
+      "useMenu": false,
+      "turns": [
+        {
+          "turn": 1,
+          "userMsg": "oi",
+          "planLatency": 2,
+          "menuHit": false,
+          "drotaLatency": 318549,
+          "drotaTokensIn": 2483,
+          "drotaTokensOut": 208,
+          "drotaPromptChars": 7919,
+          "output": "Sabia que os golfinhos têm nome? Cada um cria um assobio único — tipo um sinal de identidade. Os outros só chamam assim, como se fosse um apelido só deles. E quando perdem um amigo, eles repetem esse assobio, como se quisessem lembrar... Como você expressa quando perde alguém ou algo importante? Pen"
+        },
+        {
+          "turn": 2,
+          "userMsg": "me conta uma coisa que vc acha legal",
+          "planLatency": 1,
+          "menuHit": false,
+          "drotaLatency": 366549,
+          "drotaTokensIn": 2483,
+          "drotaTokensOut": 254,
+          "drotaPromptChars": 7919,
+          "output": "Sabia que os golfinhos têm nome? Cada um cria um assovio só seu, como se fosse um sinal de identidade. Os outros chamam por ele assim — só com o som. Quando um deles morre, os outros repetem o assovio, como se quisessem manter o nome vivo. Pensa em algo que você perdeu — uma pessoa, um momento, uma "
+        },
+        {
+          "turn": 3,
+          "userMsg": "outra coisa parecida",
+          "planLatency": 2,
+          "menuHit": false,
+          "drotaLatency": 371106,
+          "drotaTokensIn": 2483,
+          "drotaTokensOut": 245,
+          "drotaPromptChars": 7919,
+          "output": "Sabia que os golfinhos têm nome? Cada um cria um assobio único, só dele, e os outros chamam pelo nome assim. Quando perdem um amigo, eles repetem o assobio dele, como se falassem: 'Estou lembrando de você'. Quando você perde alguém ou algo importante — um momento, uma fase da vida — como você expres"
+        }
+      ]
+    },
+    {
+      "scenarioName": "B_menu_lookup",
+      "useMenu": true,
+      "turns": [
+        {
+          "turn": 1,
+          "userMsg": "oi",
+          "planLatency": 5,
+          "menuHit": true,
+          "drotaLatency": 229046,
+          "drotaTokensIn": 2007,
+          "drotaTokensOut": 171,
+          "drotaPromptChars": 6537,
+          "output": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único, e os outros chamam por ele assim. Tipo como a gente chama um amigo pelo nome. Pensa aí: se você pudesse criar um som só seu pra ser chamado, que som seria? Que tal tentar?"
+        },
+        {
+          "turn": 2,
+          "userMsg": "me conta uma coisa que vc acha legal",
+          "planLatency": 1,
+          "menuHit": true,
+          "drotaLatency": 262616,
+          "drotaTokensIn": 2007,
+          "drotaTokensOut": 227,
+          "drotaPromptChars": 6537,
+          "output": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único, e os outros chamam por ele, como se fosse um apelido. Tipo, se você fosse um golfinho, que som você criaria pra si? Tenta imaginar um 'nome' que só você conhece — e que os outros usariam quando te chamarem. É tipo um sina"
+        },
+        {
+          "turn": 3,
+          "userMsg": "outra coisa parecida",
+          "planLatency": 2,
+          "menuHit": true,
+          "drotaLatency": 220606,
+          "drotaTokensIn": 2007,
+          "drotaTokensOut": 180,
+          "drotaPromptChars": 6537,
+          "output": "Sabia que os golfinhos têm 'nomes' próprios? É sério! Cada um inventa um assovio único, e os outros usam esse som pra chamar o amigo. Tipo um apelido só seu, só que feito de som. Pensa aí: se você pudesse inventar um som só seu pra ser chamado, qual seria?"
+        }
+      ]
+    }
+  ],
+  "agg": [
+    {
+      "scenarioName": "A_no_menu",
+      "useMenu": false,
+      "turnCount": 3,
+      "avgPlanLatencyMs": 2,
+      "avgDrotaLatencyMs": 352068,
+      "totalLatencyMs": 1056209,
+      "avgDrotaPromptChars": 7919,
+      "avgTokensIn": 2483,
+      "avgTokensOut": 236,
+      "totalTokensIn": 7449,
+      "totalTokensOut": 707,
+      "menuHitRate": 0
+    },
+    {
+      "scenarioName": "B_menu_lookup",
+      "useMenu": true,
+      "turnCount": 3,
+      "avgPlanLatencyMs": 3,
+      "avgDrotaLatencyMs": 237423,
+      "totalLatencyMs": 712276,
+      "avgDrotaPromptChars": 6537,
+      "avgTokensIn": 2007,
+      "avgTokensOut": 193,
+      "totalTokensIn": 6021,
+      "totalTokensOut": 578,
+      "menuHitRate": 1
+    }
+  ]
+}
