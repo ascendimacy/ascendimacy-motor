@@ -6,7 +6,15 @@
   "source": {
     "trust_level": 0.42,
     "profile_hash": "sha256:ryo-bench-profile-hash",
-    "eixos_state_hash": "sha256:ryo-bench-eixos-hash"
+    "eixos_state_hash": "sha256:ryo-bench-eixos-hash",
+    "strategic_rationale": "Ryo é deflective; trust ainda baixo (0.42). Foco em curiosities visuais/concretas + ancorar em micro-gestos físicos (grip, postura) sem forçar verbalização. Evitar metacomunicação cedo na sessão.",
+    "context_hints": {
+      "language": "pt-br",
+      "mood": "deflective",
+      "urgency": "low",
+      "session_phase": "rapport_building",
+      "engagement_strategy": "concrete_physical_anchors"
+    }
   },
   "items": [
     {
