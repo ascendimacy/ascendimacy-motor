@@ -46,6 +46,7 @@ import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
 import { lookupActionMenu } from "./strategist/menu-lookup.js";
+import { cycleProgress } from "./strategist/helix-engine.js";
 import {
   countInquiriesInSession,
   extractProfileConfig,
@@ -401,6 +402,33 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       contextHints["gardner_pause_reason"] = gardnerInstruction.pauseReason;
     }
   }
+
+  // G-05 (ops#1091) — Double Helix cycle context.
+  // Injeta active_pair + cycle_progress + previous_pair pro drota
+  // entender em qual par de dims CASEL ancorar. Também serve ops#1020 G-07
+  // downstream (50%/100% triggers consomem cycle_progress).
+  //
+  // Hidratação é responsabilidade de motor-execucao (kids_helix_state repo).
+  // Se persona não tem state ainda (bootstrap pendente), helix block ausente
+  // — drota usa fallback CASEL via casel_focus_dimension (gate antigo).
+  const helixState = input.state.kidsHelixState;
+  if (helixState) {
+    contextHints["helix_active_pair"] = [...helixState.active_pair];
+    contextHints["helix_cycle_progress"] = cycleProgress(helixState);
+    contextHints["helix_cycle_day"] = helixState.current_day;
+    contextHints["helix_mode"] = helixState.mode;
+    contextHints["helix_cycles_completed"] = helixState.cycles_completed;
+    if (helixState.previous_pair) {
+      contextHints["helix_previous_pair"] = [...helixState.previous_pair];
+    }
+    if (helixState.mode === "vacation" && helixState.vacation_trigger) {
+      contextHints["helix_vacation_trigger"] = helixState.vacation_trigger;
+    }
+    if (helixState.deferred.length > 0) {
+      contextHints["helix_deferred_dims"] = [...helixState.deferred];
+    }
+  }
+
   if (triageMode !== "skipped") {
     contextHints["parental_triage_mode"] = triageMode;
     if (triageRejectedIds.length > 0) {

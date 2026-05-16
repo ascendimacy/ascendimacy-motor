@@ -1,6 +1,7 @@
 import type { StatusMatrix } from "./status-matrix.js";
 import type { GardnerProgramState } from "./mixins/with-gardner-program.js";
 import type { MoodScore, MoodWindow } from "./mood.js";
+import type { KidsHelixState } from "./contracts/kids-helix-state.js";
 
 export interface PersonaDef {
   id: string;
@@ -36,6 +37,14 @@ export interface SessionState {
   statusMatrix?: StatusMatrix;
   /** Estado do programa Gardner 5 semanas (Bloco 2b). */
   gardnerProgram?: GardnerProgramState;
+
+  /**
+   * Estado do Double Helix cycle engine (G-05, ops#1091).
+   * Hidratado por motor-execucao a partir de `kids_helix_state` (per persona_id).
+   * Planejador lê pra injetar `contextHints.active_pair` + `cycle_progress`.
+   * Ausente quando persona ainda não bootstrapped (caller decide).
+   */
+  kidsHelixState?: KidsHelixState;
 
   // ─── F1 mood (motor#35) ──────────────────────────────────────────────
 
