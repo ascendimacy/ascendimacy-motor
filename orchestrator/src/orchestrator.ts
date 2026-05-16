@@ -252,7 +252,14 @@ export async function runTurn(
       playbookId: deployProfileId,
       selectedContentId: drota.selectedContent?.item?.id ?? "",
       output: drota.linguisticMaterialization,
-      metadata: {},
+      // ops#1068: motor-execucao consome contextHints.repetition_inquiry +
+      // userMessage pra logar _asked event no turn corrente AND parsear
+      // resposta da criança no próximo turn (cascata literal → default).
+      metadata: {
+        contextHints: plan.contextHints,
+        userMessage: message,
+        personaId,
+      },
     },
   });
   const exec = parseToolText<import("@ascendimacy/shared").ExecutePlaybookOutput>(execResult);
