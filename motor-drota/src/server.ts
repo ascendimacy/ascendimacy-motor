@@ -13,6 +13,7 @@ import { callLlm, callLlmMock } from "./llm-client.js";
 import { parseDrotaOutput } from "./parse-output.js";
 import { extractSignals } from "./signal-extractor.js";
 import { applyPostProcessors } from "./post-processor.js";
+import { buildInaugural } from "./inaugural.js";
 import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
 
 const server = new McpServer({
@@ -247,6 +248,51 @@ server.registerTool(
     } as any,
   },
   async (input: EvaluateAndSelectInput) => {
+    // ops#1084 (A-02 salvage): inaugural turn — early-return ANTES de rankPool.
+    // Turn 0 não passa pelo pipeline scorePool/LLM normal; entrega template
+    // determinístico com cláusulas obrigatórias (primeira sessão) ou resumo
+    // de retorno (recorrente). NÃO conflita com menu_hit (planejador roda upstream)
+    // nem com repetition_inquiry (buildDrotaDynamicBody intacto).
+    const isFirstTurn = input.state.turn === 0;
+    const isFirstSession = !(input.state.eventLog ?? []).some(
+      (e) => (e as { type?: string }).type === "playbook_executed",
+    );
+    if (isFirstTurn) {
+      const inauguralOutput = await buildInaugural({
+        personaName: input.persona.name,
+        personaAge: input.persona.age,
+        profileId: String(input.contextHints?.["profile_id"] ?? input.persona.id ?? ""),
+        sessionNumber: isFirstSession ? 1 : 2,
+        isJoint: input.state.sessionMode === "joint",
+        jointPartnerName: input.state.jointPartnerName,
+      });
+      const inauguralResult: EvaluateAndSelectOutput = {
+        selectedContent: {
+          item: {
+            id: "__inaugural__",
+            type: "curiosity_hook",
+            domain: "social_emotional",
+            casel_target: ["relationship_skills"],
+            age_range: [10, 18],
+            surprise: 5,
+            verified: true,
+            base_score: 10,
+            fact: "",
+            bridge: "",
+            quest: "",
+            sacrifice_type: "reflect",
+          } as unknown as ContentItem,
+          score: 10,
+          reasons: [`inaugural:${inauguralOutput.template_used}`],
+        },
+        selectionRationale: `inaugural:${inauguralOutput.template_used}`,
+        linguisticMaterialization: inauguralOutput.text,
+      };
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(inauguralResult) }],
+      };
+    }
+
     const ranked = rankPool(input.contentPool);
     if (ranked.length === 0) {
       // Pool vazio: fallback conversacional (v2 §4.2 do plano).
