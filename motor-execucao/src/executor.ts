@@ -1,5 +1,11 @@
 import { getNow } from "./clock.js";
-import type { ExecutePlaybookInput, ExecutePlaybookOutput } from "@ascendimacy/shared";
+import type {
+  EventEntry,
+  ExecutePlaybookInput,
+  ExecutePlaybookOutput,
+  InquiryChoice,
+} from "@ascendimacy/shared";
+import { parseRepetitionAnswer } from "@ascendimacy/shared";
 import { getState, updateState, logEvent, getDbInstance } from "./state-manager.js";
 import { getPlaybookById } from "./loader.js";
 import type { PlaybookInventory } from "./types.js";
@@ -8,6 +14,34 @@ import {
   type OnboardingTriggerDeps,
 } from "./onboarding-trigger.js";
 import { recordContentUsage } from "./content-usage-repo.js";
+
+/**
+ * ops#1068 — escaneia eventLog procurando inquiry pendente. Retorna o
+ * último `repetition_inquiry_asked` AINDA NÃO RESOLVIDO (sem `_answered`
+ * ou `_skipped` posterior). null quando não há pendência.
+ *
+ * NOTA: state.eventLog vem em ordem DESC (newest first) do state-manager,
+ * então iteramos de 0 → length pra inspecionar do mais novo pro mais antigo.
+ *
+ * Usado pra decidir se userMessage do turn corrente deve ser parseado
+ * como resposta à pergunta de repetição feita no turn anterior.
+ */
+function findPendingInquiry(
+  eventLog: ReadonlyArray<EventEntry>,
+): { defaultOnSkip: InquiryChoice } | null {
+  for (const e of eventLog) {
+    if (e.type === "repetition_inquiry_answered" || e.type === "repetition_inquiry_skipped") {
+      return null; // mais recente é resolução → asked anterior já fechado
+    }
+    if (e.type === "repetition_inquiry_asked") {
+      const raw = (e.data as Record<string, unknown>)["default_on_skip"];
+      const defaultOnSkip: InquiryChoice =
+        raw === "a" || raw === "b" || raw === "c" ? raw : "b";
+      return { defaultOnSkip };
+    }
+  }
+  return null;
+}
 
 /**
  * S-T-09-03 (ops#994): hook opcional pra trigger de generateActionMenu
@@ -28,6 +62,31 @@ export function executePlaybook(
   const playbook = getPlaybookById(inventory, playbookId);
 
   const state = getState(sessionId);
+
+  // ops#1068 — resolução de inquiry pendente ANTES de novos events.
+  // Se eventLog tem `_asked` sem `_answered`/`_skipped` posterior, e
+  // userMessage não-vazio chegou, parseia + loga _answered ou _skipped.
+  const userMessage =
+    typeof metadata?.["userMessage"] === "string" ? metadata["userMessage"] : "";
+  const pending = findPendingInquiry(state.eventLog ?? []);
+  if (pending && userMessage.length > 0) {
+    const result = parseRepetitionAnswer(userMessage, pending.defaultOnSkip);
+    logEvent(sessionId, {
+      timestamp: getNow(),
+      type: result.stage === "default"
+        ? "repetition_inquiry_skipped"
+        : "repetition_inquiry_answered",
+      data: {
+        choice: result.choice,
+        stage: result.stage,
+        confidence: result.confidence,
+        ...(result.stage === "default"
+          ? { defaulted_to: result.choice, reason: "ambiguous_or_silence" }
+          : {}),
+      },
+    });
+  }
+
   const event = {
     timestamp: getNow(),
     type: "playbook_executed",
@@ -49,6 +108,35 @@ export function executePlaybook(
 
   updateState(sessionId, newState);
   logEvent(sessionId, event);
+
+  // ops#1068 — se TESTE turn ativou inquiry, loga `_asked` AFTER
+  // playbook_executed pra próximo turn detectar pendência.
+  // Persiste default_on_skip na event.data pra parsing futuro sem
+  // precisar re-consultar persona profile.
+  const contextHints = metadata?.["contextHints"] as Record<string, unknown> | undefined;
+  const inquiry = contextHints?.["repetition_inquiry"] as
+    | { candidate_ids?: string[]; threshold_used?: number; default_on_skip?: InquiryChoice }
+    | undefined;
+  if (inquiry && Array.isArray(inquiry.candidate_ids) && inquiry.candidate_ids.length > 0) {
+    logEvent(sessionId, {
+      timestamp: getNow(),
+      type: "repetition_inquiry_asked",
+      data: {
+        candidate_ids: inquiry.candidate_ids,
+        threshold_used: inquiry.threshold_used ?? null,
+        default_on_skip: inquiry.default_on_skip ?? "b",
+      },
+    });
+  }
+  // Suppressed inquiry — log só pra auditoria, não bloqueia nada
+  const suppressedReason = contextHints?.["repetition_inquiry_suppressed"];
+  if (typeof suppressedReason === "string") {
+    logEvent(sessionId, {
+      timestamp: getNow(),
+      type: "repetition_inquiry_suppressed",
+      data: { reason: suppressedReason },
+    });
+  }
 
   // S-T-09-03 (ops#994): trigger fire-and-forget de generateActionMenu
   // se metadata indica conclusão de onboarding. Caller (server.ts) é
