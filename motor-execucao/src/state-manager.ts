@@ -7,7 +7,10 @@ import { GARDNER_PROGRAM_DDL, getProgramState } from "./gardner-program.js";
 import { PARENT_DECISIONS_DDL } from "./parent-decisions.js";
 import { EMITTED_CARDS_DDL } from "./cards-repo.js";
 import { CONTENT_USAGE_DDL } from "./content-usage-repo.js";
-import { KIDS_HELIX_STATE_DDL } from "./kids-helix-state.js";
+import {
+  KIDS_HELIX_STATE_DDL,
+  getKidsHelixState,
+} from "./kids-helix-state.js";
 import { getNow, resolveDbPath } from "./clock.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -47,7 +50,18 @@ function getDb(dbPath?: string): Database.Database {
   return db;
 }
 
-export function getState(sessionId: string, now?: string): SessionState {
+/**
+ * Hidrata SessionState a partir do SQLite. Inclui statusMatrix, gardnerProgram,
+ * eventLog. Aceita personaId opcional pra hidratar kidsHelixState (G-05).
+ *
+ * Backward compat: chamada antiga `getState(sessionId)` continua funcionando;
+ * kidsHelixState fica undefined. Caller que precisar do helix passa personaId.
+ */
+export function getState(
+  sessionId: string,
+  now?: string,
+  personaId?: string,
+): SessionState {
   const database = getDb();
   let row = database
     .prepare("SELECT * FROM sessions WHERE session_id = ?")
@@ -66,6 +80,9 @@ export function getState(sessionId: string, now?: string): SessionState {
     .all(sessionId) as Record<string, unknown>[];
   const statusMatrix = getStatusMatrix(database, sessionId);
   const gardnerProgram = getProgramState(database, sessionId);
+  const kidsHelixState = personaId
+    ? getKidsHelixState(database, personaId) ?? undefined
+    : undefined;
   return {
     sessionId,
     trustLevel: Number(row["trust_level"]),
@@ -73,6 +90,7 @@ export function getState(sessionId: string, now?: string): SessionState {
     turn: Number(row["turn"]),
     statusMatrix,
     gardnerProgram,
+    ...(kidsHelixState ? { kidsHelixState } : {}),
     eventLog: events.map((e) => ({
       timestamp: String(e["timestamp"]),
       type: String(e["type"]),
