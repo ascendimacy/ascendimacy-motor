@@ -62,6 +62,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Caminho default do template — em prod/test vem do mesmo lugar.
  *
+ * v0.4 (S-T-10-08, ops#1069): adiciona §6c instruindo emissão de
+ * `source.strategic_rationale` (1-3 frases específicas ao perfil) +
+ * `source.context_hints` (language, mood, urgency, session_phase,
+ * engagement_strategy). Producer-side completion do skip path do
+ * planejador (motor#115). Schema aceita ambos opcionais.
+ *
  * v0.3 (2026-05-14, post-baseline N=30): adiciona §6b explicitando "NUNCA
  * invente hash". 2 errors do baseline foram degeneration loops em
  * profile_hash/eixos_state_hash. Schema motor#101 reforça com .max(128).
@@ -70,17 +76,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  *
  * v0.1 (motor#94): nascimento.
  *
- * Versões anteriores preservadas em `menu-generator-v0.{1,2}.txt` pra
+ * Versões anteriores preservadas em `menu-generator-v0.{1,2,3}.txt` pra
  * reversão emergencial.
  */
 const PROMPT_TEMPLATE_PATH = join(
   __dirname,
   "prompts",
-  "menu-generator-v0.3.txt",
+  "menu-generator-v0.4.txt",
 );
 
 /** Versão do prompt — bump quando estrutura mudar (não conteúdo). */
-export const PROMPT_TEMPLATE_VERSION = "v0.3";
+export const PROMPT_TEMPLATE_VERSION = "v0.4";
 
 /** Input canônico do gerador. */
 export interface GenerateActionMenuInput {
