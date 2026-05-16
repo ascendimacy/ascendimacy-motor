@@ -6,7 +6,7 @@ import { TREE_NODES_DDL, getStatusMatrix } from "./tree-nodes.js";
 import { GARDNER_PROGRAM_DDL, getProgramState } from "./gardner-program.js";
 import { PARENT_DECISIONS_DDL } from "./parent-decisions.js";
 import { EMITTED_CARDS_DDL } from "./cards-repo.js";
-import { CONTENT_USAGE_DDL } from "./content-usage-repo.js";
+import { CONTENT_USAGE_DDL, getRecentContentUsageRecord } from "./content-usage-repo.js";
 import {
   KIDS_HELIX_STATE_DDL,
   getKidsHelixState,
@@ -83,6 +83,13 @@ export function getState(
   const kidsHelixState = personaId
     ? getKidsHelixState(database, personaId) ?? undefined
     : undefined;
+  // G-22 Gap 2 hydration (ops#1033) — quando personaId presente, projeta
+  // content_usage da janela 14d em SessionState.recentContentUsage. Planejador
+  // consome em computeChallengeCost. Sem personaId, fica undefined (backward
+  // compat com callers legacy/testes sem persona).
+  const recentContentUsage = personaId
+    ? getRecentContentUsageRecord(database, personaId, 14, now)
+    : undefined;
   return {
     sessionId,
     trustLevel: Number(row["trust_level"]),
@@ -91,6 +98,7 @@ export function getState(
     statusMatrix,
     gardnerProgram,
     ...(kidsHelixState ? { kidsHelixState } : {}),
+    ...(recentContentUsage ? { recentContentUsage } : {}),
     eventLog: events.map((e) => ({
       timestamp: String(e["timestamp"]),
       type: String(e["type"]),

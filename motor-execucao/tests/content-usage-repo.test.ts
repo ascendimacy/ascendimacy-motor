@@ -13,6 +13,7 @@ import {
   countContentUsage,
   getAllContentUsageByPersona,
   getContentUsage,
+  getRecentContentUsageRecord,
   recordContentUsage,
 } from "../src/content-usage-repo.js";
 
@@ -142,6 +143,120 @@ describe("getAllContentUsageByPersona", () => {
     expect(map.get("item-a")?.times_used).toBe(1);
     expect(map.get("item-b")?.times_used).toBe(1);
     expect(map.has("item-c")).toBe(false);
+  });
+});
+
+describe("getRecentContentUsageRecord — G-22 Gap 2 hydration (ops#1033)", () => {
+  it("retorna {} para persona sem usage", () => {
+    expect(getRecentContentUsageRecord(db, "ryo-ochiai", 14, "2026-05-14T10:00:00.000Z"))
+      .toEqual({});
+  });
+
+  it("projeta {content_id: times_used} para usage dentro da janela", () => {
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "item-a",
+      nowIso: "2026-05-14T10:00:00.000Z",
+    });
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "item-a",
+      nowIso: "2026-05-14T11:00:00.000Z", // times_used=2
+    });
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "item-b",
+      nowIso: "2026-05-14T11:00:00.000Z",
+    });
+
+    const record = getRecentContentUsageRecord(
+      db,
+      "ryo-ochiai",
+      14,
+      "2026-05-14T12:00:00.000Z",
+    );
+    expect(record).toEqual({ "item-a": 2, "item-b": 1 });
+  });
+
+  it("filtra rows fora da janela (14d default)", () => {
+    // Usage muito antigo — 30 dias atrás
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "old-item",
+      nowIso: "2026-04-14T10:00:00.000Z",
+    });
+    // Usage recente — 5 dias atrás
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "recent-item",
+      nowIso: "2026-05-09T10:00:00.000Z",
+    });
+
+    const record = getRecentContentUsageRecord(
+      db,
+      "ryo-ochiai",
+      14,
+      "2026-05-14T10:00:00.000Z",
+    );
+    expect(record).toEqual({ "recent-item": 1 });
+    expect(record).not.toHaveProperty("old-item");
+  });
+
+  it("janela customizada respeitada (e.g., 7 dias)", () => {
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "day-10-old",
+      nowIso: "2026-05-04T10:00:00.000Z", // 10 dias atrás
+    });
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "day-3-old",
+      nowIso: "2026-05-11T10:00:00.000Z", // 3 dias atrás
+    });
+
+    const recent7 = getRecentContentUsageRecord(
+      db,
+      "ryo-ochiai",
+      7,
+      "2026-05-14T10:00:00.000Z",
+    );
+    expect(recent7).toEqual({ "day-3-old": 1 });
+
+    const recent14 = getRecentContentUsageRecord(
+      db,
+      "ryo-ochiai",
+      14,
+      "2026-05-14T10:00:00.000Z",
+    );
+    expect(recent14).toEqual({ "day-10-old": 1, "day-3-old": 1 });
+  });
+
+  it("isola personas (cross-persona não vaza)", () => {
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "item-x",
+      nowIso: "2026-05-14T10:00:00.000Z",
+    });
+    recordContentUsage(db, {
+      personaId: "kei-ochiai",
+      contentId: "item-y",
+      nowIso: "2026-05-14T10:00:00.000Z",
+    });
+
+    expect(getRecentContentUsageRecord(db, "ryo-ochiai", 14, "2026-05-14T11:00:00.000Z"))
+      .toEqual({ "item-x": 1 });
+    expect(getRecentContentUsageRecord(db, "kei-ochiai", 14, "2026-05-14T11:00:00.000Z"))
+      .toEqual({ "item-y": 1 });
+  });
+
+  it("retorna {} defensivo se nowIso malformado", () => {
+    recordContentUsage(db, {
+      personaId: "ryo-ochiai",
+      contentId: "item-z",
+      nowIso: "2026-05-14T10:00:00.000Z",
+    });
+    expect(getRecentContentUsageRecord(db, "ryo-ochiai", 14, "not-a-date"))
+      .toEqual({});
   });
 });
 
