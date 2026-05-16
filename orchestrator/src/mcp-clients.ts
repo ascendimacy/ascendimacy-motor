@@ -49,6 +49,16 @@ function buildEnv(): Record<string, string> {
     "ASC_LLM_MAX_RETRIES",
     // Mock toggle
     "USE_MOCK_LLM",
+    // C-T-10-01 (ops#999) menu-lookup branch + baseDir override.
+    // Sem forward, plan.ts no child planejador não vê o flag e cai
+    // direto pro scoring clássico — smoke E2E impossível.
+    "ASC_USE_ACTION_MENU",
+    "ASC_ACTION_MENU_BASE_DIR",
+    // LLM local (openai-compat) — endpoint + model usados pelo Qwen3
+    // stack (llama.cpp SYCL). Necessário pra smoke E2E full sem mock
+    // contra LLM local, em vez de Infomaniak/Anthropic.
+    "LLM_LOCAL_ENDPOINT",
+    "LLM_LOCAL_MODEL",
   ];
   for (const k of keys) {
     const v = process.env[k];

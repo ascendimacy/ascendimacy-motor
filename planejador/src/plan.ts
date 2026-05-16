@@ -39,6 +39,7 @@ import { callLlm, callLlmMock, callHaiku } from "./llm-client.js";
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
+import { lookupActionMenu } from "./strategist/menu-lookup.js";
 
 /** Quantos items do pool passamos ao drota (top-K). */
 export const TOP_K_POOL = 5;
@@ -190,12 +191,46 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       return data?.selectedContentId;
     })
     .filter((id): id is string => typeof id === "string" && id.length > 0);
-  const scored = scorePool(eligible, child, {
-    now: new Date().toISOString(),
-    casel_focus: caselTargets[0] as ScoredContentItem["item"]["casel_target"][number] | undefined,
-    used_in_session: usedInSession,
-  });
-  let topK = scored.slice(0, TOP_K_POOL);
+
+  // C-T-10-01 (ops#999): se ASC_USE_ACTION_MENU=true, tenta lookup
+  // determinístico no menu persistido ANTES de scoring. Fallback to
+  // scoring se menu ausente/stale/sem items elegíveis.
+  // Decay multiplicativo aplicado em items expirados (Jun 2026-05-14).
+  const useActionMenu = process.env["ASC_USE_ACTION_MENU"] === "true";
+  let topK: ScoredContentItem[] | null = null;
+  if (useActionMenu) {
+    const menuBaseDir =
+      process.env["ASC_ACTION_MENU_BASE_DIR"] ?? "fixtures/profiles";
+    const menuResult = await lookupActionMenu(input.persona.id, menuBaseDir, {
+      usedInSession,
+      topK: TOP_K_POOL,
+    });
+    try {
+      logDebugEvent({
+        side: "motor",
+        step: "plan_turn_menu_lookup",
+        user_id: input.persona.id,
+        motor_target: "planejador-strategist",
+        session_id: input.sessionId,
+        outcome: menuResult.outcome === "ok" ? "ok" : "skip",
+      });
+    } catch {
+      // Telemetry não bloqueia.
+    }
+    if (menuResult.outcome === "ok" && menuResult.items.length > 0) {
+      topK = menuResult.items;
+    }
+    // Fallback to scoring se menuResult.outcome !== "ok"
+  }
+
+  if (topK === null) {
+    const scored = scorePool(eligible, child, {
+      now: new Date().toISOString(),
+      casel_focus: caselTargets[0] as ScoredContentItem["item"]["casel_target"][number] | undefined,
+      used_in_session: usedInSession,
+    });
+    topK = scored.slice(0, TOP_K_POOL);
+  }
 
   // 2. Triagem parental (Bloco 4 #17, paper §6 camada 2).
   //    Se persona.profile.parental_profile existir E estiver mínimo,

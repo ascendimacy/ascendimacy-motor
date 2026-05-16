@@ -176,6 +176,19 @@ export interface ScoredContentItem {
   item: ContentItem;
   score: number;
   reasons: string[];
+  /**
+   * Rotulagem ISA pedagógica propagada quando item veio de lookup
+   * determinístico do ActionMenu (C-T-10-01, ops#999). Ausente quando
+   * scoring clássico (pool seed) — backward compat preservada.
+   *
+   * Convergência futura de schemas ContentItem ↔ ActionMenuItem fica
+   * pra Tier 3 (ops#999 ponto #4). Por enquanto, transitional shim.
+   */
+  isaLabels?: {
+    played_as?: "bridge" | "espelho" | "canal" | "diamante" | "arena" | "recovery";
+    intensity?: "soft" | "medium" | "firm";
+    is_critical?: boolean;
+  };
 }
 
 /** Validação rasa de invariantes estruturais (não-semântica). */

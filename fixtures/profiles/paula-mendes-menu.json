@@ -1,0 +1,54 @@
+{
+  "persona_id": "paula-mendes",
+  "schema_version": "v0.2.0",
+  "generated_at": "2026-05-14T10:00:00.000Z",
+  "valid_until": "2026-06-14T10:00:00.000Z",
+  "source": {
+    "trust_level": 0.42,
+    "profile_hash": "sha256:paula-smoke-profile-hash",
+    "eixos_state_hash": "sha256:paula-smoke-eixos-hash"
+  },
+  "items": [
+    {
+      "id": "smoke-curio-01",
+      "type": "curiosity",
+      "content": "Por que tantas plantas têm folhas verdes? (gancho pra clorofila + luz)",
+      "weight": 0.85,
+      "played_as": "espelho",
+      "intensity": "soft"
+    },
+    {
+      "id": "smoke-challenge-01",
+      "type": "challenge",
+      "content": "Em 1 frase, descreve o que sentiu hoje quando o desafio ficou difícil.",
+      "weight": 0.7,
+      "played_as": "canal",
+      "intensity": "medium",
+      "expires_at": "2026-05-21T10:00:00.000Z"
+    },
+    {
+      "id": "smoke-decay-01",
+      "type": "play",
+      "content": "Item expirado pra exercitar decay multiplicativo no smoke.",
+      "weight": 0.95,
+      "expires_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "smoke-diamond-01",
+      "type": "cultural_diamond",
+      "content": "Suzuki Daisetz — a transmissão acontece no gesto, não na fala.",
+      "weight": 0.5,
+      "played_as": "diamante",
+      "intensity": "firm",
+      "is_critical": false
+    },
+    {
+      "id": "smoke-strategy-01",
+      "type": "strategy",
+      "content": "Quando criança vier com 'não consigo', ancorar em micro-passo concreto.",
+      "weight": 0.6,
+      "played_as": "bridge",
+      "intensity": "soft"
+    }
+  ]
+}
