@@ -81,6 +81,15 @@ export interface MenuLookupResult {
   items: ScoredContentItem[];
   /** Diagnóstico: por que o lookup retornou esse resultado. */
   outcome: "ok" | "menu_missing" | "menu_stale" | "no_eligible_items";
+  /**
+   * S-T-10-08 (ops#1069) — source do menu, propagado pro caller (plan.ts)
+   * decidir se pode pular o LLM rationale call. Ausente quando outcome != "ok".
+   */
+  source?: {
+    trust_level: number;
+    strategic_rationale?: string | null;
+    context_hints?: Record<string, unknown> | null;
+  };
   /** Metadata pra telemetria. */
   diagnostics: {
     menuValidUntil?: string;
@@ -187,6 +196,11 @@ export async function lookupActionMenu(
   return {
     items,
     outcome: "ok",
+    source: {
+      trust_level: menu.source.trust_level,
+      strategic_rationale: menu.source.strategic_rationale ?? null,
+      context_hints: menu.source.context_hints ?? null,
+    },
     diagnostics: {
       menuValidUntil: menu.valid_until ?? undefined,
       itemsConsidered,
