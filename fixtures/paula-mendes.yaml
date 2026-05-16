@@ -55,6 +55,11 @@ prior:
     family_context: monoparental-com-guarda-compartilhada
     current_stressor: estagnação-estratégica + esgotamento-acumulado
 
+  # G-22 Sacrifice fórmula (Gap 3, ops#1033 ratified Jun 2026-05-16)
+  # Paula adulta, analítica, intelectualiza afeto → tolerance baseline "medium".
+  # Bridge code (STS → planejador profile) deve mapear pra profile.sensitivity.
+  sensitivity: medium
+
 # Withs commonly_active — traços que se manifestam quase sempre (peso inicial 0.5-0.8)
 commonly_active:
   - id: withAnalyticalDistance
