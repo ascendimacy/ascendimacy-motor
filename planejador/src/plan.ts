@@ -37,6 +37,7 @@ import {
   getProviderForStep,
   computeChallengeCost,
   computeTrustRatio,
+  deriveOutcomeSignal,
   isItemAllowedUnderBudgetExhaustion,
   extractPersonaSensitivity,
   isExhausted,
@@ -455,17 +456,20 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     }
   }
 
-  // G-22 (ops#1033, Jun ratify B 2026-05-16) — sacrifice fórmula PARCIAL.
-  // Gaps cobertos: 1+2+3+4+8+9. Deferred: 5 (outcome), 6/7 (onda), 10 (boss).
+  // G-22 (ops#1033) — sacrifice fórmula COMPLETA pós Jun ratify B + remaining
+  // gaps (5+6+7+10). CC defaults inline aguardando ratify.
   //
-  // - Gap 8 budget exhaustion: se isExhausted(state), flag contextHints +
-  //   compute soft-degrade allowed_item_ids para drota saber quais filtrar.
-  // - Gap 9 trust ratio: computeTrustRatio(state.trustLevel) → drota interpreta.
-  // - Gaps 1+2+3+4 breakdown: top-K items × cost (observability/debug).
+  // - Gap 1+2+3+4 (motor#124): base × consumption × sensitivity × challenge
+  // - Gap 5 (este PR): outcome_mult derivado de eventLog (feedback_signal)
+  // - Gap 6 (este PR): weekly_mult via Date.getDay() canon onda semanal
+  // - Gap 7 (este PR): cycle_mult via kidsHelixState.current_day canon onda ciclo
+  // - Gap 8 (motor#124): budget exhaustion soft degrade
+  // - Gap 9 (motor#124): trust ratio prazer/sacrifice
+  // - Gap 10 (este PR): clamp [MIN_SINGLE_ITEM_COST, MAX_SINGLE_ITEM_COST]
   //
-  // recentUsageCount não disponível aqui (content_usage_repo é motor-execucao;
-  // planejador roda sem db handle direto). Default 0 → consumption_mult=1.0;
-  // future hydration via pool-builder com db handle resolverá.
+  // recentUsageCount: hidratado via state.recentContentUsage (motor#108 →
+  // state-manager getRecentContentUsageRecord). Por-item via map lookup;
+  // ausência → 0 (consumption_mult=1.0, sem decay — backward compat).
   const personaSensitivity = extractPersonaSensitivity(
     input.persona.profile as Record<string, unknown> | undefined,
   );
@@ -505,12 +509,26 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     contextHints["budget_state"] = "ok";
   }
 
-  // G-22 breakdown — top-K cost preview (observability; não modifica scoring).
+  // Gap 5+6+7 hydration — derivados antes do breakdown loop.
+  //   - outcomeSignal: derived once por turn (último feedback_signal event)
+  //   - weekday: JS Date.getDay() em UTC (orchestrator pode override via env futura)
+  //   - cycleDay: from kidsHelixState (G-05); undefined quando persona não bootstrapped
+  //   - recentUsageMap: hidratado por motor-execucao em state.recentContentUsage
+  const outcomeSignal = deriveOutcomeSignal(input.state.eventLog ?? []);
+  const weekday = new Date().getDay();
+  const cycleDay = input.state.kidsHelixState?.current_day;
+  const recentUsageMap = input.state.recentContentUsage ?? {};
+
+  // G-22 breakdown completo — top-K cost preview (observability; não modifica scoring).
   const sacrificeBreakdown = topK.slice(0, 5).map((s) => {
     const cost = computeChallengeCost({
       item: s.item,
       personaSensitivity,
       intensity: s.isaLabels?.intensity,
+      recentUsageCount: recentUsageMap[s.item.id] ?? 0,
+      outcomeSignal,
+      weekday,
+      cycleDay,
     });
     return {
       id: s.item.id,
@@ -518,11 +536,22 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       consumption_mult: Number(cost.consumptionMult.toFixed(4)),
       sensitivity_mult: cost.sensitivityMult,
       challenge_mult: cost.challengeMult,
+      outcome_mult: cost.outcomeMult,
+      weekly_mult: cost.weeklyMult,
+      cycle_mult: cost.cycleMult,
+      raw_total: Number(cost.rawTotal.toFixed(4)),
       total: Number(cost.total.toFixed(4)),
+      bounded: cost.bounded,
     };
   });
   contextHints["sacrifice_breakdown"] = sacrificeBreakdown;
   contextHints["persona_sensitivity"] = personaSensitivity;
+  contextHints["sacrifice_context"] = {
+    outcome_signal: outcomeSignal,
+    weekday,
+    cycle_day: cycleDay ?? null,
+    recent_usage_keys: Object.keys(recentUsageMap).length,
+  };
 
   // motor#25 (handoff #24 Tarefa 1): slim pool antes do drota.
   // Filtra used_in_session (score≤0) + char budget 2000.

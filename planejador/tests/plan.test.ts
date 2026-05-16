@@ -100,3 +100,137 @@ describe("planTurn — Bloco 2a (contentPool)", () => {
     expect(output.contextHints["casel_focus_dimension"]).toBe("emotional");
   });
 });
+
+describe("planTurn — G-22 remaining gaps integration (ops#1033)", () => {
+  it("sacrifice_breakdown agora inclui outcome/weekly/cycle/raw_total/bounded", async () => {
+    const output = await planTurn({
+      sessionId: "test-g22",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "oi",
+    });
+    const breakdown = output.contextHints["sacrifice_breakdown"] as Array<
+      Record<string, unknown>
+    >;
+    expect(Array.isArray(breakdown)).toBe(true);
+    expect(breakdown.length).toBeGreaterThan(0);
+    const first = breakdown[0]!;
+    // motor#124 fields preserved
+    expect(first).toHaveProperty("base_effort");
+    expect(first).toHaveProperty("consumption_mult");
+    expect(first).toHaveProperty("sensitivity_mult");
+    expect(first).toHaveProperty("challenge_mult");
+    expect(first).toHaveProperty("total");
+    // novos fields gaps 5+6+7+10
+    expect(first).toHaveProperty("outcome_mult");
+    expect(first).toHaveProperty("weekly_mult");
+    expect(first).toHaveProperty("cycle_mult");
+    expect(first).toHaveProperty("raw_total");
+    expect(first).toHaveProperty("bounded");
+  });
+
+  it("emite sacrifice_context com outcome_signal + weekday + cycle_day + recent_usage_keys", async () => {
+    const output = await planTurn({
+      sessionId: "test-g22-ctx",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "oi",
+    });
+    const ctx = output.contextHints["sacrifice_context"] as Record<string, unknown>;
+    expect(ctx).toBeDefined();
+    expect(ctx).toHaveProperty("outcome_signal");
+    expect(ctx).toHaveProperty("weekday");
+    expect(ctx).toHaveProperty("cycle_day");
+    expect(ctx).toHaveProperty("recent_usage_keys");
+    // Default sem state.recentContentUsage → recent_usage_keys=0
+    expect(ctx["recent_usage_keys"]).toBe(0);
+    // Sem kidsHelixState → cycle_day=null
+    expect(ctx["cycle_day"]).toBeNull();
+    // Sem feedback_signal events → outcome_signal="unknown"
+    expect(ctx["outcome_signal"]).toBe("unknown");
+  });
+
+  it("recentContentUsage hidratado propaga em recent_usage_keys (proxy)", async () => {
+    const stateWithUsage = {
+      ...mockState,
+      recentContentUsage: { "item-a": 3, "item-b": 1 },
+    };
+    const output = await planTurn({
+      sessionId: "test-g22-usage",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: stateWithUsage,
+      incomingMessage: "oi",
+    });
+    const ctx = output.contextHints["sacrifice_context"] as Record<string, unknown>;
+    expect(ctx["recent_usage_keys"]).toBe(2);
+  });
+
+  it("kidsHelixState.current_day populado → cycle_day reflete", async () => {
+    const stateWithHelix = {
+      ...mockState,
+      kidsHelixState: {
+        persona_id: "ryo",
+        active_pair: ["SA", "SOC"] as const,
+        cycle_started_at: "2026-05-01T00:00:00.000Z",
+        current_day: 8,
+        mode: "active" as const,
+        previous_pair: null,
+        cycles_completed: 0,
+        queue: [],
+        completed: [],
+        deferred: [],
+        triggers_fired_this_cycle: {},
+      },
+    };
+    const output = await planTurn({
+      sessionId: "test-g22-cycle",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      state: stateWithHelix as any,
+      incomingMessage: "oi",
+    });
+    const ctx = output.contextHints["sacrifice_context"] as Record<string, unknown>;
+    expect(ctx["cycle_day"]).toBe(8);
+    // breakdown[*].cycle_mult ≈ 1.3 (PICO day 7-9)
+    const breakdown = output.contextHints["sacrifice_breakdown"] as Array<
+      Record<string, unknown>
+    >;
+    expect(breakdown[0]!["cycle_mult"]).toBe(1.3);
+  });
+
+  it("eventLog com feedback_signal recente → outcome_signal derivado", async () => {
+    const stateWithFeedback = {
+      ...mockState,
+      eventLog: [
+        {
+          timestamp: "2026-05-14T10:00:00.000Z",
+          type: "feedback_signal",
+          data: { signal_type: "positive_engagement" },
+        },
+      ],
+    };
+    const output = await planTurn({
+      sessionId: "test-g22-feedback",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: stateWithFeedback,
+      incomingMessage: "oi",
+    });
+    const ctx = output.contextHints["sacrifice_context"] as Record<string, unknown>;
+    expect(ctx["outcome_signal"]).toBe("positive_engagement");
+    // breakdown[*].outcome_mult deve refletir 1.1
+    const breakdown = output.contextHints["sacrifice_breakdown"] as Array<
+      Record<string, unknown>
+    >;
+    expect(breakdown[0]!["outcome_mult"]).toBe(1.1);
+  });
+});
