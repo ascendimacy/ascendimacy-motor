@@ -1,0 +1,265 @@
+{
+  "pocName": "tutoring-v2-ryo-s3-closing",
+  "persona": {
+    "id": "ryo-ochiai",
+    "name": "Ryo",
+    "age": 11,
+    "profile": {
+      "sensitivity": "medium",
+      "preferences": {
+        "interests": [
+          "tênis",
+          "animes (especialmente Dragon Ball, com foco em Gohan e Cell)",
+          "relações fraternas (com Kei)",
+          "silêncio como forma de expressão",
+          "gestos não verbais e presença física",
+          "ver o Gohan no Cell (momento épico da série)",
+          "relacionamento com o irmão Kei",
+          "silêncio compartilhado durante o jantar",
+          "gestos não verbais de afeto (como o arroz no prato)",
+          "transformação e força interior (associada a Gohan)",
+          "animação e histórias de Dragon Ball (especialmente Gohan no Cell Saga)",
+          "tênis e rotina esportiva",
+          "relações com o irmão Kei",
+          "gestos simbólicos de afeto (como deixar a raquete no lugar certo)",
+          "exploração de identidade e emoções por meio de metáforas (ex: fogo vs ferrugem)"
+        ],
+        "aversions": [
+          "ser ignorado",
+          "não ser visto ou entendido sem falar",
+          "pressão para se comparar ao Kei",
+          "situações de conflito sem apoio emocional",
+          "ser ignorado ou não visto pelo Kei",
+          "pensar em responsabilidades futuras (sete gerações)",
+          "expressar emoções complexas sem palavras",
+          "situações de pressão que exigem decisão imediata",
+          "sentir que não é igual aos outros (especialmente ao irmão Kei)",
+          "não saber como fazer alguém rir",
+          "sentir que sua raiva é algo negativo ou problemático"
+        ],
+        "learning_style": "aprende melhor por meio de metáforas narrativas, comparações com personagens de histórias e reflexão sobre gestos cotidianos, especialmente quando conectados a emoções profundas."
+      },
+      "family_anchors": [
+        {
+          "name": "Kei",
+          "role": "irmão",
+          "gestures_observed": [
+            "aparecer no banheiro depois do incidente",
+            "dizer apenas 'tô aqui' sem palavras",
+            "compartilhar raquete sem pedir",
+            "está sempre no treino",
+            "não olha para o kid",
+            "coloca mais arroz no prato do kid sem falar",
+            "esquece o uniforme e corre pra casa",
+            "ri da cara de bosta que Ryo faz no treino",
+            "diz que Ryo é igual a ele, mas Ryo sente que não é"
+          ],
+          "emotional_role": "fonte de conexão afetiva, mesmo que por meio de humor e ironia; representa um espelho que Ryo tenta se igualar, mas que também o faz questionar sua própria identidade."
+        },
+        {
+          "name": "papai",
+          "role": "pai",
+          "gestures_observed": [
+            "deixa a raquete de Ryo no lugar certo após o jogo"
+          ],
+          "emotional_role": "representa afeto silencioso e presente em pequenos gestos, sem palavras, o que Ryo valoriza profundamente como forma de cuidado."
+        }
+      ],
+      "recurring_themes": [
+        "desejo de ser visto sem precisar gritar",
+        "pressão de se comparar ao irmão (Kei)",
+        "valor do silêncio como força",
+        "necessidade de reconhecimento emocional",
+        "sentimento de invisibilidade em contextos sociais",
+        "espera pelo Kei",
+        "silêncio no jantar como forma de presença",
+        "desejo de ser visto e reconhecido, como Gohan no Cell",
+        "raiva guardada e transformação interna",
+        "afeto expresso por gestos simples, não palavras",
+        "diferença entre si e o irmão Kei",
+        "afeto expresso por gestos silenciosos",
+        "raiva como força que pode ser transformadora",
+        "identidade pessoal ligada a atos únicos (como a cara de bosta)",
+        "transformação sob pressão (Gohan no Cell Saga como modelo)"
+      ],
+      "emotional_arcs": [
+        {
+          "session_id": "5e8a7505-d055-4ee9-9286-fd50fff72ae0",
+          "opening_tone": "distraído, com desinteresse e cansaço",
+          "closing_tone": "aberto e vulnerável, com um desejo claro de ser compreendido",
+          "key_disclosures": [
+            "ficou no banheiro da escola após um conflito e foi procurado apenas pelo Kei",
+            "revelou que sente que está presente mesmo sem falar, mas quer que alguém entenda isso",
+            "expressou que o silêncio é uma forma de tentar achar o jeito certo de ser"
+          ],
+          "flags": [
+            "sentimento persistente de invisibilidade",
+            "isolamento emocional após conflitos",
+            "dificuldade em buscar apoio, mesmo quando necessário",
+            "necessidade de validação não verbal"
+          ]
+        },
+        {
+          "session_id": "0ac76202-6ae6-41ca-82d7-a54ad19110e7",
+          "opening_tone": "distraído, passivo, com foco na espera",
+          "closing_tone": "entediado com um fio de vulnerabilidade",
+          "key_disclosures": [
+            "desejo de ser visto pelo Kei, como Gohan é visto no Cell",
+            "sentir que carrega tudo sozinho",
+            "reconhecer que a raiva é uma força que pode se tornar incontrolável"
+          ],
+          "flags": [
+            "desejo intenso de reconhecimento que não é atendido",
+            "sentimento de invisibilidade dentro da família",
+            "pressão emocional acumulada, expressa por silêncio e metáforas de explosão"
+          ]
+        },
+        {
+          "session_id": "a610ac08-4e31-44ea-aa72-d545953a3b32",
+          "opening_tone": "distraído, com foco no fim da aula de tênis e no desejo de ver o episódio",
+          "closing_tone": "refletivo e vulnerável, com consciência de suas emoções e identidade",
+          "key_disclosures": [
+            "não lembra da última vez que fez alguém rir",
+            "sentimento de que não é igual ao irmão Kei, mesmo quando ele diz que são iguais",
+            "aceitação de que sua raiva é explosiva, mas que pode ser usada por algo que vale a pena"
+          ],
+          "flags": [
+            "sentimento de inadequação em relação ao irmão",
+            "dificuldade em expressar afeto ou criar conexões emocionais positivas",
+            "pressão interna sobre a raiva como força negativa, mas também como potencial de transformação"
+          ]
+        }
+      ],
+      "open_loops": [
+        "desejo de ser entendido sem falar",
+        "exploração do que significa 'estar presente' no dia a dia",
+        "como o silêncio pode ser uma forma de força no tênis e na vida",
+        "o desejo de ser visto como Gohan no Cell — queria explorar esse momento de transformação e reconhecimento",
+        "a possibilidade de usar a raiva como força, não como destruição — aberto para diálogo sobre isso",
+        "a busca por palavras para nomear o que sente — ainda não encontrou vocabulário emocional",
+        "desejo de ver o novo episódio do Gohan no Cell Saga — pode ser um gancho para próxima sessão",
+        "reflexão sobre como usar sua 'diferença' como força, especialmente em relação ao irmão Kei",
+        "possível interesse em explorar mais sobre o que significa ser 'forte' de forma não violenta, como Gohan"
+      ],
+      "off_screen_completions": [
+        "ficar no banheiro da escola após um conflito",
+        "trocar de raquete com o Kei durante o treino",
+        "observar o Kei em momentos de jogo e comparação",
+        "esperar o Kei terminar o treino",
+        "comer juntos em casa",
+        "assistir ao Gohan no Cell",
+        "assistir ao novo episódio do Gohan no Cell Saga",
+        "refletir sobre a divisão de chocolate com Kei como gesto de confiança"
+      ],
+      "notes_for_next_session": [
+        "Perguntar como foi assistir ao episódio do Gohan no Cell Saga e o que Ryo sentiu sobre a transformação de Gohan.",
+        "Explorar mais o que significa ser 'igual' ou 'diferente' em relação ao irmão Kei, com foco em valorização da singularidade.",
+        "Sugerir uma atividade criativa: desenhar ou contar uma cena onde Ryo escolhe dividir algo com Kei, como um ato de confiança."
+      ],
+      "repetition_inquiry": {
+        "default_on_skip": "b"
+      }
+    }
+  },
+  "state": {
+    "sessionId": "ryo-s3-closing",
+    "trustLevel": 0.65,
+    "budgetRemaining": 30,
+    "turn": 11,
+    "eventLog": [
+      {
+        "type": "playbook_executed",
+        "turn": 7,
+        "summary": "Ryo disse que não lembra da última vez que fez alguém rir."
+      },
+      {
+        "type": "playbook_executed",
+        "turn": 8,
+        "summary": "Ryo: 'o Kei diz que somos iguais mas eu sei que não sou igual a ele'."
+      },
+      {
+        "type": "playbook_executed",
+        "turn": 9,
+        "summary": "Ryo trouxe Gohan no Cell saga espontaneamente: 'minha raiva é explosiva, mas pode ser usada por algo que vale a pena, tipo o Gohan'."
+      },
+      {
+        "type": "playbook_executed",
+        "turn": 10,
+        "summary": "Drota acolheu sem nomear. Ryo silenciou alguns segundos, depois trouxe de volta: 'tipo quando o Gohan finalmente vira...'"
+      }
+    ]
+  },
+  "incomingMessage": "Tipo o Gohan no Cell, quando ele finalmente vira... mas eu nem sei por que ia querer virar.",
+  "selectedContent": {
+    "item": {
+      "id": "synth_closing_thymos_arc",
+      "type": "curiosity_hook",
+      "domain": "social_emotional",
+      "casel_target": [
+        "self_awareness",
+        "self_management"
+      ],
+      "age_range": [
+        10,
+        14
+      ],
+      "surprise": 4,
+      "verified": true,
+      "base_score": 9,
+      "group_compatible": false,
+      "fact": "Os gregos antigos tinham uma palavra pra isso que tu descobriu: thymos — a força que vira raiva quando não tem destino, mas vira coragem quando encontra o que vale.",
+      "bridge": "Aquiles também explodia. Levou anos pra descobrir o que valia a pena. Tu já tá vendo: Gohan vira porque tem algo que vale (proteger a Terra). Não é a raiva que muda — é o que ela serve.",
+      "quest": "Não precisa responder agora. Só repara, entre hoje e a próxima vez: tem algum momento pequeno na semana em que tua raiva tem destino — algo ou alguém que vale ela ser usada? Pode ser pequeno. Pode ser silencioso.",
+      "sacrifice_type": "reflect",
+      "country": "GR"
+    },
+    "score": 9,
+    "reasons": [
+      "closing_reflective",
+      "synthesized_for_poc"
+    ]
+  },
+  "variantA": {
+    "rationale": "Ryo está vulnerável e reflexivo. Validar a descoberta sobre raiva canalizada. Fechar sessão com tom acolhedor. Evitar pressionar mais reflexão.",
+    "contextHints": {
+      "language": "pt-br",
+      "mood": "vulnerable_reflective",
+      "closing_turn": true,
+      "avoid": [
+        "pressionar",
+        "introduzir tema novo"
+      ]
+    },
+    "drotaOutput": "Sabia que os gregos antigos tinham uma palavra pra aquilo que você descobriu? Thymos. É a força que vira raiva quando não tem destino, mas vira coragem quando encontra algo que vale. Aquiles também explodia — levou anos pra entender o que valia a pena. Tu já tá vendo: Gohan virou porque tinha algo que valia a pena proteger. Não é a raiva que muda — é o que ela serve. Não precisa responder agora. Só repara, entre hoje e a próxima vez: tem algum momento pequeno na semana em que tua raiva tem destino? Algo ou alguém que vale ela ser usada? Pode ser pequeno. Pode ser silencioso.",
+    "drotaSelectionRationale": "Hook reflexivo com alta conexão emocional, casel SA em 'self_awareness' e 'self_management', alinhado ao arco de transformação de Gohan e à jornada interna de Ryo. O fato histórico sobre thymos oferece surpresa cultural, a ponte com Aquiles e Gohan valida a experiência emocional, e a questão aberta permite reflexão silenciosa sem pressão, respeitando o tom vulnerável e fechamento da sessão.",
+    "drotaRaw": "{\"selectionRationale\":\"Hook reflexivo com alta conexão emocional, casel SA em 'self_awareness' e 'self_management', alinhado ao arco de transformação de Gohan e à jornada interna de Ryo. O fato histórico sobre thymos oferece surpresa cultural, a ponte com Aquiles e Gohan valida a experiência emocional, e a questão aberta permite reflexão silenciosa sem pressão, respeitando o tom vulnerável e fechamento da sessão.\",\"linguisticMaterialization\":\"Sabia que os gregos antigos tinham uma palavra pra aquilo que você descobriu? Thymos. É a força que vira raiva quando não tem destino, mas vira coragem quando encontra algo que vale. Aquiles também explodia — levou anos pra entender o que valia a pena. Tu já tá vendo: Gohan virou porque tinha algo que valia a pena proteger. Não é a raiva que muda — é o que ela serve. Não precisa responder agora. Só repara, entre hoje e a próxima vez: tem algum momento pequeno na semana em que tua raiva tem destino? Algo ou alguém que vale ela ser usada? Pode ser pequeno. Pode ser silencioso.\"}",
+    "latencyMs": 87404,
+    "tokensIn": 3712,
+    "tokensOut": 283
+  },
+  "variantB": {
+    "rationale": "POR QUÊ — virtude alvo: Fortitudo (thymos canalizado por discernimento)\n         virtude manter: Temperantia (silêncio próprio do Ryo respeitado)\n         modelo emulado primário: Gohan no Cell saga (Ryo trouxe na sessão — usar o material DELE)\n         modelo emulado secundário: Aquiles (gregos antigos — mesmo padrão milenar)\n         telos pedagógico: posicionar Ryo na linhagem clássica via descoberta própria; Auctoritas embrionária (homens grandes descobriram antes de ti)\n\nCOMO ABRIR — usar o material que Ryo JÁ trouxe (Gohan); ancorar a descoberta dele em vocabulário grego (thymos); oferecer Aquiles como amplificação (não substituição) do modelo dele; tom de quem reconhece, não de quem ensina\n\nO QUE FAZER — closing que cumpre 6 funções:\n  1. Nomeia descoberta: \"isso que tu descobriu tem nome — thymos\"\n  2. Ancora em tradição milenar: \"os gregos antigos sabiam disso\"\n  3. Concretiza modelos: Aquiles errou muito até descobrir o que valia; Gohan transforma só porque há algo que vale (proteger a Terra)\n  4. Deixa microgesto-prática Confucian (li): pergunta pra entre sessões, não-cobrada, pequena\n  5. Respeita Temperantia: \"não precisa responder agora\", \"pode ser pequena, pode ser silenciosa\"\n  6. Posiciona Ryo na linhagem (Auctoritas embrionária): \"homens grandes descobriram isso antes de ti\" — sem hierarquizar, sem performance\n\nSequência Aristotelica respeitada: Temperantia (já presente) → Fortitudo (alvo do turn) → Prudentia (próximo degrau, não agora). NÃO pular pra Auctoritas explícita — fica embrionária, sem nomear.",
+    "contextHints": {
+      "language": "pt-br",
+      "mood": "vulnerable_reflective",
+      "closing_turn": true,
+      "virtue_target_stretch": "Fortitudo",
+      "virtue_maintain": "Temperantia",
+      "emulation_model_primary": "Gohan no Cell saga",
+      "emulation_model_secondary": "Aquiles",
+      "tradition_anchor": "gregos antigos",
+      "microgesto_confucian": true,
+      "avoid": [
+        "pressionar",
+        "professoral",
+        "performance"
+      ]
+    },
+    "drotaOutput": "Sabia que os gregos antigos tinham uma palavra pra isso que tu descobriu? Thymos. É a força que vira raiva quando não tem destino, mas vira coragem quando encontra o que vale. Aquiles também explodia. Levou anos pra descobrir o que valia a pena. Tu já tá vendo: Gohan vira porque tem algo que vale — proteger a Terra. Não é a raiva que muda — é o que ela serve. Não precisa responder agora. Só repara, entre hoje e a próxima vez: tem algum momento pequeno na semana em que tua raiva tem destino — algo ou alguém que vale ela ser usada? Pode ser pequeno. Pode ser silencioso.",
+    "drotaSelectionRationale": "Hook reflexivo com alta conexão emocional e ancestral, casel SA em 'self_awareness' e 'self_management', alinhado ao modelo Gohan no Cell e à tradição grega antiga. O conteúdo oferece nomeação (thymos) para a força interna de Ryo, amplifica o modelo com Aquiles como paralelo histórico, e propõe uma microprática silenciosa, respeitando Temperantia e o tom vulnerável-reflexivo do closing.",
+    "drotaRaw": "{\"selectionRationale\":\"Hook reflexivo com alta conexão emocional e ancestral, casel SA em 'self_awareness' e 'self_management', alinhado ao modelo Gohan no Cell e à tradição grega antiga. O conteúdo oferece nomeação (thymos) para a força interna de Ryo, amplifica o modelo com Aquiles como paralelo histórico, e propõe uma microprática silenciosa, respeitando Temperantia e o tom vulnerável-reflexivo do closing.\",\"linguisticMaterialization\":\"Sabia que os gregos antigos tinham uma palavra pra isso que tu descobriu? Thymos. É a força que vira raiva quando não tem destino, mas vira coragem quando encontra o que vale. Aquiles também explodia. Levou anos pra descobrir o que valia a pena. Tu já tá vendo: Gohan vira porque tem algo que vale — proteger a Terra. Não é a raiva que muda — é o que ela serve. Não precisa responder agora. Só repara, entre hoje e a próxima vez: tem algum momento pequeno na semana em que tua raiva tem destino — algo ou alguém que vale ela ser usada? Pode ser pequeno. Pode ser silencioso.\"}",
+    "latencyMs": 39702,
+    "tokensIn": 4235,
+    "tokensOut": 284
+  }
+}
