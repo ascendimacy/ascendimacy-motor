@@ -583,13 +583,22 @@ describe("buildTrioConfigFromPlaybook", () => {
   });
 
   it("integra com kids.group.playbook.yaml canônico (se presente)", () => {
-    // Procura o playbook canon em vários locais — tolerant pra dev local.
+    // Procura o playbook canon em vários locais — tolerant pra dev local + CI.
+    //
+    // Ordem de preferência (ops#1092 wire-up):
+    //   1. Cópia local em `<motor>/playbooks/kids.group.playbook.yaml` (canon
+    //      sincronizada com ops doctrine §11 trio Saki entry).
+    //   2. ops repo absolute path (dev local com ambos os repos checked out).
+    //
+    // Se nenhum disponível: skip (CI sem ops checked out).
     const candidates = [
+      // motor local copy (canon sincronizado em ops#1092, mantém max_group_size=3)
+      new URL("../../playbooks/kids.group.playbook.yaml", import.meta.url).pathname,
       "/home/alexa/ascendimacy-ops/docs/playbooks/kids.group.playbook.yaml",
     ];
     const found = candidates.find((p) => existsSync(p));
     if (!found) {
-      // Skip se ops repo não acessível neste ambiente.
+      // Skip se nenhuma cópia acessível neste ambiente.
       return;
     }
     const raw = readFileSync(found, "utf-8");
