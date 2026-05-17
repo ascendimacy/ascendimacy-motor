@@ -185,7 +185,7 @@ describe("planTurn — G-22 remaining gaps integration (ops#1033)", () => {
         queue: [],
         completed: [],
         deferred: [],
-        triggers_fired_this_cycle: {},
+        triggers_fired_this_cycle: [],
       },
     };
     const output = await planTurn({
