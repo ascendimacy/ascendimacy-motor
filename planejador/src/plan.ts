@@ -195,6 +195,22 @@ function applyPinnedDecisions(pool: ContentItem[], persona: PlanTurnInput["perso
 
 export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   const sessionMode = input.state.sessionMode ?? "solo";
+
+  // G-22 pool-builder integration (ops#1093) — hidratação de sacrifice context
+  // ANTES de buildPool/scorePool pra que:
+  //  (a) buildPool aplique HARD GATE quando budget exhausted (sub-decisão 2)
+  //  (b) scorePool receba sacrifice_cost_by_id pra penalty/boost por item
+  //
+  // Mantém pool-builder/scorer puros — toda I/O e derivação fica no orchestrator.
+  const budgetExhausted = isExhausted(input.state);
+  const personaSensitivity = extractPersonaSensitivity(
+    input.persona.profile as Record<string, unknown> | undefined,
+  );
+  const outcomeSignal = deriveOutcomeSignal(input.state.eventLog ?? []);
+  const weekday = new Date().getDay();
+  const cycleDay = input.state.kidsHelixState?.current_day;
+  const recentUsageMap = input.state.recentContentUsage ?? {};
+
   // 1. Scoring determinístico do pool.
   const rawPool = loadSeedPool(seedPath());
   const withPinnedMarks = applyPinnedDecisions(rawPool, input.persona);
@@ -202,7 +218,29 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     age: input.persona.age,
     // Bloco 6: joint filtra por group_compatible (campo já existe desde 2a A.1.1)
     sessionMode: sessionMode === "joint" ? "joint" : "1v1",
+    // G-22 (ops#1093 sub-decisão 2): HARD GATE em exhaustion — items com
+    // sacrifice > 7 caem fora ANTES de chegar no drota. Single source of truth
+    // pro threshold em sacrifice-budget.BUDGET_EXHAUSTED_MAX_SACRIFICE.
+    budgetExhaustedGate: budgetExhausted,
   });
+
+  // G-22 (ops#1093 sub-decisão 1): pre-compute sacrifice cost per eligible item
+  // pra alimentar scorer. Usa contexto completo (sensitivity + outcome + weekday
+  // + cycleDay + recentUsageMap) — fórmula completa motor#130. Items sem
+  // sacrifice_amount caem em BASE_EFFORT_DEFAULT (mirror sacrifice-budget#358).
+  const sacrificeCostById: Record<string, number> = {};
+  for (const item of eligible) {
+    const cost = computeChallengeCost({
+      item,
+      personaSensitivity,
+      recentUsageCount: recentUsageMap[item.id] ?? 0,
+      outcomeSignal,
+      weekday,
+      cycleDay,
+    });
+    sacrificeCostById[item.id] = cost.total;
+  }
+
   const child = personaToChildProfile(input.persona, input.state);
   const statusMatrix = input.state.statusMatrix ?? defaultMatrix();
   const focusDim = pickFocusDimension(statusMatrix);
@@ -258,6 +296,9 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       now: new Date().toISOString(),
       casel_focus: caselTargets[0] as ScoredContentItem["item"]["casel_target"][number] | undefined,
       used_in_session: usedInSession,
+      // G-22 (ops#1093): inject sacrifice cost map → scorer aplica
+      // SACRIFICE_SCORE_WEIGHT × (BASE_EFFORT - cost) per item.
+      sacrifice_cost_by_id: sacrificeCostById,
     });
     topK = scored.slice(0, TOP_K_POOL);
   }
@@ -509,32 +550,35 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   // gaps (5+6+7+10). CC defaults inline aguardando ratify.
   //
   // - Gap 1+2+3+4 (motor#124): base × consumption × sensitivity × challenge
-  // - Gap 5 (este PR): outcome_mult derivado de eventLog (feedback_signal)
-  // - Gap 6 (este PR): weekly_mult via Date.getDay() canon onda semanal
-  // - Gap 7 (este PR): cycle_mult via kidsHelixState.current_day canon onda ciclo
+  // - Gap 5 (motor#130): outcome_mult derivado de eventLog (feedback_signal)
+  // - Gap 6 (motor#130): weekly_mult via Date.getDay() canon onda semanal
+  // - Gap 7 (motor#130): cycle_mult via kidsHelixState.current_day canon onda ciclo
   // - Gap 8 (motor#124): budget exhaustion soft degrade
   // - Gap 9 (motor#124): trust ratio prazer/sacrifice
-  // - Gap 10 (este PR): clamp [MIN_SINGLE_ITEM_COST, MAX_SINGLE_ITEM_COST]
+  // - Gap 10 (motor#130): clamp [MIN_SINGLE_ITEM_COST, MAX_SINGLE_ITEM_COST]
   //
-  // recentUsageCount: hidratado via state.recentContentUsage (motor#108 →
-  // state-manager getRecentContentUsageRecord). Por-item via map lookup;
-  // ausência → 0 (consumption_mult=1.0, sem decay — backward compat).
-  const personaSensitivity = extractPersonaSensitivity(
-    input.persona.profile as Record<string, unknown> | undefined,
-  );
+  // ops#1093 (este PR) — pool-builder loop:
+  //   * personaSensitivity / outcomeSignal / weekday / cycleDay /
+  //     recentUsageMap / budgetExhausted JÁ derivados no topo (linhas 197-211)
+  //     pra alimentar buildPool (hard gate) + scorePool (cost penalty).
+  //   * Re-uso aqui é só pra observability hints — mesmas refs.
   const trustRatio = computeTrustRatio(input.state.trustLevel);
   contextHints["prazer_sacrifice_ratio"] = {
     prazer_quota: Number(trustRatio.prazerQuota.toFixed(4)),
     sacrifice_quota: Number(trustRatio.sacrificeQuota.toFixed(4)),
   };
 
-  const budgetExhausted = isExhausted(input.state);
   if (budgetExhausted) {
+    // Pós ops#1093 hard gate em buildPool, todo item que chegou no topK já
+    // passou o filtro `isItemAllowedUnderBudgetExhaustion`. Mantém allowedIds
+    // pra backward compat com consumers que leem contextHints diretamente
+    // (drota fallback signal — defesa em profundidade).
     const allowedIds = topK
       .filter((s) => isItemAllowedUnderBudgetExhaustion(s.item))
       .map((s) => s.item.id);
     contextHints["budget_state"] = "exhausted_soft_degrade";
     contextHints["budget_exhausted_allowed_ids"] = allowedIds;
+    contextHints["budget_exhausted_gate_applied"] = true;
     try {
       logDebugEvent({
         side: "motor",
@@ -548,6 +592,8 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
             budget_remaining: input.state.budgetRemaining,
             allowed_ids_count: allowedIds.length,
             top_k_count: topK.length,
+            // ops#1093: registra que o gate foi aplicado em buildPool.
+            gate_applied_at: "pool-builder",
           },
         },
       });
@@ -558,17 +604,10 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     contextHints["budget_state"] = "ok";
   }
 
-  // Gap 5+6+7 hydration — derivados antes do breakdown loop.
-  //   - outcomeSignal: derived once por turn (último feedback_signal event)
-  //   - weekday: JS Date.getDay() em UTC (orchestrator pode override via env futura)
-  //   - cycleDay: from kidsHelixState (G-05); undefined quando persona não bootstrapped
-  //   - recentUsageMap: hidratado por motor-execucao em state.recentContentUsage
-  const outcomeSignal = deriveOutcomeSignal(input.state.eventLog ?? []);
-  const weekday = new Date().getDay();
-  const cycleDay = input.state.kidsHelixState?.current_day;
-  const recentUsageMap = input.state.recentContentUsage ?? {};
-
   // G-22 breakdown completo — top-K cost preview (observability; não modifica scoring).
+  // ops#1093: reusa sacrificeCostById quando possível pra economizar chamada;
+  // mas isaLabels.intensity (de ActionMenu) altera o cost pra alguns items,
+  // então faz re-compute pro top-K pra capturar intensity quando presente.
   const sacrificeBreakdown = topK.slice(0, 5).map((s) => {
     const cost = computeChallengeCost({
       item: s.item,

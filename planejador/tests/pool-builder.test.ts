@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { loadSeedPool, buildPool, slicePoolForDrota } from "../src/pool-builder.js";
+import {
+  loadSeedPool,
+  buildPool,
+  slicePoolForDrota,
+  BUDGET_EXHAUSTED_MAX_SACRIFICE,
+} from "../src/pool-builder.js";
 import type { ContentItem, ScoredContentItem } from "@ascendimacy/shared";
 
 const makeHook = (overrides: Partial<ContentItem> = {}): ContentItem =>
@@ -82,6 +87,62 @@ describe("buildPool — refusal tracking is Bloco 3+ (v2, §4.11)", () => {
     const pool = [makeHook({ id: "normal" })];
     const built = buildPool(pool, { age: 10 });
     expect(built.map((i) => i.id)).toEqual(["normal"]);
+  });
+});
+
+// G-22 pool-builder integration (ops#1093 — follow-up motor#130)
+describe("buildPool — budgetExhaustedGate (ops#1093 sub-decisão 2)", () => {
+  it("flag false (default) → não filtra por sacrifice_amount (backward compat)", () => {
+    const pool = [
+      makeHook({ id: "heavy", sacrifice_amount: 25 }),
+      makeHook({ id: "medium", sacrifice_amount: 10 }),
+      makeHook({ id: "light", sacrifice_amount: 4 }),
+    ];
+    const built = buildPool(pool, { age: 10 });
+    expect(built.map((i) => i.id).sort()).toEqual(["heavy", "light", "medium"]);
+  });
+
+  it("flag true → items com sacrifice_amount > 7 caem fora (HARD GATE)", () => {
+    const pool = [
+      makeHook({ id: "heavy", sacrifice_amount: 25 }),
+      makeHook({ id: "borderline_above", sacrifice_amount: 8 }),
+      makeHook({ id: "exactly_7", sacrifice_amount: 7 }),
+      makeHook({ id: "light", sacrifice_amount: 4 }),
+    ];
+    const built = buildPool(pool, { age: 10, budgetExhaustedGate: true });
+    expect(built.map((i) => i.id).sort()).toEqual(["exactly_7", "light"]);
+  });
+
+  it("flag true + item SEM sacrifice_amount → tratado como BASE_EFFORT_DEFAULT (8) → cai fora", () => {
+    const pool = [
+      makeHook({ id: "no_sacrifice" }), // undefined → 8 → filter
+      makeHook({ id: "light", sacrifice_amount: 4 }),
+    ];
+    const built = buildPool(pool, { age: 10, budgetExhaustedGate: true });
+    expect(built.map((i) => i.id)).toEqual(["light"]);
+  });
+
+  it("BUDGET_EXHAUSTED_MAX_SACRIFICE re-exported = 7 (canon DELTA §D24)", () => {
+    expect(BUDGET_EXHAUSTED_MAX_SACRIFICE).toBe(7);
+  });
+
+  it("gate combina com age + joint mode sem conflitar", () => {
+    const pool = [
+      makeHook({ id: "kid_heavy", age_range: [7, 12], sacrifice_amount: 20, group_compatible: true }),
+      makeHook({ id: "kid_light", age_range: [7, 12], sacrifice_amount: 5, group_compatible: true }),
+      makeHook({ id: "kid_light_solo", age_range: [7, 12], sacrifice_amount: 5, group_compatible: false }),
+      makeHook({ id: "teen_light", age_range: [15, 18], sacrifice_amount: 5, group_compatible: true }),
+    ];
+    const built = buildPool(pool, {
+      age: 10,
+      sessionMode: "joint",
+      budgetExhaustedGate: true,
+    });
+    expect(built.map((i) => i.id)).toEqual(["kid_light"]);
+  });
+
+  it("pool vazio com gate ligado → vazio", () => {
+    expect(buildPool([], { age: 10, budgetExhaustedGate: true })).toEqual([]);
   });
 });
 

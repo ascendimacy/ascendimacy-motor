@@ -15,6 +15,32 @@ import type {
   ScoredContentItem,
 } from "./content-item.js";
 
+/**
+ * G-22 pool-builder integration (ops#1093 — follow-up motor#130).
+ *
+ * Default base effort quando item.sacrifice_amount ausente — mirror de
+ * `BASE_EFFORT_DEFAULT` em sacrifice-budget.ts (não importado pra manter
+ * scorer livre de dep circular; valor sincronizado documentalmente).
+ */
+const SACRIFICE_BASE_EFFORT_DEFAULT = 8;
+
+/**
+ * G-22 pool-builder integration (ops#1093 — follow-up motor#130).
+ *
+ * Coeficiente linear inverso aplicado a `(sacrificeCost - BASE_EFFORT)`.
+ * CC default Jun 2026-05-16, aguardando ratify:
+ *   - sacrificeCost 26 (Saki sensory+firm) → -3.6 score adjustment
+ *   - sacrificeCost 5  (low effort)        → +0.6 score adjustment (boost)
+ *   - sacrificeCost 8  (= base)            → 0 (neutro)
+ *
+ * Alternativas documentadas em ops#1093 sub-decisão 1:
+ *   (A) 0.0  — sem score adjustment, só hard gate em budget exhausted
+ *   (B) 0.5  — agressivo (Saki firm -9 score, quase suprime)
+ *   (C) 0.2  — CC default, alinhado com `engagement_by_type` (×0.5) e
+ *              menor que CASEL_FOCUS_BONUS (3); conservador.
+ */
+export const SACRIFICE_SCORE_WEIGHT = 0.2;
+
 /** Half-life em dias por tipo de conteúdo. Infinity = não decai. */
 export const DECAY_BY_TYPE: Record<ContentItemType, number> = {
   curiosity_hook: 14,
@@ -87,6 +113,18 @@ export interface ScoringContext {
    * smoke-3d onde 12 chamadas drota selecionaram bio_dolphin_names todas.
    */
   used_in_session?: string[];
+
+  /**
+   * G-22 pool-builder integration (ops#1093). Map item.id → sacrifice cost
+   * computado por `computeChallengeCost` (sacrifice-budget). Quando presente,
+   * scorer aplica `SACRIFICE_SCORE_WEIGHT × (BASE_EFFORT_DEFAULT - cost)` —
+   * items caros são penalizados, items baratos boostados.
+   *
+   * Hidratação responsabilidade do caller (planejador). Ausente → sem ajuste
+   * (backward compat). Items SEM entry no map (e.g., sem sacrifice_amount)
+   * usam fallback `SACRIFICE_BASE_EFFORT_DEFAULT (8)` → 0 adjustment.
+   */
+  sacrifice_cost_by_id?: Record<string, number>;
 }
 
 function daysBetween(laterIso: string, earlierIso: string): number {
@@ -186,6 +224,24 @@ export function scoreItem(
     const engagementBonus = engagement * 0.5;
     score += engagementBonus;
     reasons.push(`engagement_by_type=+${engagementBonus.toFixed(2)}`);
+  }
+
+  // G-22 pool-builder integration (ops#1093 — follow-up motor#130).
+  // Items caros (sacrifice cost > base_effort) penalizados; items baratos
+  // boostados. Linear inverse: adj = SACRIFICE_SCORE_WEIGHT × (base - cost).
+  // Aplicado ANTES do used_in_session pra deixar o motor#23 -100 sempre
+  // dominante (drota não reusa item da sessão mesmo se cheap). Ordem aqui
+  // é só pra clarity nas reasons; matemática é additiva.
+  if (context.sacrifice_cost_by_id) {
+    const cost = context.sacrifice_cost_by_id[item.id];
+    if (typeof cost === "number") {
+      const adjustment = SACRIFICE_SCORE_WEIGHT * (SACRIFICE_BASE_EFFORT_DEFAULT - cost);
+      if (adjustment !== 0) {
+        score += adjustment;
+        const sign = adjustment >= 0 ? "+" : "";
+        reasons.push(`sacrifice_cost_adj=${sign}${adjustment.toFixed(2)} (cost=${cost.toFixed(2)})`);
+      }
+    }
   }
 
   // motor#23: penalidade forte para items já usados nesta sessão.

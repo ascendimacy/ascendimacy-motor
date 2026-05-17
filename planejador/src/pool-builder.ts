@@ -11,7 +11,11 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ContentItem, ScoredContentItem } from "@ascendimacy/shared";
-import { isContentItem } from "@ascendimacy/shared";
+import {
+  BUDGET_EXHAUSTED_MAX_SACRIFICE,
+  isContentItem,
+  isItemAllowedUnderBudgetExhaustion,
+} from "@ascendimacy/shared";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -45,6 +49,23 @@ export interface PoolFilterOptions {
    * Ver plan v2 §4.11 (refusal tracking é Bloco 3+).
    */
   allowProtected?: boolean;
+  /**
+   * G-22 pool-builder integration (ops#1093 — follow-up motor#130).
+   *
+   * Quando true, aplica HARD GATE em budget exhausted: items com
+   * `sacrifice_amount > BUDGET_EXHAUSTED_MAX_SACRIFICE (7)` caem fora ANTES
+   * de chegar no drota. Items sem `sacrifice_amount` usam BASE_EFFORT_DEFAULT
+   * (8) como fallback — passam o gate apenas se 8 ≤ 7 = false (filtrados).
+   *
+   * CC default Jun 2026-05-16, aguardando ratify ops#1093 sub-decisão 2:
+   *   (A) Soft penalty -50 em score (não exclui — backstop)
+   *   (B) Hard filter — CC default (alinhado canon DELTA §D24 "modo mínimo forçado")
+   *
+   * Caller responsabilidade: setar true quando `isExhausted(state)` retornar
+   * true. Pool-builder não decide budget — recebe o flag pré-computado pra
+   * manter função pura.
+   */
+  budgetExhaustedGate?: boolean;
 }
 
 /**
@@ -64,11 +85,20 @@ export function buildPool(
     if (opts.sessionMode === "joint" && !item.group_compatible) {
       return false;
     }
+    // G-22 (ops#1093): budget exhausted hard gate.
+    // Reusa `isItemAllowedUnderBudgetExhaustion` de sacrifice-budget pra
+    // manter single source of truth do threshold (BUDGET_EXHAUSTED_MAX_SACRIFICE=7).
+    if (opts.budgetExhaustedGate && !isItemAllowedUnderBudgetExhaustion(item)) {
+      return false;
+    }
     // Bloco 2a v1 assume todos os items do seed são sensitivity=free implícito.
     // Refusal tracking (cooldown em nó refused) é Bloco 3+.
     return true;
   });
 }
+
+/** Re-export pra callers que precisam do threshold sem ir até sacrifice-budget. */
+export { BUDGET_EXHAUSTED_MAX_SACRIFICE };
 
 /** Options pra slicePoolForDrota — char budget + max items. */
 export interface SliceOptions {

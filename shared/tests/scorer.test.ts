@@ -8,6 +8,7 @@ import {
   RECENT_DOMAIN_PENALTY,
   USED_IN_SESSION_PENALTY,
   DECAY_BY_TYPE,
+  SACRIFICE_SCORE_WEIGHT,
 } from "../src/scorer.js";
 import type { ChildScoringProfile, ScoringContext } from "../src/scorer.js";
 import type { ContentItem } from "../src/content-item.js";
@@ -296,5 +297,108 @@ describe("scoreItem — used_in_session penalty (motor#23)", () => {
     });
     expect(scored[0].item.id).toBe("c"); // único não usado
     expect(scored.filter((s) => s.score < 0).map((s) => s.item.id).sort()).toEqual(["a", "b"]);
+  });
+});
+
+// G-22 pool-builder integration (ops#1093 — follow-up motor#130)
+describe("scoreItem — sacrifice_cost_by_id adjustment (ops#1093)", () => {
+  it("sem sacrifice_cost_by_id → comportamento idêntico ao baseline (backward compat)", () => {
+    const r = scoreItem(hook({ base_score: 7 }), baseChild, baseCtx);
+    expect(r.score).toBe(7);
+    expect(r.reasons.find((x) => x.includes("sacrifice_cost_adj"))).toBeUndefined();
+  });
+
+  it("sacrifice cost = BASE (8) → adjustment = 0, sem reason", () => {
+    const r = scoreItem(hook({ id: "neutral" }), baseChild, {
+      ...baseCtx,
+      sacrifice_cost_by_id: { neutral: 8 },
+    });
+    expect(r.score).toBe(7);
+    expect(r.reasons.find((x) => x.includes("sacrifice_cost_adj"))).toBeUndefined();
+  });
+
+  it("sacrifice cost = 26 (Saki sensory+firm) → penalidade -3.6", () => {
+    const r = scoreItem(hook({ id: "heavy" }), baseChild, {
+      ...baseCtx,
+      sacrifice_cost_by_id: { heavy: 26 },
+    });
+    // 7 + 0.2 × (8 - 26) = 7 - 3.6 = 3.4
+    expect(r.score).toBeCloseTo(3.4, 5);
+    expect(r.reasons.find((x) => x.startsWith("sacrifice_cost_adj"))).toMatch(/-3\.60/);
+  });
+
+  it("sacrifice cost = 5 (low effort) → boost +0.6", () => {
+    const r = scoreItem(hook({ id: "cheap" }), baseChild, {
+      ...baseCtx,
+      sacrifice_cost_by_id: { cheap: 5 },
+    });
+    // 7 + 0.2 × (8 - 5) = 7 + 0.6 = 7.6
+    expect(r.score).toBeCloseTo(7.6, 5);
+    expect(r.reasons.find((x) => x.startsWith("sacrifice_cost_adj"))).toMatch(/\+0\.60/);
+  });
+
+  it("item.id sem entry no map → sem adjustment (defensive)", () => {
+    const r = scoreItem(hook({ id: "missing" }), baseChild, {
+      ...baseCtx,
+      sacrifice_cost_by_id: { "other-id": 30 },
+    });
+    expect(r.score).toBe(7);
+    expect(r.reasons.find((x) => x.includes("sacrifice_cost_adj"))).toBeUndefined();
+  });
+
+  it("sacrifice adjustment + used_in_session penalty se compõem (motor#23 dominante)", () => {
+    const r = scoreItem(hook({ id: "h1" }), baseChild, {
+      ...baseCtx,
+      used_in_session: ["h1"],
+      sacrifice_cost_by_id: { h1: 5 }, // adj = +0.6
+    });
+    // base 7 + 0.6 sacrifice adj - 100 used penalty = -92.4
+    expect(r.score).toBeCloseTo(7 + 0.6 - USED_IN_SESSION_PENALTY, 5);
+    expect(r.reasons).toContain(`used_in_session_penalty=-${USED_IN_SESSION_PENALTY}`);
+    expect(r.reasons.find((x) => x.startsWith("sacrifice_cost_adj"))).toBeDefined();
+  });
+
+  it("scorePool: items caros caem para baixo, baratos sobem (mesmo base_score)", () => {
+    const pool = [
+      hook({ id: "expensive", base_score: 7 }),
+      hook({ id: "medium", base_score: 7 }),
+      hook({ id: "cheap", base_score: 7 }),
+    ];
+    const scored = scorePool(pool, baseChild, {
+      ...baseCtx,
+      sacrifice_cost_by_id: {
+        expensive: 30, // adj = 0.2 × (8 - 30) = -4.4
+        medium: 8,     // adj = 0
+        cheap: 4,      // adj = 0.2 × (8 - 4) = +0.8
+      },
+    });
+    expect(scored.map((s) => s.item.id)).toEqual(["cheap", "medium", "expensive"]);
+    expect(scored[0]!.score).toBeCloseTo(7.8, 5);
+    expect(scored[1]!.score).toBeCloseTo(7, 5);
+    expect(scored[2]!.score).toBeCloseTo(2.6, 5);
+  });
+
+  it("SACRIFICE_SCORE_WEIGHT exportado como 0.2 (CC default conservador)", () => {
+    expect(SACRIFICE_SCORE_WEIGHT).toBe(0.2);
+  });
+
+  it("idade fora da faixa: sacrifice adj NÃO aplicado (age gate vence)", () => {
+    const r = scoreItem(
+      hook({ id: "h1", age_range: [15, 18] }),
+      { age: 10 },
+      { ...baseCtx, sacrifice_cost_by_id: { h1: 30 } },
+    );
+    expect(r.score).toBe(0);
+    expect(r.reasons.find((x) => x.includes("sacrifice"))).toBeUndefined();
+  });
+
+  it("parent_pinned: sacrifice adj NÃO aplicado (pin vence)", () => {
+    const r = scoreItem(
+      hook({ id: "h1", parent_pinned: true, pinned_until: null }),
+      baseChild,
+      { ...baseCtx, sacrifice_cost_by_id: { h1: 30 } },
+    );
+    expect(r.score).toBe(PARENT_PINNED_SCORE);
+    expect(r.reasons.find((x) => x.includes("sacrifice"))).toBeUndefined();
   });
 });
