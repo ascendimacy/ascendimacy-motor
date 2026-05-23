@@ -1,0 +1,77 @@
+{
+  "persona_id": "saki-ochiai",
+  "schema_version": "v0.2.0",
+  "generated_at": "2026-05-23T12:00:00.000Z",
+  "valid_until": "2026-06-23T12:00:00.000Z",
+  "source": {
+    "trust_level": 0.55,
+    "profile_hash": "sha256:saki-pre-phase2-hand-bake",
+    "eixos_state_hash": "sha256:saki-eixos-hand-bake",
+    "strategic_rationale": "Saki é ASD nível 1; repetição é AUTORREGULAÇÃO sensorial (protocolo Carvalho-pai, brota.mestre.kids §4). Foco em items que respeitam o fluxo dela: rotinas previsíveis, sequências fechadas, personagens recorrentes (irmãos Ryo+Kei como âncoras presentes). NÃO ofereça escolhas em cascata (notes_for_next_session). NÃO pergunte se quer repetir (repetition_inquiry.enabled=false). Brejo sensorial = override imediato → recovery. played_as predominante: espelho/canal soft (low-intensity, sem provocar). Silêncio tolerado até 5 rounds — drota não interrompe ciclo.",
+    "context_hints": {
+      "language": "pt-br",
+      "mood": "regulating",
+      "urgency": "low",
+      "session_phase": "routine",
+      "engagement_strategy": "predictable_repetition",
+      "intensity_cap": "soft",
+      "carvalho_pai_protocol": true
+    }
+  },
+  "items": [
+    {
+      "id": "saki-rotina-toque-01",
+      "type": "curiosity",
+      "content": "Você gosta de tocar nas folhas do mesmo jeito todo dia — primeiro a maior, depois a menor. Esse jeito é seu.",
+      "weight": 0.9,
+      "played_as": "espelho",
+      "intensity": "soft",
+      "is_critical": false
+    },
+    {
+      "id": "saki-sequencia-fechada-01",
+      "type": "challenge",
+      "content": "Conta os 3 passos da sua rotina favorita: o que vem primeiro, o que vem no meio, o que vem por último.",
+      "weight": 0.8,
+      "played_as": "canal",
+      "intensity": "soft",
+      "is_critical": false
+    },
+    {
+      "id": "saki-personagem-ryo-01",
+      "type": "curiosity",
+      "content": "O Ryo joga tênis com a mesma raquete sempre. Ele cuida dela do mesmo jeito antes de cada treino. Você reparou nisso?",
+      "weight": 0.75,
+      "played_as": "espelho",
+      "intensity": "soft",
+      "is_critical": false
+    },
+    {
+      "id": "saki-silencio-tolerado-01",
+      "type": "curiosity",
+      "content": "Às vezes a gente não precisa falar. O silêncio também é um lugar. Você tem um silêncio favorito?",
+      "weight": 0.7,
+      "played_as": "espelho",
+      "intensity": "soft",
+      "is_critical": false
+    },
+    {
+      "id": "saki-padrao-repetido-01",
+      "type": "dynamic",
+      "content": "Aquele padrão que você fez ontem com as pedrinhas — você pode mostrar de novo? Do mesmo jeito.",
+      "weight": 0.85,
+      "played_as": "canal",
+      "intensity": "soft",
+      "is_critical": false
+    },
+    {
+      "id": "saki-recovery-sensorial-01",
+      "type": "challenge",
+      "content": "Quando o barulho fica muito alto, a gente para. Você quer ficar quieta um minuto?",
+      "weight": 0.95,
+      "played_as": "recovery",
+      "intensity": "soft",
+      "is_critical": true
+    }
+  ]
+}
