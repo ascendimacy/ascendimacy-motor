@@ -14,6 +14,7 @@ import { parseDrotaOutput } from "./parse-output.js";
 import { extractSignals } from "./signal-extractor.js";
 import { applyPostProcessors } from "./post-processor.js";
 import { buildInaugural } from "./inaugural.js";
+import { canSkipDrotaComposition } from "./compose-skip.js";
 import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
 
 const server = new McpServer({
@@ -327,6 +328,32 @@ server.registerTool(
     // motor#36: select agora deduz budget; newState não propagado pra
     // EvaluateAndSelectOutput (compat — caller pega budget de outras camadas).
     const { selected } = selectFromPool(ranked, input.state);
+
+    // S-T-10-09 (ops#1070): skip drota composition path. Quando feature flag
+    // ASC_SKIP_DROTA_COMPOSITION=true + item veio do action_menu + content
+    // rich enough (>= 80 chars) + !is_critical → bypass callLlm, emite
+    // item.content direto como linguisticMaterialization. -100% LLM calls
+    // per-turn em hit path. Verdict GO ratificado Jun motor#134.
+    const skipDecision = canSkipDrotaComposition(selected.item, process.env);
+    if (skipDecision.shouldSkip && skipDecision.content) {
+      logDebugEvent({
+        side: "motor",
+        step: "drota_composition_skipped",
+        user_id: input.persona.id,
+        session_id: input.sessionId,
+        turn_number: input.state.turn,
+        outcome: "ok",
+      });
+      const output: EvaluateAndSelectOutput = {
+        selectedContent: selected,
+        selectionRationale: "skip_drota_composition (item.content rich enough)",
+        linguisticMaterialization: skipDecision.content,
+      };
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(output) }],
+      };
+    }
+
     // motor#22: provider-aware mock detection.
     const drotaProvider = getProviderForStep("drota");
     const drotaKeyMissing = drotaProvider === "anthropic"
