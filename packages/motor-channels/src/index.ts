@@ -3,3 +3,4 @@ export * from "./channel.js";
 export * from "./mock-channel.js";
 export * from "./mcp-server.js";
 export * from "./router.js";
+export * from "./cards-loader.js";
