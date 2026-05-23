@@ -17,6 +17,7 @@
 
 import makeWASocket, {
   DisconnectReason,
+  fetchLatestBaileysVersion,
   useMultiFileAuthState,
   type WASocket,
 } from "@whiskeysockets/baileys";
@@ -38,6 +39,12 @@ export interface BaileysChannelOptions {
   socketFactory?: typeof makeWASocket;
   /** Idem pra auth state. Permite mock em testes. */
   authStateLoader?: typeof useMultiFileAuthState;
+  /** Fetcher da versão WhatsApp Web a usar no handshake. Default busca
+   *  via `fetchLatestBaileysVersion()` (GitHub raw). Sem isso o bundle
+   *  do Baileys vai com versão estática que pode estar stale — WhatsApp
+   *  rejeita com `Connection Failure` (code 405) durante registration.
+   *  Tests injetam stub pra evitar HTTP. */
+  versionFetcher?: () => Promise<{ version: readonly [number, number, number] }>;
   /** Quanto tempo esperar antes de reconectar após close não-logout.
    *  Default 3000ms. Em testes pode passar 0 pra acelerar. */
   reconnectDelayMs?: number;
@@ -48,6 +55,7 @@ export function createBaileysChannel(
 ): WhatsAppChannel {
   const socketFactory = opts.socketFactory ?? makeWASocket;
   const authStateLoader = opts.authStateLoader ?? useMultiFileAuthState;
+  const versionFetcher = opts.versionFetcher ?? fetchLatestBaileysVersion;
   const reconnectDelayMs = opts.reconnectDelayMs ?? 3000;
 
   const messageHandlers = new Set<(msg: InboundMessage) => void>();
@@ -113,8 +121,15 @@ export function createBaileysChannel(
   };
 
   const connectSocket = async (): Promise<void> => {
-    const { state, saveCreds } = await authStateLoader(opts.authDir);
-    sock = socketFactory({ auth: state, printQRInTerminal: false });
+    const [{ state, saveCreds }, { version }] = await Promise.all([
+      authStateLoader(opts.authDir),
+      versionFetcher(),
+    ]);
+    sock = socketFactory({
+      auth: state,
+      version: version as [number, number, number],
+      printQRInTerminal: false,
+    });
 
     sock.ev.on("creds.update", saveCreds);
 

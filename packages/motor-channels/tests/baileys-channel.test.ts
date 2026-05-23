@@ -57,6 +57,7 @@ const baseOpts = (mock: ReturnType<typeof makeMockSocket>) => ({
   authDir: "/tmp/test-not-used",
   socketFactory: vi.fn(() => mock.socket) as never,
   authStateLoader: vi.fn(async () => makeMockAuthState()) as never,
+  versionFetcher: vi.fn(async () => ({ version: [2, 3000, 0] as const })),
   reconnectDelayMs: 0,
 });
 
