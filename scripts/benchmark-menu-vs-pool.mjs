@@ -1,26 +1,26 @@
 #!/usr/bin/env node
 /**
- * S-T-10-07 (ops#1005) — A/B benchmark menu (lookup) vs pool (scoring).
+ * S-T-10-07 (ops#1005) Sprint 3 PR 1 — A/B benchmark menu vs pool.
  *
- * Roda 2 scenarios × N turns × 1 persona com Qwen3 LOCAL no drota.
- * Coleta: latency planejador, latency drota, tokens drota, menu_hit/miss.
- * Output: JSON com runs detalhados + tabela markdown agregada.
+ * UPDATE 2026-05-23: refatorado pra refletir Sprint 1+2 skip path completo.
+ *
+ * Roda 2 scenarios × N turns × 1 persona com Qwen3 LOCAL no planner E drota:
+ *   - A "no_menu":        ASC_USE_ACTION_MENU=false
+ *                         Pool scoring + planner LLM + drota LLM = 2 LLM calls
+ *   - B "menu_skip_full": ASC_USE_ACTION_MENU=true +
+ *                         ASC_SKIP_DROTA_COMPOSITION=true
+ *                         Menu lookup → rationale skip (motor#115) +
+ *                         composition skip (motor#136) = 0 LLM calls (hit)
+ *
+ * Coleta: latency planejador, latency drota, tokens drota, menu_hit/miss,
+ * skip_rationale, skip_composition.
  *
  * Pré-req: Qwen3 stack up em LLM_LOCAL_ENDPOINT.
  *
  * Uso:
  *   node scripts/benchmark-menu-vs-pool.mjs [--turns N] [--persona kei|ryo|paula]
  *
- * Notas de design:
- * - Planejador usa USE_MOCK_LLM=true em AMBOS scenarios (rationale não é foco;
- *   se fosse real, dobra o tempo de execução).
- * - Drota usa Qwen3 direto em AMBOS scenarios (a chamada que domina latência).
- * - Diferença entre scenarios: ASC_USE_ACTION_MENU=true vs false.
- *
- * Discovery esperado: drota cost ~igual entre scenarios. Menu lookup substitui
- * scoring DETERMINÍSTICO (~ms), não LLM rationale. Spec assumia -75% LLM calls
- * mas ASC_USE_ACTION_MENU atual não pula nenhuma chamada LLM per-turn — gap
- * documentado no handoff.
+ * Sprint 3 tracker: ops#1118. Sprint 2 closeout: ops#1076.
  */
 
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
@@ -72,9 +72,16 @@ const USER_MESSAGES = [
 ];
 
 // ─── Setup env ANTES de imports ─────────────────────────────────────────
-process.env.USE_MOCK_LLM = "true"; // planejador rationale mockado
+// Sprint 3 update: planner agora roda LLM REAL pra medir rationale skip
+// impact (motor#115). Pra forçar planner usar Qwen3 local, passamos via
+// env config (ASC_PLANNER_PROVIDER); fallback continua mock se key ausente.
 process.env.ASC_DEBUG_MODE = "false";
 process.env.MOTOR_STATE_DIR = await mkdtemp(path.join(tmpdir(), "bench-"));
+// Force LLM call no planner pra medir skip rationale ganho. Se motor não
+// suportar Qwen3 direto pro planner, mantém mock como fallback.
+if (!process.env.ANTHROPIC_API_KEY && !process.env.INFOMANIAK_API_KEY) {
+  process.env.USE_MOCK_LLM = "true"; // fallback
+}
 
 // ─── Qwen3 direct call ───────────────────────────────────────────────────
 async function callQwen3(systemPrompt, userMessage) {
@@ -112,7 +119,7 @@ async function probeQwen3() {
 }
 
 // ─── Run helpers ─────────────────────────────────────────────────────────
-async function runScenario(scenarioName, useMenu, planTurn, executePlaybook, getState, persona, inventory, rankPool, selectFromPool, buildDrotaPrompt, parseDrotaOutput) {
+async function runScenario(scenarioName, useMenu, planTurn, executePlaybook, getState, persona, inventory, rankPool, selectFromPool, buildDrotaPrompt, parseDrotaOutput, canSkipDrotaComposition) {
   console.log(`\n[bench] ====== Scenario: ${scenarioName} (useMenu=${useMenu}) ======`);
   if (useMenu) {
     process.env.ASC_USE_ACTION_MENU = "true";
@@ -151,21 +158,33 @@ async function runScenario(scenarioName, useMenu, planTurn, executePlaybook, get
       continue;
     }
     const { selected } = selectFromPool(ranked, { ...state, turn: i + 1 });
-    const drotaInput = {
-      persona,
-      state: { sessionId, trustLevel: 0.3, budgetRemaining: 90, turn: i + 1 },
-      contentPool: plan.contentPool,
-      contextHints: plan.contextHints,
-      strategicRationale: plan.strategicRationale,
-      instruction_addition: plan.instruction_addition ?? "",
-    };
-    const drotaPrompt = buildDrotaPrompt(drotaInput, selected);
-    const qwen = await callQwen3(drotaPrompt, "Materialize o content selecionado em JSON.");
-    console.log(`  drota Qwen3: ${qwen.latency_ms}ms — in=${qwen.tokens_in}, out=${qwen.tokens_out}`);
 
-    const parsed = parseDrotaOutput(qwen.content);
-    const output = parsed.parsed.linguisticMaterialization ?? "[parse_failed]";
-    console.log(`  out: ${output.slice(0, 140)}${output.length > 140 ? "..." : ""}`);
+    // Sprint 3 update: replica skip path de motor-drota/src/server.ts.
+    // Quando canSkipDrotaComposition retorna shouldSkip=true, BYPASS callLlm
+    // (zero LLM tokens/latency) e usa item.content direto.
+    let qwen, output, drotaSkipped = false;
+    const skipDecision = canSkipDrotaComposition(selected.item, process.env);
+    if (skipDecision.shouldSkip && skipDecision.content) {
+      qwen = { content: "", tokens_in: 0, tokens_out: 0, latency_ms: 0 };
+      output = skipDecision.content;
+      drotaSkipped = true;
+      console.log(`  drota SKIPPED (composition skip): ${output.slice(0, 100)}${output.length > 100 ? "..." : ""}`);
+    } else {
+      const drotaInput = {
+        persona,
+        state: { sessionId, trustLevel: 0.3, budgetRemaining: 90, turn: i + 1 },
+        contentPool: plan.contentPool,
+        contextHints: plan.contextHints,
+        strategicRationale: plan.strategicRationale,
+        instruction_addition: plan.instruction_addition ?? "",
+      };
+      const drotaPrompt = buildDrotaPrompt(drotaInput, selected);
+      qwen = await callQwen3(drotaPrompt, "Materialize o content selecionado em JSON.");
+      console.log(`  drota Qwen3: ${qwen.latency_ms}ms — in=${qwen.tokens_in}, out=${qwen.tokens_out} (skip=${skipDecision.reason})`);
+      const parsed = parseDrotaOutput(qwen.content);
+      output = parsed.parsed.linguisticMaterialization ?? "[parse_failed]";
+      console.log(`  out: ${output.slice(0, 140)}${output.length > 140 ? "..." : ""}`);
+    }
 
     executePlaybook(
       {
@@ -185,7 +204,8 @@ async function runScenario(scenarioName, useMenu, planTurn, executePlaybook, get
       drotaLatency: qwen.latency_ms,
       drotaTokensIn: qwen.tokens_in,
       drotaTokensOut: qwen.tokens_out,
-      drotaPromptChars: drotaPrompt.length,
+      drotaPromptChars: drotaSkipped ? 0 : (qwen.content?.length ?? 0),
+      drotaSkipped,
       output: output.slice(0, 300),
     });
   }
@@ -271,6 +291,7 @@ async function main() {
   const { parseDrotaOutput } = await import("../motor-drota/dist/parse-output.js");
   const { rankPool } = await import("../motor-drota/dist/evaluate.js");
   const { selectFromPool } = await import("../motor-drota/dist/select.js");
+  const { canSkipDrotaComposition } = await import("../motor-drota/dist/compose-skip.js");
 
   const personaInput = { ...persona, profile: {} };
 
@@ -289,13 +310,18 @@ async function main() {
     ],
   };
 
+  // Sprint 3 update: scenario B agora ativa também ASC_SKIP_DROTA_COMPOSITION
+  // (motor#136 GO ratificado Jun em motor#134 PoC). Mede skip path completo.
   const scenarios = [];
+  delete process.env.ASC_SKIP_DROTA_COMPOSITION;
   scenarios.push(
-    await runScenario("A_no_menu", false, planTurn, executePlaybook, getState, personaInput, inventory, rankPool, selectFromPool, buildDrotaPrompt, parseDrotaOutput),
+    await runScenario("A_no_menu", false, planTurn, executePlaybook, getState, personaInput, inventory, rankPool, selectFromPool, buildDrotaPrompt, parseDrotaOutput, canSkipDrotaComposition),
   );
+  process.env.ASC_SKIP_DROTA_COMPOSITION = "true";
   scenarios.push(
-    await runScenario("B_menu_lookup", true, planTurn, executePlaybook, getState, personaInput, inventory, rankPool, selectFromPool, buildDrotaPrompt, parseDrotaOutput),
+    await runScenario("B_menu_skip_full", true, planTurn, executePlaybook, getState, personaInput, inventory, rankPool, selectFromPool, buildDrotaPrompt, parseDrotaOutput, canSkipDrotaComposition),
   );
+  delete process.env.ASC_SKIP_DROTA_COMPOSITION;
 
   const agg = scenarios.map(aggregate);
   const md = buildMarkdown(persona, agg, scenarios);
