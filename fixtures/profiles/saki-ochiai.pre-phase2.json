@@ -1,5 +1,47 @@
 {
-  "sessions_seen": [],
+  "sessions_seen": [
+    {
+      "session_id": "saki-synth-2026-05-12-001",
+      "started_at": "2026-05-12T16:20:00.000Z",
+      "completed_at": "2026-05-12T16:35:00.000Z",
+      "total_turns": 8,
+      "trace_file": "saki-ochiai-synthetic-2026-05-12T16-35-00-000Z.json",
+      "_synthetic": true,
+      "_note": "Synthetic pre-pilot data — Yuji pilot semanas 1-2 substituem"
+    },
+    {
+      "session_id": "saki-synth-2026-05-14-002",
+      "started_at": "2026-05-14T17:05:00.000Z",
+      "completed_at": "2026-05-14T17:18:00.000Z",
+      "total_turns": 6,
+      "trace_file": "saki-ochiai-synthetic-2026-05-14T17-18-00-000Z.json",
+      "_synthetic": true
+    },
+    {
+      "session_id": "saki-synth-2026-05-16-003",
+      "started_at": "2026-05-16T16:45:00.000Z",
+      "completed_at": "2026-05-16T17:02:00.000Z",
+      "total_turns": 10,
+      "trace_file": "saki-ochiai-synthetic-2026-05-16T17-02-00-000Z.json",
+      "_synthetic": true
+    },
+    {
+      "session_id": "saki-synth-2026-05-18-004",
+      "started_at": "2026-05-18T16:30:00.000Z",
+      "completed_at": "2026-05-18T16:44:00.000Z",
+      "total_turns": 7,
+      "trace_file": "saki-ochiai-synthetic-2026-05-18T16-44-00-000Z.json",
+      "_synthetic": true
+    },
+    {
+      "session_id": "saki-synth-2026-05-20-005",
+      "started_at": "2026-05-20T17:15:00.000Z",
+      "completed_at": "2026-05-20T17:30:00.000Z",
+      "total_turns": 9,
+      "trace_file": "saki-ochiai-synthetic-2026-05-20T17-30-00-000Z.json",
+      "_synthetic": true
+    }
+  ],
   "profile": {
     "sensitivity": "sensory",
     "preferences": {
@@ -7,26 +49,65 @@
         "rotinas e repetição (ASD nível 1 — repetir cumpre função sensorial/regulatória)",
         "personagens recorrentes (familiares por design)",
         "tarefas com sequência previsível",
-        "ambientes silenciosos"
+        "ambientes silenciosos",
+        "texturas de objetos familiares (pedras lisas, tecidos macios)",
+        "padrões visuais simples e repetitivos",
+        "horários previsíveis (refeições, treinos do Ryo)",
+        "presença silenciosa dos irmãos (sem demanda verbal)"
       ],
       "communication_style": "respostas curtas, literais; toleria pouco metacomunicação",
-      "regulation_strategy": "repetição é AUTORREGULAÇÃO, não tédio — protocolo Carvalho-pai exige não interromper o ciclo"
+      "regulation_strategy": "repetição é AUTORREGULAÇÃO, não tédio — protocolo Carvalho-pai exige não interromper o ciclo",
+      "learning_style": "aprende por exposição repetida ao mesmo padrão até dominá-lo; sequências previsíveis (com começo/meio/fim claros) facilitam engajamento; transições bruscas e novidade não-anunciada interrompem flow"
     },
     "family_anchors": [
-      "irmão Ryo (referência presente; protetiva)",
-      "irmão Kei (jogo paralelo seguro)",
-      "tia/cuidadora (vínculo de confiança)"
+      {
+        "name": "Ryo",
+        "role": "irmão mais velho",
+        "gestures_observed": [
+          "presença silenciosa durante atividades sensoriais",
+          "não interrompe quando Saki está em padrão repetitivo",
+          "ajusta volume da voz quando Saki está perto"
+        ],
+        "emotional_role": "referência presente e protetiva; permite Saki seguir seu fluxo sem demanda de interação"
+      },
+      {
+        "name": "Kei",
+        "role": "irmão (gêmeo do Ryo)",
+        "gestures_observed": [
+          "joga paralelo com Saki (mesmo espaço, atividade própria)",
+          "respeita os ciclos de repetição da Saki"
+        ],
+        "emotional_role": "modelo de jogo paralelo seguro — coexistência sem demanda"
+      },
+      {
+        "name": "tia/cuidadora",
+        "role": "cuidadora",
+        "gestures_observed": [
+          "antecipa transições verbalmente",
+          "respeita brejo sensorial como override imediato"
+        ],
+        "emotional_role": "vínculo de confiança; âncora regulatória"
+      }
     ],
     "recurring_themes": [
-      "atividades sensoriais repetitivas",
-      "fluxo de rotina sem surpresa"
+      "atividades sensoriais repetitivas (tocar pedras, dobrar pano, contar objetos)",
+      "fluxo de rotina sem surpresa (chegada, lanche, atividade, descanso)",
+      "personagens familiares previsíveis (Totoro, irmão Ryo na rotina dele)",
+      "sequências cumulativas com começo/meio/fim claros (3-5 passos máx)",
+      "silêncio compartilhado como forma de presença (não-demanda)",
+      "padrões visuais simples (alinhar, organizar, repetir)",
+      "objetos âncora (raquete do Ryo no lugar certo, pedras alinhadas)",
+      "horários conhecidos (treino do Ryo, refeições)"
     ],
     "open_loops": [],
     "off_screen_completions": [],
     "notes_for_next_session": [
       "NÃO oferecer escolhas em cascata — Saki engaja melhor com 'siga seu fluxo'",
-      "Repetir item já visto NÃO é tédio — drota deve NÃO perguntar (sub-decisão 4, enabled=false)",
-      "Brejo sensorial (ruído, mudança brusca) override imediato"
+      "Repetir item já visto NÃO é tédio — drota deve NÃO perguntar (sub-decisão 4 ops#1068, enabled=false)",
+      "Brejo sensorial (ruído, mudança brusca) override imediato — recovery item is_critical (saki-recovery-sensorial-01 motor#135)",
+      "Carvalho-pai protocolo: bot NUNCA insiste em verbalização; espelho > canal; curiosity_hook como conduit, não desafio",
+      "Tolerância silêncio até 5 rounds antes de qualquer prompt — drota respeita",
+      "Items do menu hand-baked (motor#135) ancoram em recurring_themes acima — manter coerência"
     ],
     "repetition_inquiry": {
       "enabled": false
@@ -34,5 +115,5 @@
     "regulation_strategy": "sensory",
     "silence_tolerance_rounds": 5
   },
-  "last_updated": "2026-05-16T18:00:00.000Z"
+  "last_updated": "2026-05-23T04:50:00.000Z"
 }

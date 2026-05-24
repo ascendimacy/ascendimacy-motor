@@ -1,0 +1,125 @@
+{
+  "persona": {
+    "id": "ryo-ochiai",
+    "name": "Ryo",
+    "age": 11,
+    "fixture": "ryo-ochiai.pre-phase2.json"
+  },
+  "turnsPerScenario": 3,
+  "scenarios": [
+    {
+      "scenarioName": "A_no_menu",
+      "useMenu": false,
+      "turns": [
+        {
+          "turn": 1,
+          "userMsg": "oi",
+          "planLatency": 4,
+          "menuHit": false,
+          "drotaLatency": 36031,
+          "drotaTokensIn": 3114,
+          "drotaTokensOut": 236,
+          "drotaPromptChars": 822,
+          "drotaSkipped": false,
+          "output": "Sabia que os golfinhos têm nome? Cada um cria um assovio único, só dele, e os outros chamam por ele assim. Quando perdem um amigo, repetem o assovio pra lembrar. Quando você perde alguém ou algo importante — um amigo, um momento, uma fase da vida — como você expressa isso? Pensa em algo que perdeu. "
+        },
+        {
+          "turn": 2,
+          "userMsg": "me conta uma coisa que vc acha legal",
+          "planLatency": 2,
+          "menuHit": false,
+          "drotaLatency": 35699,
+          "drotaTokensIn": 3116,
+          "drotaTokensOut": 272,
+          "drotaPromptChars": 966,
+          "drotaSkipped": false,
+          "output": "Sabia que os golfinhos têm nome? Cada um cria um assovio único, só dele, e os outros chamam por ele assim. É como se fosse uma voz só deles. Quando um deles morre, os outros repetem o assovio dele — como se estivessem dizendo 'lembro de você'. Quando você perde alguém ou algo importante, como você m"
+        },
+        {
+          "turn": 3,
+          "userMsg": "outra coisa parecida",
+          "planLatency": 2,
+          "menuHit": false,
+          "drotaLatency": 29442,
+          "drotaTokensIn": 3116,
+          "drotaTokensOut": 184,
+          "drotaPromptChars": 650,
+          "drotaSkipped": false,
+          "output": "Sabia que os golfinhos têm nome? Cada um cria um assovio único, só dele. Os outros chamam pelo assovio, como gente. Quando perdem um amigo, eles repetem o nome dele, como uma lembrança. Quando você perde alguém ou algo importante — um amigo, um tempo, uma fase — como você expressa isso? Pensa em alg"
+        }
+      ]
+    },
+    {
+      "scenarioName": "B_menu_skip_full",
+      "useMenu": true,
+      "turns": [
+        {
+          "turn": 1,
+          "userMsg": "oi",
+          "planLatency": 9,
+          "menuHit": true,
+          "drotaLatency": 0,
+          "drotaTokensIn": 0,
+          "drotaTokensOut": 0,
+          "drotaPromptChars": 0,
+          "drotaSkipped": true,
+          "output": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único e os outros chamam por ele."
+        },
+        {
+          "turn": 2,
+          "userMsg": "me conta uma coisa que vc acha legal",
+          "planLatency": 2,
+          "menuHit": true,
+          "drotaLatency": 0,
+          "drotaTokensIn": 0,
+          "drotaTokensOut": 0,
+          "drotaPromptChars": 0,
+          "drotaSkipped": true,
+          "output": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único e os outros chamam por ele."
+        },
+        {
+          "turn": 3,
+          "userMsg": "outra coisa parecida",
+          "planLatency": 2,
+          "menuHit": true,
+          "drotaLatency": 0,
+          "drotaTokensIn": 0,
+          "drotaTokensOut": 0,
+          "drotaPromptChars": 0,
+          "drotaSkipped": true,
+          "output": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único e os outros chamam por ele."
+        }
+      ]
+    }
+  ],
+  "agg": [
+    {
+      "scenarioName": "A_no_menu",
+      "useMenu": false,
+      "turnCount": 3,
+      "avgPlanLatencyMs": 3,
+      "avgDrotaLatencyMs": 33724,
+      "totalLatencyMs": 101180,
+      "avgDrotaPromptChars": 813,
+      "avgTokensIn": 3115,
+      "avgTokensOut": 231,
+      "totalTokensIn": 9346,
+      "totalTokensOut": 692,
+      "menuHitRate": 0
+    },
+    {
+      "scenarioName": "B_menu_skip_full",
+      "useMenu": true,
+      "turnCount": 3,
+      "avgPlanLatencyMs": 4,
+      "avgDrotaLatencyMs": 0,
+      "totalLatencyMs": 13,
+      "avgDrotaPromptChars": 0,
+      "avgTokensIn": 0,
+      "avgTokensOut": 0,
+      "totalTokensIn": 0,
+      "totalTokensOut": 0,
+      "menuHitRate": 1
+    }
+  ]
+}
