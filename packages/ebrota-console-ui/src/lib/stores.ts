@@ -1,14 +1,20 @@
 /**
  * Svelte stores — estado global da UI (BFF status, mode, sessão ativa,
- * chat bubbles).
+ * chat bubbles, turn snapshot, content pool).
  *
  * Pattern: stores writable simples; sync com BFF via polling no
- * App.svelte (toda ~2s pra /status). Reactive blocks Svelte propagam
- * mudanças automaticamente.
+ * App.svelte (~2s pra /status; ~250ms pra listOptions; SSE pra
+ * turn-state). Reactive blocks Svelte propagam mudanças automaticamente.
  */
 
 import { writable } from "svelte/store";
-import type { BffStatus, ChatBubble, ConsoleMode } from "./types.js";
+import type {
+  BffStatus,
+  ChatBubble,
+  ConsoleMode,
+  TurnSnapshot,
+} from "./types.js";
+import type { ScoredContentItemSummary } from "./api.js";
 
 /** Status do BFF (null = ainda não carregado / erro de conexão). */
 export const bffStatus = writable<BffStatus | null>(null);
@@ -22,6 +28,16 @@ export const currentSessionId = writable<string | null>(null);
 /** Chat bubbles da sessão ativa. Populado por SSE turn-state +
  *  startCardSession response (PR3 placeholder). */
 export const chatBubbles = writable<ChatBubble[]>([]);
+
+/** Snapshot agregado do turn corrente — derivado de TurnStateEvents
+ *  via reducer `applyTurnEvent`. Null = sem turn ativo. */
+export const currentTurnSnapshot = writable<TurnSnapshot | null>(null);
+
+/** Content pool corrente (sob gate ativo em semi-auto). Vazio em auto
+ *  mode ou fora de gate. Polled via listOptions endpoint. */
+export const currentContentPool = writable<ScoredContentItemSummary[]>(
+  [],
+);
 
 /** Erro global pra mostrar banner. Null = sem erro. */
 export const globalError = writable<string | null>(null);

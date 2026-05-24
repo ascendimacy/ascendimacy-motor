@@ -3,12 +3,18 @@
   import Status from "./components/Status.svelte";
   import ChatFeed from "./components/ChatFeed.svelte";
   import SessionStart from "./components/SessionStart.svelte";
+  import MotorView from "./components/MotorView.svelte";
   import { createApiClient } from "./lib/api.js";
   import { bffStatus, consoleMode, globalError } from "./lib/stores.js";
+  import {
+    startTurnStateStream,
+    type TurnStateStreamManager,
+  } from "./lib/turn-state-stream.js";
 
   const api = createApiClient();
   const STATUS_POLL_INTERVAL_MS = 2000;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let streamManager: TurnStateStreamManager | undefined;
 
   async function refreshStatus(): Promise<void> {
     try {
@@ -29,10 +35,12 @@
     pollTimer = setInterval(() => {
       void refreshStatus();
     }, STATUS_POLL_INTERVAL_MS);
+    streamManager = startTurnStateStream(api);
   });
 
   onDestroy(() => {
     if (pollTimer !== undefined) clearInterval(pollTimer);
+    streamManager?.stop();
   });
 </script>
 
@@ -47,19 +55,7 @@
 
   <main class="main-grid">
     <ChatFeed />
-    <aside class="motor-placeholder" data-testid="motor-placeholder">
-      <h2>Vista motor</h2>
-      <p class="muted">
-        Painel pedagógico (helix · statusMatrix · contentPool TOP-N ·
-        triggers) entra em <strong>PR4</strong>.
-      </p>
-      <ul class="upcoming">
-        <li>PR4 — Vista motor (helix + statusMatrix + leque)</li>
-        <li>PR5 — Approval gate UI + telemetria</li>
-        <li>PR6 — Session library + replay</li>
-        <li>PR7-10 — Smoke / debug / analytics / E2E</li>
-      </ul>
-    </aside>
+    <MotorView {api} />
   </main>
 
   <SessionStart {api} />
@@ -107,34 +103,9 @@
     }
   }
 
-  .motor-placeholder {
-    padding: 1rem;
-  }
-
-  .motor-placeholder h2 {
-    margin: 0 0 0.5rem;
-    font-size: 1rem;
-    opacity: 0.7;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
   .muted {
     opacity: 0.7;
     font-size: 0.9rem;
-  }
-
-  .upcoming {
-    list-style: none;
-    padding: 0;
-    margin: 1rem 0 0;
-    font-size: 0.85rem;
-    opacity: 0.7;
-  }
-
-  .upcoming li {
-    padding: 0.2rem 0;
-    border-bottom: 1px dashed rgba(127, 127, 127, 0.2);
   }
 
   code {
