@@ -5,3 +5,4 @@ export * from "./baileys-channel.js";
 export * from "./mcp-server.js";
 export * from "./cards-loader.js";
 export * from "./router.js";
+export * from "./telemetry.js";
