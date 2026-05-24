@@ -52,6 +52,10 @@ export interface CreateBffServerOptions {
   /** Logger desabilitado por default em testes — Fastify usa pino que
    *  polui stdout. */
   logger?: boolean;
+  /** Base URL do UI dev server pra redirect das rotas /replay /live.
+   *  Default http://localhost:5173 (vite). PR9 deploy serviria o
+   *  build estático no próprio BFF. */
+  uiBaseUrl?: string;
 }
 
 export interface BffServer {
@@ -68,6 +72,7 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   const fastify = Fastify({ logger: opts.logger ?? false });
   const startedAt = new Date().toISOString();
   const pollMs = opts.ssePollIntervalMs ?? 200;
+  const uiBaseUrl = opts.uiBaseUrl ?? "http://localhost:5173";
   let mode: ConsoleMode = opts.initialMode ?? "auto";
 
   // GET /status — health + observabilidade
@@ -329,6 +334,27 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
           .send({ error: `trace not found for sessionId=${req.params.id}` });
       }
       return trace;
+    },
+  );
+
+  // GET /replay/:id — visualizer deep link (S-OC-22 / Fase F). Redirect
+  // pro UI dev server com query param. Em PR9 deploy, pode servir
+  // build estático aqui mesmo. STS scenarios + Baileys smoke imprimem
+  // essa URL no output (memory feedback Q15).
+  fastify.get<{ Params: { id: string } }>(
+    "/replay/:id",
+    async (req, reply) => {
+      const target = `${uiBaseUrl}/?replay=${encodeURIComponent(req.params.id)}`;
+      return reply.redirect(target, 302);
+    },
+  );
+
+  // GET /live/:id — visualizer live deep link
+  fastify.get<{ Params: { id: string } }>(
+    "/live/:id",
+    async (req, reply) => {
+      const target = `${uiBaseUrl}/?live=${encodeURIComponent(req.params.id)}`;
+      return reply.redirect(target, 302);
     },
   );
 

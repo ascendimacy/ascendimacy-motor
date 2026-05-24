@@ -8,11 +8,19 @@
   import SessionLibrary from "./components/SessionLibrary.svelte";
   import Replay from "./components/Replay.svelte";
   import { createApiClient } from "./lib/api.js";
-  import { bffStatus, consoleMode, globalError } from "./lib/stores.js";
+  import {
+    bffStatus,
+    consoleMode,
+    currentSessionId,
+    globalError,
+    libraryOpen,
+    replaySessionId,
+  } from "./lib/stores.js";
   import {
     startTurnStateStream,
     type TurnStateStreamManager,
   } from "./lib/turn-state-stream.js";
+  import { parseUrlParams } from "./lib/url-params.js";
 
   const api = createApiClient();
   const STATUS_POLL_INTERVAL_MS = 2000;
@@ -33,7 +41,26 @@
     }
   }
 
+  /**
+   * Aplica deep links de visualizer (S-OC-22 / Fase F): ?replay=ID ou
+   * ?live=ID. Convenção: BFF redireciona /replay/:id ou /live/:id pra
+   * UI com esses params. parseUrlParams() é pure helper testável.
+   */
+  function applyUrlParams(): void {
+    if (typeof window === "undefined") return;
+    const { replaySessionId: r, liveSessionId: l } = parseUrlParams(
+      window.location.search,
+    );
+    if (r !== null) {
+      replaySessionId.set(r);
+      libraryOpen.set(false);
+    } else if (l !== null) {
+      currentSessionId.set(l);
+    }
+  }
+
   onMount(() => {
+    applyUrlParams();
     void refreshStatus();
     pollTimer = setInterval(() => {
       void refreshStatus();

@@ -42,11 +42,27 @@ channel.onQrCode((qr) => {
   qrcode.generate(qr, { small: true });
 });
 
+// C-MX-08 S-OC-21: visualizer URL convention (memory feedback Q15).
+// Print após connect pra Jun abrir o eBrota Console + ver sessões
+// chegando. URL aponta pro BFF (default 3737) que redireciona pro UI.
+const visualizerBaseUrl = `http://localhost:${
+  process.env["EBROTA_BFF_PORT"] ?? "3737"
+}`;
+
 channel.onConnectionChange((ev) => {
   if (ev.connected) {
     console.log(
       `\n[baileys-qr-scan] ✅ conectado às ${ev.timestamp}. ` +
         `aguardando primeira mensagem inbound...`,
+    );
+    console.log(
+      `[baileys-qr-scan] → visualizer: ${visualizerBaseUrl}/ ` +
+        `(abra pra ver sessões via Histórico)`,
+    );
+    console.log(
+      `[baileys-qr-scan]   (se BFF offline: ` +
+        `EBROTA_BFF_USE_MOCK_DAEMON=true npm run start ` +
+        `--workspace packages/ebrota-console-bff)`,
     );
   } else {
     console.log(
@@ -60,6 +76,13 @@ channel.onMessage((msg) => {
     `\n[baileys-qr-scan] 📥 mensagem recebida de ${msg.from}:\n` +
       `    text: "${msg.text}"\n` +
       `    timestamp: ${msg.timestamp}\n`,
+  );
+  // Live deep-link — convenção sessionId quando daemon real spawnar
+  // sessão será `<persona>__<conversationId>`. Em smoke standalone
+  // (sem daemon), o link redireciona pro UI mas não há sessão ativa
+  // até daemon estar wired. Operador pode abrir e usar Histórico.
+  console.log(
+    `[baileys-qr-scan] → visualizer (live): ${visualizerBaseUrl}/live/${encodeURIComponent(msg.conversationId)}`,
   );
   console.log("[baileys-qr-scan] smoke OK. Ctrl+C pra encerrar.");
 });
