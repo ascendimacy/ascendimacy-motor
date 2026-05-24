@@ -46,6 +46,43 @@ export interface OrchestratorBridge {
   ): Promise<StartCardSessionOutput>;
 }
 
+/**
+ * ApprovalGate — C-MX-07 S-OD-10 (PR6). Hook opcional entre
+ * `bridge.startCardSession` (que devolve proposedText) e `channel.send`.
+ * Em semi-auto mode, operador (Jun via eBrota Console) decide via UI:
+ *  - `approved: true` + sem editedText → envia proposedText original
+ *  - `approved: true` + editedText → envia o texto editado
+ *  - `approved: false` → aborta, NÃO envia outbound
+ *
+ * `resolver` é injetado pelo caller (BFF do eBrota Console em produção,
+ * mock em testes). Pattern Promise-based — caller pode amarrar a um
+ * MCP tool do orchestrator daemon (`approve_or_edit`), a SSE event do
+ * próprio BFF, ou auto-approve em modo headless/testes.
+ */
+export interface ApprovalGateInput {
+  /** Texto materializado pelo motor-drota. */
+  proposedText: string;
+  /** Contexto da carta — UI usa pra renderizar header da pendência. */
+  cardId: CardId;
+  conversationId: ConversationId;
+  from: ChannelAddress;
+}
+
+export interface ApprovalDecision {
+  /** True envia; false aborta sem channel.send. */
+  approved: boolean;
+  /** Substitui proposedText se presente. */
+  editedText?: string;
+  /** Comentário freeform do operador pra Edit Learner v0 (DS-04). */
+  rationale?: string;
+}
+
+export interface ApprovalGate {
+  /** Resolve com decisão do operador. Timeout/fail-safe fica a cargo
+   *  do resolver (caller); bridge só await. */
+  resolver: (input: ApprovalGateInput) => Promise<ApprovalDecision>;
+}
+
 export interface InboundBridgeOptions {
   channel: WhatsAppChannel;
   loader: CardPackageLoader;
@@ -60,6 +97,11 @@ export interface InboundBridgeOptions {
   /** Hook opcional pra erros surgindo de bridge.startCardSession ou
    *  channel.send. Default loga via console.error. */
   onError?: (err: unknown, context: { event: CardActivatedEvent }) => void;
+  /** Gate de aprovação semi-auto (C-MX-07 S-OD-10). Quando undefined,
+   *  bridge funciona em auto mode (envia direto). Quando set, await
+   *  resolver antes de channel.send — operador decide via eBrota
+   *  Console. */
+  approvalGate?: ApprovalGate;
 }
 
 export interface InboundBridge {
@@ -101,6 +143,7 @@ export function createInboundBridge(
     try {
       const pkg = await opts.loader.load(ev.cardId);
       let responseText: string;
+      let cameFromBridge = false;
       if (pkg === null) {
         responseText = fallback;
       } else {
@@ -111,7 +154,29 @@ export function createInboundBridge(
           pkg,
         });
         responseText = result.text;
+        cameFromBridge = true;
       }
+
+      // Approval gate (S-OD-10) — só aplica em resposta vinda do bridge.
+      // cardNotFoundMessage (pkg=null) pula gate: é mensagem de sistema,
+      // não precisa aprovação.
+      if (cameFromBridge && opts.approvalGate !== undefined) {
+        const decision = await opts.approvalGate.resolver({
+          proposedText: responseText,
+          cardId: ev.cardId,
+          conversationId: ev.conversationId,
+          from: ev.from,
+        });
+        if (!decision.approved) {
+          // Operador rejeitou — não envia outbound. Termina silenciosamente;
+          // BFF pode logar a decisão pra telemetry Edit Learner separado.
+          return;
+        }
+        if (decision.editedText !== undefined) {
+          responseText = decision.editedText;
+        }
+      }
+
       await rateLimit.acquire();
       await opts.channel.send(ev.from, responseText);
     } catch (err) {
