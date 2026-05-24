@@ -123,6 +123,33 @@ export interface ReplayTrace {
   turns?: ReplayTraceTurn[];
 }
 
+export interface PersonaSummary {
+  personaId: string;
+  sessionCount: number;
+  realCount: number;
+  stsCount: number;
+  totalTurns: number;
+  totalOverrides: number;
+  overrideRate: number;
+  lastSessionAt: string | null;
+  firstSessionAt: string | null;
+}
+
+export interface PersonaEvolutionSession {
+  sessionId: string;
+  startedAt: string;
+  kind: "real" | "sts";
+  turnCount: number;
+  hasOverrides: boolean;
+  overrideCount: number;
+}
+
+export interface PersonaEvolution {
+  personaId: string;
+  summary: PersonaSummary;
+  sessions: PersonaEvolutionSession[];
+}
+
 export interface DebugLlmCallEvent {
   id: number;
   receivedAt: string;
@@ -175,6 +202,8 @@ export interface ApiClient {
     sinceId?: number,
   ): Promise<{ events: DebugLlmCallEvent[]; totalEmitted: number }>;
   clearDebugLlmCalls(): Promise<{ cleared: boolean }>;
+  listAnalyticsPersonas(): Promise<{ personas: PersonaSummary[] }>;
+  getPersonaEvolution(personaId: string): Promise<PersonaEvolution>;
   /** Resolve URL completa pro EventSource consumir SSE. */
   turnStateSseUrl(sessionId: string): string;
 }
@@ -278,6 +307,12 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     getSessionReplay: (sessionId) =>
       get<ReplayTrace>(
         `/sessions/${encodeURIComponent(sessionId)}/replay`,
+      ),
+    listAnalyticsPersonas: () =>
+      get<{ personas: PersonaSummary[] }>("/analytics/personas"),
+    getPersonaEvolution: (personaId) =>
+      get<PersonaEvolution>(
+        `/analytics/personas/${encodeURIComponent(personaId)}/evolution`,
       ),
     turnStateSseUrl: (sessionId) =>
       `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/turn-state`,

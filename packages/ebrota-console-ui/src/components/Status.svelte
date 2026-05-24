@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    analyticsOpen,
     bffStatus,
     consoleMode,
     debugPanelOpen,
@@ -66,6 +67,17 @@
     title="Histórico de sessões"
   >
     Histórico
+  </button>
+
+  <button
+    type="button"
+    class="analytics-toggle"
+    class:active={$analyticsOpen}
+    on:click={() => analyticsOpen.update((o) => !o)}
+    data-testid="analytics-toggle"
+    title="Analytics V0.1 — cross-session + evolução"
+  >
+    📊 Analytics
   </button>
 
   <button
@@ -162,7 +174,8 @@
   }
 
   .history-toggle,
-  .debug-toggle {
+  .debug-toggle,
+  .analytics-toggle {
     background: rgba(127, 127, 127, 0.15);
     border: 1px solid rgba(127, 127, 127, 0.4);
     border-radius: 4px;
@@ -174,13 +187,19 @@
   }
 
   .history-toggle:hover,
-  .debug-toggle:hover {
+  .debug-toggle:hover,
+  .analytics-toggle:hover {
     background: rgba(127, 127, 127, 0.25);
   }
 
   .debug-toggle.active {
     background: rgba(33, 150, 243, 0.25);
     border-color: rgba(33, 150, 243, 0.6);
+  }
+
+  .analytics-toggle.active {
+    background: rgba(76, 175, 80, 0.25);
+    border-color: rgba(76, 175, 80, 0.6);
   }
 
   .mode-toggle:hover {

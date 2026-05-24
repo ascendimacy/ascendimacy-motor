@@ -45,6 +45,10 @@ import {
   type DebugEventsStore,
   type LlmCallEventPayload,
 } from "./debug-events.js";
+import {
+  summarizePersonas,
+  getPersonaEvolution,
+} from "./analytics.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -439,6 +443,25 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     }
     return { id: result.id };
   });
+
+  // GET /analytics/personas — cross-session summary (S-OC-34)
+  fastify.get("/analytics/personas", async () => {
+    return { personas: summarizePersonas(opts.db) };
+  });
+
+  // GET /analytics/personas/:id/evolution — drill-down (S-OC-35/36)
+  fastify.get<{ Params: { id: string } }>(
+    "/analytics/personas/:id/evolution",
+    async (req, reply) => {
+      const evolution = getPersonaEvolution(opts.db, req.params.id);
+      if (evolution === null) {
+        return reply
+          .code(404)
+          .send({ error: `persona não encontrada: ${req.params.id}` });
+      }
+      return evolution;
+    },
+  );
 
   // POST /sessions/:id/end — endSession
   fastify.post<{ Params: { id: string } }>(
