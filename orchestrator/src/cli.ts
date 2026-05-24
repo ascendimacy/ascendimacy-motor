@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { connectAll, disconnectAll } from "./mcp-clients.js";
-import { runTurn } from "./orchestrator.js";
+import { runOneShot } from "./oneshot.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const tracesDir = join(__dirname, "../../traces");
@@ -32,12 +31,11 @@ const { persona, message, sessionId } = parseArgs();
 console.log(`[motor] Iniciando turno — persona: ${persona}, sessão: ${sessionId}`);
 console.log(`[motor] Mensagem: "${message}"`);
 
-const clients = await connectAll();
-
-try {
-  const { finalResponse, tracePath } = await runTurn(clients, sessionId, persona, message, tracesDir);
-  console.log(`\n[motor] Resposta:\n${finalResponse}`);
-  console.log(`\n[motor] Trace salvo em: ${tracePath}`);
-} finally {
-  await disconnectAll(clients);
-}
+const { finalResponse, tracePath } = await runOneShot({
+  persona,
+  message,
+  sessionId,
+  tracesDir,
+});
+console.log(`\n[motor] Resposta:\n${finalResponse}`);
+console.log(`\n[motor] Trace salvo em: ${tracePath}`);

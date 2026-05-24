@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "bin": {
-    "motor": "./dist/cli.js"
+    "motor": "./dist/cli.js",
+    "motor-daemon": "./dist/daemon.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "start": "node dist/cli.js",
+    "daemon": "node dist/daemon.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
