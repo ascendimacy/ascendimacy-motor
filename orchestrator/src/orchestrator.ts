@@ -61,6 +61,30 @@ export interface JointContext {
   partnerName: string;
 }
 
+/**
+ * CardContext — C-MX-07 PR3 (S-OD-05). Quando turn é disparado por uma
+ * carta-acionada (motor-channels detector `^card:<id>$`), pkgRaw vem do
+ * pacote pedagógico (cards-loader) e é prefixado ao instruction_addition
+ * antes do motor-drota evaluate_and_select. Permite o materializador
+ * compor a primeira resposta sobre o conteúdo da carta sem mudar
+ * planejador/drota interfaces.
+ */
+export interface CardContext {
+  cardId: string;
+  pkgRaw: string;
+}
+
+const CARD_INSTRUCTION_PREFIX = "## Conteúdo da carta-acionada\n\n";
+
+const buildCardInstructionAddition = (
+  plan: { instruction_addition?: string },
+  cardContext: CardContext,
+): string => {
+  const cardBlock = `${CARD_INSTRUCTION_PREFIX}cardId: ${cardContext.cardId}\n\n${cardContext.pkgRaw}\n\n---\n\n`;
+  const existing = plan.instruction_addition ?? "";
+  return cardBlock + existing;
+};
+
 export async function runTurn(
   clients: McpClients,
   sessionId: string,
@@ -68,6 +92,7 @@ export async function runTurn(
   message: string,
   tracesDir: string,
   jointContext?: JointContext,
+  cardContext?: CardContext,
 ): Promise<{ finalResponse: string; tracePath: string }> {
   const persona = loadPersona(personaId);
   const adquirente = loadAdquirente();
@@ -220,6 +245,9 @@ export async function runTurn(
   }
 
   const t2 = Date.now();
+  const drotaInstructionAddition = cardContext
+    ? buildCardInstructionAddition(plan, cardContext)
+    : (plan.instruction_addition ?? "");
   const drotaResult = await clients.motorDrota.callTool({
     name: "evaluate_and_select",
     arguments: {
@@ -229,7 +257,7 @@ export async function runTurn(
       persona,
       strategicRationale: plan.strategicRationale,
       contextHints: plan.contextHints,
-      instruction_addition: plan.instruction_addition ?? "",
+      instruction_addition: drotaInstructionAddition,
     },
   });
   const drota = parseToolText<import("@ascendimacy/shared").EvaluateAndSelectOutput>(drotaResult);
