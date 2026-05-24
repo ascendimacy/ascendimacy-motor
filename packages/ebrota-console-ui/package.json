@@ -1,0 +1,26 @@
+{
+  "name": "@ascendimacy/ebrota-console-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "@testing-library/svelte": "^5.2.0",
+    "@tsconfig/svelte": "^5.0.0",
+    "@types/node": "*",
+    "jsdom": "^25.0.0",
+    "svelte": "^4.2.0",
+    "svelte-check": "^4.0.0",
+    "tslib": "^2.6.0",
+    "typescript": "*",
+    "vite": "^5.4.0",
+    "vitest": "*"
+  }
+}
