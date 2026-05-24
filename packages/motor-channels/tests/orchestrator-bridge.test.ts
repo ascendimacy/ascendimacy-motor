@@ -271,3 +271,133 @@ describe("createInboundBridge — rate limiting", () => {
     expect(channel.sentMessages).toHaveLength(1);
   });
 });
+
+describe("createInboundBridge — approvalGate (S-OD-10)", () => {
+  it("approved=true envia proposedText original", async () => {
+    const channel = createMockChannel();
+    const loader = createCardPackageLoader({ baseDir: FIXTURES_DIR });
+    const bridge = fakeBridge(() => "Texto motor-drota");
+    const resolver = vi.fn(async () => ({ approved: true }));
+    const ib = createInboundBridge({
+      channel,
+      loader,
+      bridge,
+      rateLimit: passthroughLimiter,
+      approvalGate: { resolver },
+    });
+    ib.start();
+    channel.simulateInbound(inbound("card:tabuada-7"));
+    await flush();
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(channel.sentMessages).toEqual([
+      {
+        to: "5511999990000@s.whatsapp.net",
+        text: "Texto motor-drota",
+      },
+    ]);
+  });
+
+  it("approved=true + editedText envia editado", async () => {
+    const channel = createMockChannel();
+    const loader = createCardPackageLoader({ baseDir: FIXTURES_DIR });
+    const bridge = fakeBridge(() => "Texto motor-drota");
+    const resolver = vi.fn(async () => ({
+      approved: true,
+      editedText: "Texto editado por Jun",
+    }));
+    const ib = createInboundBridge({
+      channel,
+      loader,
+      bridge,
+      rateLimit: passthroughLimiter,
+      approvalGate: { resolver },
+    });
+    ib.start();
+    channel.simulateInbound(inbound("card:tabuada-7"));
+    await flush();
+    expect(channel.sentMessages[0]!.text).toBe("Texto editado por Jun");
+  });
+
+  it("approved=false aborta (não envia outbound)", async () => {
+    const channel = createMockChannel();
+    const loader = createCardPackageLoader({ baseDir: FIXTURES_DIR });
+    const bridge = fakeBridge(() => "Texto motor-drota");
+    const resolver = vi.fn(async () => ({
+      approved: false,
+      rationale: "Tom errado",
+    }));
+    const ib = createInboundBridge({
+      channel,
+      loader,
+      bridge,
+      rateLimit: passthroughLimiter,
+      approvalGate: { resolver },
+    });
+    ib.start();
+    channel.simulateInbound(inbound("card:tabuada-7"));
+    await flush();
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(channel.sentMessages).toEqual([]);
+  });
+
+  it("approvalGate recebe context completo (cardId, conversationId, from)", async () => {
+    const channel = createMockChannel();
+    const loader = createCardPackageLoader({ baseDir: FIXTURES_DIR });
+    const bridge = fakeBridge(() => "Resp");
+    const resolver = vi.fn(async () => ({ approved: true }));
+    const ib = createInboundBridge({
+      channel,
+      loader,
+      bridge,
+      rateLimit: passthroughLimiter,
+      approvalGate: { resolver },
+    });
+    ib.start();
+    channel.simulateInbound(inbound("card:tabuada-7"));
+    await flush();
+    const [input] = resolver.mock.calls[0]!;
+    expect(input).toEqual({
+      proposedText: "Resp",
+      cardId: "tabuada-7",
+      conversationId: "conv-bridge-001",
+      from: "5511999990000@s.whatsapp.net",
+    });
+  });
+
+  it("approvalGate NÃO é chamado pra cardNotFoundMessage (pkg=null)", async () => {
+    const channel = createMockChannel();
+    const loader = createCardPackageLoader({ baseDir: FIXTURES_DIR });
+    const bridge = fakeBridge(() => "Resp");
+    const resolver = vi.fn(async () => ({ approved: false }));
+    const ib = createInboundBridge({
+      channel,
+      loader,
+      bridge,
+      rateLimit: passthroughLimiter,
+      approvalGate: { resolver },
+    });
+    ib.start();
+    channel.simulateInbound(inbound("card:fantasma-404"));
+    await flush();
+    expect(resolver).not.toHaveBeenCalled();
+    // fallback enviado direto (sem gate)
+    expect(channel.sentMessages[0]!.text).toBe("Carta não encontrada.");
+  });
+
+  it("sem approvalGate, comportamento auto preservado (envia direto)", async () => {
+    const channel = createMockChannel();
+    const loader = createCardPackageLoader({ baseDir: FIXTURES_DIR });
+    const bridge = fakeBridge(() => "Resp auto");
+    const ib = createInboundBridge({
+      channel,
+      loader,
+      bridge,
+      rateLimit: passthroughLimiter,
+      // no approvalGate
+    });
+    ib.start();
+    channel.simulateInbound(inbound("card:tabuada-7"));
+    await flush();
+    expect(channel.sentMessages[0]!.text).toBe("Resp auto");
+  });
+});
