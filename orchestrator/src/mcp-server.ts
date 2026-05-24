@@ -130,5 +130,32 @@ export function createOrchestratorMcpServer(
     },
   );
 
+  server.registerTool(
+    "subscribe_turn_state",
+    {
+      description:
+        "Pull-based subscribe a TurnStateEvents da sessão. Retorna { events, " +
+        "nextIndex, totalEmitted }. Caller (eBrota Console BFF) deve poll " +
+        "periodicamente (~100-250ms) passando o último nextIndex como sinceIndex. " +
+        "Buffer é capped (100 events/sessão); gap detectável via " +
+        "received_first_index > sinceIndex.",
+      inputSchema: {
+        sessionId: z.string(),
+        sinceIndex: z.number().int().nonnegative().optional(),
+      } as any,
+    },
+    async (input: { sessionId: string; sinceIndex?: number }) => {
+      const snapshot = opts.daemon.subscribeTurnState(
+        input.sessionId,
+        input.sinceIndex ?? 0,
+      );
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify(snapshot) },
+        ],
+      };
+    },
+  );
+
   return server;
 }
