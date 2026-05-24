@@ -27,9 +27,12 @@ export const ORCHESTRATOR_MCP_NAME = "orchestrator";
 export const ORCHESTRATOR_MCP_VERSION = "0.1.0";
 
 /**
- * Marker temporário (carry-over de PR6b skeleton). Quando S-OD-05 ligar
- * runTurn real, esse prefixo some — daemon retorna texto materializado.
- * Tests no eBrota Console BFF podem usar pra detectar "ainda stub vs real".
+ * Marker do skeleton anterior (carry-over de PR2). Não é mais retornado
+ * em PR3 — daemon.runCardTurn devolve texto materializado real pelo
+ * motor-drota. Mantido exportado pra back-compat de tests externos que
+ * possam depender do símbolo até serem migrados.
+ *
+ * @deprecated PR3 (S-OD-05) — startCardSession agora retorna texto real.
  */
 export const PENDING_REAL_IMPL_MARKER = "[pending-real-impl]";
 
@@ -50,9 +53,9 @@ export function createOrchestratorMcpServer(
     "startCardSession",
     {
       description:
-        "Inicia sessão carta-acionada. Hidrata state via motorExecucao + " +
-        "registra SessionRuntime. PR2: text retornado é placeholder; PR3 " +
-        "liga runTurn real + materialização com pkg pedagógico.",
+        "Inicia sessão carta-acionada + executa runTurn com pkg pedagógico " +
+        "wirado em motor-drota system prompt (via instruction_addition). " +
+        "Retorna { sessionId, text } onde text é a resposta materializada.",
       inputSchema: {
         cardId: z.string(),
         conversationId: z.string(),
@@ -63,8 +66,7 @@ export function createOrchestratorMcpServer(
           raw: z.string(),
           sourcePath: z.string(),
         }),
-        // personaId pode vir do BFF (resolução from→persona) ou default.
-        // Sem mapping ainda (Q futura), usa convenção `${from}` se ausente.
+        // personaId pode vir do BFF (resolução from→persona) ou default = from.
         personaId: z.string().optional(),
       } as any,
     },
@@ -75,21 +77,15 @@ export function createOrchestratorMcpServer(
       pkg: { cardId: string; raw: string; sourcePath: string };
       personaId?: string;
     }) => {
-      const personaId = input.personaId ?? input.from;
-      const runtime = await opts.daemon.startSession({
-        personaId,
-        conversationId: input.conversationId,
-      });
-      const text =
-        `${PENDING_REAL_IMPL_MARKER} session=${runtime.sessionId} ` +
-        `cardId=${input.cardId} aguardando runTurn real (S-OD-05).`;
+      const result = await opts.daemon.runCardTurn(input);
       return {
         content: [
           {
             type: "text" as const,
             text: JSON.stringify({
-              sessionId: runtime.sessionId,
-              text,
+              sessionId: result.sessionId,
+              text: result.text,
+              tracePath: result.tracePath,
             }),
           },
         ],
