@@ -18,14 +18,22 @@
  * pra UI dev workflow não bloquear.
  */
 
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { initDb } from "./db.js";
 import { createBffServer } from "./server.js";
 import { createMockDaemonClient } from "./daemon-client.js";
+import { scanTraces } from "./traces-scanner.js";
 import type { ConsoleMode } from "./types.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_TRACES_DIR = resolve(join(__dirname, "../../../traces"));
 
 const port = Number(process.env["EBROTA_BFF_PORT"] ?? "3737");
 const host = process.env["EBROTA_BFF_HOST"] ?? "127.0.0.1";
 const dbPath = process.env["EBROTA_BFF_DB_PATH"] ?? "./.ebrota-console.db";
+const tracesDir =
+  process.env["EBROTA_BFF_TRACES_DIR"] ?? DEFAULT_TRACES_DIR;
 const modeEnv = process.env["EBROTA_BFF_INITIAL_MODE"];
 const initialMode: ConsoleMode =
   modeEnv === "semi-auto" ? "semi-auto" : "auto";
@@ -39,6 +47,7 @@ const log = (msg: string): void => {
 
 log(`starting on ${host}:${port}`);
 log(`db path: ${dbPath}`);
+log(`traces dir: ${tracesDir}`);
 log(`mode: ${initialMode}`);
 
 if (useMockDaemon) {
@@ -65,6 +74,14 @@ const server = createBffServer({
   initialMode,
   logger: true,
 });
+
+// Scan traces ANTES de listen (idempotente; ok mesmo se dir não existe).
+const scanResult = await scanTraces({ tracesDir, db, log });
+log(
+  `traces scan: ${scanResult.sessionsIndexed} sessions, ` +
+    `${scanResult.messagesIndexed} messages, ` +
+    `${scanResult.errors.length} errors`,
+);
 
 await server.listen(port, host);
 log(`✅ ready on http://${host}:${port}`);

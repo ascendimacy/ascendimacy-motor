@@ -84,6 +84,45 @@ export interface JunDecisionEntry {
   recordedAt: string;
 }
 
+export interface SessionLibraryFilters {
+  persona?: string;
+  kind?: "real" | "sts";
+  fromIso?: string;
+  toIso?: string;
+  hasOverrides?: boolean;
+  q?: string;
+  limit?: number;
+}
+
+export interface SessionLibraryEntry {
+  sessionId: string;
+  personaId: string;
+  conversationId: string;
+  kind: "real" | "sts";
+  startedAt: string;
+  endedAt: string | null;
+  turnCount: number;
+  hasOverrides: boolean;
+  tracePath: string | null;
+}
+
+export interface ReplayTraceTurn {
+  turnNumber?: number;
+  sessionId?: string;
+  incomingMessage?: string;
+  finalResponse?: string;
+  timestamp?: string;
+  entries?: Array<Record<string, unknown>>;
+}
+
+export interface ReplayTrace {
+  sessionId?: string;
+  persona?: string;
+  startedAt?: string;
+  endedAt?: string;
+  turns?: ReplayTraceTurn[];
+}
+
 export interface ApiClient {
   getStatus(): Promise<BffStatus>;
   getMode(): Promise<{ mode: ConsoleMode }>;
@@ -111,6 +150,10 @@ export interface ApiClient {
     decision: ApprovalDecisionRequest,
   ): Promise<ApproveOrEditResult>;
   endSession(sessionId: string): Promise<{ closed: boolean }>;
+  listSessionLibrary(
+    filters?: SessionLibraryFilters,
+  ): Promise<{ sessions: SessionLibraryEntry[] }>;
+  getSessionReplay(sessionId: string): Promise<ReplayTrace>;
   /** Resolve URL completa pro EventSource consumir SSE. */
   turnStateSseUrl(sessionId: string): string;
 }
@@ -176,6 +219,27 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     endSession: (sessionId) =>
       post<{ closed: boolean }>(
         `/sessions/${encodeURIComponent(sessionId)}/end`,
+      ),
+    listSessionLibrary: (filters) => {
+      const params = new URLSearchParams();
+      if (filters?.persona !== undefined) params.set("persona", filters.persona);
+      if (filters?.kind !== undefined) params.set("kind", filters.kind);
+      if (filters?.fromIso !== undefined) params.set("from", filters.fromIso);
+      if (filters?.toIso !== undefined) params.set("to", filters.toIso);
+      if (filters?.hasOverrides === true)
+        params.set("hasOverrides", "true");
+      if (filters?.q !== undefined && filters.q.length > 0)
+        params.set("q", filters.q);
+      if (filters?.limit !== undefined)
+        params.set("limit", String(filters.limit));
+      const query = params.toString();
+      return get<{ sessions: SessionLibraryEntry[] }>(
+        `/sessions/library${query.length > 0 ? `?${query}` : ""}`,
+      );
+    },
+    getSessionReplay: (sessionId) =>
+      get<ReplayTrace>(
+        `/sessions/${encodeURIComponent(sessionId)}/replay`,
       ),
     turnStateSseUrl: (sessionId) =>
       `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/turn-state`,
