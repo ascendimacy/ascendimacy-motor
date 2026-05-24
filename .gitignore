@@ -5,6 +5,7 @@ traces/
 *.js.map
 *.d.ts.map
 .motor-state.db
+.baileys-auth/
 logs/
 *.d.ts
 *.d.ts.map
