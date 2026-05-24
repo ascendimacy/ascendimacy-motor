@@ -8,6 +8,7 @@
   import SessionLibrary from "./components/SessionLibrary.svelte";
   import Replay from "./components/Replay.svelte";
   import DebugPanel from "./components/DebugPanel.svelte";
+  import Analytics from "./components/Analytics.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -96,6 +97,7 @@
   <SessionLibrary {api} />
   <Replay {api} />
   <DebugPanel {api} />
+  <Analytics {api} />
 
   <footer>
     <p class="muted">

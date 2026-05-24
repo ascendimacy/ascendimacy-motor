@@ -57,6 +57,9 @@ export const replaySessionId = writable<string | null>(null);
 /** Debug panel (raio-X LLM) aberto? */
 export const debugPanelOpen = writable<boolean>(false);
 
+/** Analytics panel (cross-session + drill-down) aberto? */
+export const analyticsOpen = writable<boolean>(false);
+
 /** Events LLM calls (tail mode). Append-only durante polling; clear
  *  via API + store reset. */
 import type { DebugLlmCallEvent } from "./api.js";
