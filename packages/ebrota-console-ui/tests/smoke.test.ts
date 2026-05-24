@@ -1,22 +1,12 @@
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  afterEach,
-  type Mock,
-} from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import App from "../src/App.svelte";
 import { globalError } from "../src/lib/stores.js";
 
-let fetchMock: Mock;
-
 beforeEach(() => {
   globalError.set(null);
   // Mock fetch pra evitar errors de network real durante mount.
-  fetchMock = vi.fn(async () => ({
+  const fetchMock = vi.fn(async () => ({
     ok: false,
     status: 503,
     statusText: "Service Unavailable",
@@ -42,10 +32,10 @@ describe("App.svelte smoke (PR3 layout)", () => {
     expect(screen.getByText(/v0\.1\.0/)).toBeDefined();
   });
 
-  it("renderiza chat feed + motor placeholder", () => {
+  it("renderiza chat feed + motor view", () => {
     render(App);
     expect(screen.getByTestId("chat-feed")).toBeDefined();
-    expect(screen.getByTestId("motor-placeholder")).toBeDefined();
+    expect(screen.getByTestId("motor-view")).toBeDefined();
   });
 
   it("renderiza session start form", () => {
