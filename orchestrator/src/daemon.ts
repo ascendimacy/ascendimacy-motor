@@ -1,34 +1,37 @@
 #!/usr/bin/env node
 /**
  * Orchestrator daemon — entry point pra modo long-running com MCP server.
- * S-OD-02 (C-MX-07 PR1).
+ * S-OD-02 (PR1) + S-OD-04 session lifecycle (PR2).
  *
  * Spawna trio (planejador + drota + execucao) UMA VEZ no startup, mantém
  * conexões abertas até SIGINT/SIGTERM. Expõe MCP server via stdio.
  *
- * PR1 (este): SCAFFOLDING. Tools reais (startCardSession real impl,
- * subscribe_turn_state streaming, list_options, override_selection,
- * approve_or_edit) são entregues em PRs posteriores (S-OD-05..09).
- * mcp-server.ts continua skeleton aqui — daemon só wireia o stdio
- * transport + lifecycle.
+ * PR2 (este): startSession/endSession com state hydration via motorExecucao
+ * get_state. Tools MCP real (startCardSession execução, subscribe_turn_state,
+ * list_options, override_selection, approve_or_edit) entram em PRs seguintes
+ * (S-OD-05..09).
  *
  * Logs vão pra stderr porque stdout é reservado pra JSON-RPC do MCP.
  */
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { SessionState } from "@ascendimacy/shared";
 import { connectAll, disconnectAll, type McpClients } from "./mcp-clients.js";
 import { createOrchestratorMcpServer } from "./mcp-server.js";
 
 /**
- * Estado por sessão. Map sessionId → SessionRuntime.
- * PR1: estrutura minimalista; PR2 (S-OD-04) popula turn state, hooks
- * pra subscribe_turn_state events, etc.
+ * Estado por sessão. Map sessionId → SessionRuntime. state hidratado
+ * via motorExecucao.get_state em startSession (S-OD-04). Turn state +
+ * hooks pra subscribe_turn_state events entram em PRs seguintes.
  */
 export interface SessionRuntime {
   sessionId: string;
   personaId: string;
   conversationId: string;
   startedAt: string;
+  /** Hidratado em startSession via motorExecucao get_state. Undefined
+   *  durante registerSession (scaffolding); populado pelo lifecycle real. */
+  state?: SessionState;
 }
 
 export interface OrchestratorDaemonOptions {
@@ -38,7 +41,18 @@ export interface OrchestratorDaemonOptions {
   clientsDisposer?: (clients: McpClients) => Promise<void>;
   /** Logger; default escreve em stderr. Tests injetam silent ou spy. */
   log?: (msg: string) => void;
+  /** Clock injetável pra startedAt determinístico em testes. */
+  now?: () => string;
 }
+
+interface ToolCallResult {
+  content: Array<{ type: string; text?: string }>;
+}
+
+const parseToolJson = <T>(result: ToolCallResult): T => {
+  const text = result.content.find((c) => c.type === "text")?.text ?? "{}";
+  return JSON.parse(text) as T;
+};
 
 export class OrchestratorDaemon {
   private clients: McpClients | null = null;
@@ -49,12 +63,14 @@ export class OrchestratorDaemon {
   private readonly factory: () => Promise<McpClients>;
   private readonly dispose: (clients: McpClients) => Promise<void>;
   private readonly log: (msg: string) => void;
+  private readonly now: () => string;
 
   constructor(opts: OrchestratorDaemonOptions = {}) {
     this.factory = opts.clientsFactory ?? connectAll;
     this.dispose = opts.clientsDisposer ?? disconnectAll;
     this.log =
       opts.log ?? ((msg: string) => process.stderr.write(`${msg}\n`));
+    this.now = opts.now ?? (() => new Date().toISOString());
   }
 
   /** Conecta o trio. Idempotente: chamadas subsequentes são no-op. */
@@ -88,9 +104,90 @@ export class OrchestratorDaemon {
   }
 
   /**
-   * Adiciona uma sessão ao registry. PR1: scaffolding minimalista — não
-   * conecta a clients ainda; PR2 (S-OD-04) liga state hydration + turn
-   * pipeline + subscribe_turn_state events.
+   * Inicia uma sessão com state hydration. Chamado por
+   * `startCardSession` MCP tool quando uma carta-acionada chega via
+   * motor-channels bridge. Hidrata state inicial via motorExecucao
+   * get_state (mesmo pattern de runTurn em orchestrator.ts).
+   *
+   * sessionId é derivado de (personaId, conversationId) se não passado —
+   * permite reabertura idempotente do mesmo par. Se passado, usa direto.
+   */
+  async startSession(input: {
+    personaId: string;
+    conversationId: string;
+    sessionId?: string;
+  }): Promise<SessionRuntime> {
+    if (!this.started || this.clients === null) {
+      throw new Error(
+        "OrchestratorDaemon.startSession: daemon não iniciado. Chamar start() antes.",
+      );
+    }
+    const sessionId =
+      input.sessionId ?? `${input.personaId}__${input.conversationId}`;
+
+    const existing = this.sessions.get(sessionId);
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const stateRaw = (await this.clients.motorExecucao.callTool({
+      name: "get_state",
+      arguments: { sessionId, personaId: input.personaId },
+    })) as ToolCallResult;
+    const state = parseToolJson<SessionState>(stateRaw);
+
+    const runtime: SessionRuntime = {
+      sessionId,
+      personaId: input.personaId,
+      conversationId: input.conversationId,
+      startedAt: this.now(),
+      state,
+    };
+    this.sessions.set(sessionId, runtime);
+    this.log(
+      `[orchestrator-daemon] session started: ${sessionId} (persona=${input.personaId})`,
+    );
+    return runtime;
+  }
+
+  /**
+   * Encerra sessão. PR2: cleanup minimalista (remove do registry).
+   * Flush de eventos + persistência cross-restart vira PR futura.
+   */
+  async endSession(sessionId: string): Promise<{ closed: boolean }> {
+    const runtime = this.sessions.get(sessionId);
+    if (runtime === undefined) {
+      return { closed: false };
+    }
+    this.sessions.delete(sessionId);
+    this.log(`[orchestrator-daemon] session ended: ${sessionId}`);
+    return { closed: true };
+  }
+
+  /**
+   * Acesso aos clients pra tools MCP que precisam falar com trio.
+   * Throws quando daemon não está started — caller verifica.
+   */
+  getClients(): McpClients {
+    if (this.clients === null) {
+      throw new Error(
+        "OrchestratorDaemon.getClients: daemon não iniciado",
+      );
+    }
+    return this.clients;
+  }
+
+  /**
+   * Lista sessions ativas — útil pra debug + futura tool MCP `listSessions`.
+   */
+  listSessions(): SessionRuntime[] {
+    return Array.from(this.sessions.values());
+  }
+
+  /**
+   * Adiciona uma sessão diretamente ao registry. Mantido pra cenários
+   * que NÃO precisam de state hydration (scaffolding inicial PR1, testes).
+   * Em produção, prefira `startSession`.
    */
   registerSession(runtime: SessionRuntime): void {
     if (this.sessions.has(runtime.sessionId)) {
@@ -101,7 +198,7 @@ export class OrchestratorDaemon {
     this.sessions.set(runtime.sessionId, runtime);
   }
 
-  /** Remove sessão. Idempotente quando ausente. */
+  /** Remove sessão sem efeitos colaterais (não chama endSession). */
   unregisterSession(sessionId: string): void {
     this.sessions.delete(sessionId);
   }
@@ -120,15 +217,15 @@ export async function bootDaemon(
   opts: OrchestratorDaemonOptions = {},
 ): Promise<{ daemon: OrchestratorDaemon }> {
   const daemon = new OrchestratorDaemon(opts);
+  // Iniciar daemon ANTES do server: tools MCP precisam de clients prontos.
+  await daemon.start();
 
-  const server = createOrchestratorMcpServer();
+  const server = createOrchestratorMcpServer({ daemon });
   const transport = new StdioServerTransport();
   await server.connect(transport);
   (opts.log ?? ((m) => process.stderr.write(`${m}\n`)))(
     "[orchestrator-daemon] stdio MCP server ready",
   );
-
-  await daemon.start();
 
   const onSignal = (sig: NodeJS.Signals): void => {
     void (async () => {
@@ -149,7 +246,6 @@ export async function bootDaemon(
 
 // Top-level await entry. Não roda quando importado por testes (test files
 // importam a class direto, não esse módulo como entry).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isMainEntry =
   typeof process !== "undefined" &&
   process.argv[1] !== undefined &&
