@@ -7,6 +7,7 @@
   import ApprovalGate from "./components/ApprovalGate.svelte";
   import SessionLibrary from "./components/SessionLibrary.svelte";
   import Replay from "./components/Replay.svelte";
+  import DebugPanel from "./components/DebugPanel.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -94,6 +95,7 @@
 
   <SessionLibrary {api} />
   <Replay {api} />
+  <DebugPanel {api} />
 
   <footer>
     <p class="muted">

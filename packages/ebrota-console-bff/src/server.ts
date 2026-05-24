@@ -39,6 +39,12 @@ import {
   readSessionTrace,
   type SessionLibraryFilters,
 } from "./traces-scanner.js";
+import {
+  createDebugEventsStore,
+  recordDebugAction,
+  type DebugEventsStore,
+  type LlmCallEventPayload,
+} from "./debug-events.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -62,6 +68,8 @@ export interface BffServer {
   readonly fastify: FastifyInstance;
   /** Modo corrente — leitura sync; PATCH via endpoint /mode. */
   getMode(): ConsoleMode;
+  /** Debug events store pra teste/injection. */
+  readonly debugEvents: DebugEventsStore;
   /** Inicia o servidor escutando na porta. */
   listen(port: number, host?: string): Promise<void>;
   /** Fecha o servidor (graceful). */
@@ -73,6 +81,7 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   const startedAt = new Date().toISOString();
   const pollMs = opts.ssePollIntervalMs ?? 200;
   const uiBaseUrl = opts.uiBaseUrl ?? "http://localhost:5173";
+  const debugEvents = createDebugEventsStore();
   let mode: ConsoleMode = opts.initialMode ?? "auto";
 
   // GET /status — health + observabilidade
@@ -358,6 +367,79 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     },
   );
 
+  // POST /debug/llm-calls — gateway-client (futuro hook) ou tests
+  // publicam events. body = LlmCallEventPayload.
+  fastify.post<{ Body: LlmCallEventPayload }>(
+    "/debug/llm-calls",
+    async (req, reply) => {
+      const body = req.body;
+      if (
+        body === undefined ||
+        typeof body.step !== "string" ||
+        typeof body.provider !== "string" ||
+        typeof body.model !== "string" ||
+        typeof body.prompt !== "object"
+      ) {
+        return reply.code(400).send({
+          error: "campos obrigatórios: step, provider, model, prompt",
+        });
+      }
+      const event = debugEvents.push(body);
+      return { id: event.id, receivedAt: event.receivedAt };
+    },
+  );
+
+  // GET /debug/llm-calls?sinceId=N — UI polling
+  fastify.get<{ Querystring: { sinceId?: string } }>(
+    "/debug/llm-calls",
+    async (req) => {
+      const sinceId =
+        req.query.sinceId !== undefined
+          ? Number(req.query.sinceId)
+          : 0;
+      const events = debugEvents.since(Number.isNaN(sinceId) ? 0 : sinceId);
+      return {
+        events,
+        totalEmitted: debugEvents.totalEmitted(),
+      };
+    },
+  );
+
+  // DELETE /debug/llm-calls — clear buffer (dev utility)
+  fastify.delete("/debug/llm-calls", async () => {
+    debugEvents.clear();
+    return { cleared: true };
+  });
+
+  // POST /debug/actions — log telemetry de actions (S-OC-29)
+  fastify.post<{
+    Body: {
+      sessionId: string;
+      llmCallId?: string;
+      action: "tail" | "approve" | "edit" | "cancel" | "swap" | "bypass";
+      originalPromptHash?: string;
+      editedPromptHash?: string;
+      swapTo?: string;
+      rationale?: string;
+    };
+  }>("/debug/actions", async (req, reply) => {
+    const body = req.body;
+    if (
+      body === undefined ||
+      typeof body.sessionId !== "string" ||
+      typeof body.action !== "string"
+    ) {
+      return reply.code(400).send({
+        error: "campos obrigatórios: sessionId, action",
+      });
+    }
+    const result = recordDebugAction(opts.db, body);
+    if ("error" in result) {
+      return reply.code(500).send({ error: result.error });
+    }
+    return { id: result.id };
+  });
+
   // POST /sessions/:id/end — endSession
   fastify.post<{ Params: { id: string } }>(
     "/sessions/:id/end",
@@ -367,6 +449,7 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   return {
     fastify,
     getMode: () => mode,
+    debugEvents,
     async listen(port, host = "127.0.0.1") {
       await fastify.listen({ port, host });
     },

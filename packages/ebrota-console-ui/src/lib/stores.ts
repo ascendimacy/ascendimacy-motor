@@ -53,3 +53,11 @@ export const libraryOpen = writable<boolean>(false);
 
 /** Replay modal open com qual sessionId. Null = fechado. */
 export const replaySessionId = writable<string | null>(null);
+
+/** Debug panel (raio-X LLM) aberto? */
+export const debugPanelOpen = writable<boolean>(false);
+
+/** Events LLM calls (tail mode). Append-only durante polling; clear
+ *  via API + store reset. */
+import type { DebugLlmCallEvent } from "./api.js";
+export const debugLlmEvents = writable<DebugLlmCallEvent[]>([]);

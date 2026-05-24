@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { bffStatus, consoleMode, libraryOpen } from "../lib/stores.js";
+  import {
+    bffStatus,
+    consoleMode,
+    debugPanelOpen,
+    libraryOpen,
+  } from "../lib/stores.js";
   import type { ApiClient } from "../lib/api.js";
   import type { ConsoleMode } from "../lib/types.js";
 
@@ -61,6 +66,17 @@
     title="Histórico de sessões"
   >
     Histórico
+  </button>
+
+  <button
+    type="button"
+    class="debug-toggle"
+    class:active={$debugPanelOpen}
+    on:click={() => debugPanelOpen.update((o) => !o)}
+    data-testid="debug-toggle"
+    title="Debug LLM (raio-X tail)"
+  >
+    🔬 Debug
   </button>
 
   <button
@@ -145,8 +161,26 @@
     color: inherit;
   }
 
-  .history-toggle:hover {
+  .history-toggle,
+  .debug-toggle {
+    background: rgba(127, 127, 127, 0.15);
+    border: 1px solid rgba(127, 127, 127, 0.4);
+    border-radius: 4px;
+    padding: 0.3rem 0.7rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: inherit;
+  }
+
+  .history-toggle:hover,
+  .debug-toggle:hover {
     background: rgba(127, 127, 127, 0.25);
+  }
+
+  .debug-toggle.active {
+    background: rgba(33, 150, 243, 0.25);
+    border-color: rgba(33, 150, 243, 0.6);
   }
 
   .mode-toggle:hover {
