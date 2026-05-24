@@ -123,6 +123,23 @@ export interface ReplayTrace {
   turns?: ReplayTraceTurn[];
 }
 
+export interface DebugLlmCallEvent {
+  id: number;
+  receivedAt: string;
+  step: string;
+  provider: "anthropic" | "infomaniak" | "local" | "unknown";
+  model: string;
+  prompt: {
+    system?: string;
+    user?: string;
+    assistantPrefill?: string;
+    raw?: string;
+  };
+  params?: Record<string, unknown>;
+  sessionId?: string;
+  turn?: number;
+}
+
 export interface ApiClient {
   getStatus(): Promise<BffStatus>;
   getMode(): Promise<{ mode: ConsoleMode }>;
@@ -154,6 +171,10 @@ export interface ApiClient {
     filters?: SessionLibraryFilters,
   ): Promise<{ sessions: SessionLibraryEntry[] }>;
   getSessionReplay(sessionId: string): Promise<ReplayTrace>;
+  listDebugLlmCalls(
+    sinceId?: number,
+  ): Promise<{ events: DebugLlmCallEvent[]; totalEmitted: number }>;
+  clearDebugLlmCalls(): Promise<{ cleared: boolean }>;
   /** Resolve URL completa pro EventSource consumir SSE. */
   turnStateSseUrl(sessionId: string): string;
 }
@@ -236,6 +257,23 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       return get<{ sessions: SessionLibraryEntry[] }>(
         `/sessions/library${query.length > 0 ? `?${query}` : ""}`,
       );
+    },
+    listDebugLlmCalls: (sinceId) =>
+      get<{ events: DebugLlmCallEvent[]; totalEmitted: number }>(
+        sinceId !== undefined
+          ? `/debug/llm-calls?sinceId=${sinceId}`
+          : "/debug/llm-calls",
+      ),
+    clearDebugLlmCalls: async () => {
+      const res = await f(`${baseUrl}/debug/llm-calls`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error(
+          `BFF DELETE /debug/llm-calls failed: ${res.status}`,
+        );
+      }
+      return (await res.json()) as { cleared: boolean };
     },
     getSessionReplay: (sessionId) =>
       get<ReplayTrace>(
