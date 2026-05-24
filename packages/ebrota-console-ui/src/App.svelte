@@ -4,6 +4,7 @@
   import ChatFeed from "./components/ChatFeed.svelte";
   import SessionStart from "./components/SessionStart.svelte";
   import MotorView from "./components/MotorView.svelte";
+  import ApprovalGate from "./components/ApprovalGate.svelte";
   import { createApiClient } from "./lib/api.js";
   import { bffStatus, consoleMode, globalError } from "./lib/stores.js";
   import {
@@ -52,6 +53,8 @@
       {$globalError}
     </div>
   {/if}
+
+  <ApprovalGate {api} />
 
   <main class="main-grid">
     <ChatFeed />
