@@ -21,6 +21,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@ascendimacy/motor-channels": "*",
     "@types/js-yaml": "*",
     "@types/node": "*",
     "typescript": "*",
