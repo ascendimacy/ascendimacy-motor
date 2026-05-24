@@ -54,6 +54,7 @@ describe("motor-channels types smoke", () => {
         from: "5511999990000@s.whatsapp.net",
         conversationId: "conv-001",
         timestamp: "2026-05-23T12:00:00.000Z",
+        raw: "card:tabuada-7",
       } satisfies CardActivatedEvent,
       {
         type: "MessageReceived",

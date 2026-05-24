@@ -54,13 +54,16 @@ export interface CardPackage {
   sourcePath: string;
 }
 
-/** Evento emitido quando detector `^card:<cardId>$` casa em inbound. */
+/** Evento emitido quando detector `^card:<cardId>$` casa em inbound.
+ *  `raw` preserva o texto original (S-MX-06-05) — útil pra telemetria e
+ *  debug do detector. */
 export interface CardActivatedEvent {
   type: "CardActivated";
   cardId: CardId;
   from: ChannelAddress;
   conversationId: ConversationId;
   timestamp: Iso8601;
+  raw: string;
 }
 
 /** Evento emitido pra toda mensagem inbound (após detector). */
