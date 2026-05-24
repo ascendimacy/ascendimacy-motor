@@ -47,3 +47,9 @@ export const globalError = writable<string | null>(null);
 export const pendingApproval = writable<{ proposedText: string } | null>(
   null,
 );
+
+/** Sidebar Histórico aberto? */
+export const libraryOpen = writable<boolean>(false);
+
+/** Replay modal open com qual sessionId. Null = fechado. */
+export const replaySessionId = writable<string | null>(null);

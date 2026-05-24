@@ -34,6 +34,11 @@ import {
   listRecentJunDecisions,
   recordJunDecision,
 } from "./decisions.js";
+import {
+  listSessionLibrary,
+  readSessionTrace,
+  type SessionLibraryFilters,
+} from "./traces-scanner.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -273,6 +278,59 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     const limit = req.query.limit ? Number(req.query.limit) : 50;
     return { decisions: listRecentJunDecisions(opts.db, req.params.id, limit) };
   });
+
+  // GET /sessions/library — session library com filtros (S-OC-30/31/32)
+  fastify.get<{
+    Querystring: {
+      persona?: string;
+      kind?: string;
+      from?: string;
+      to?: string;
+      hasOverrides?: string;
+      q?: string;
+      limit?: string;
+    };
+  }>("/sessions/library", async (req) => {
+    const q = req.query;
+    const filters: SessionLibraryFilters = {};
+    if (typeof q.persona === "string" && q.persona.length > 0) {
+      filters.persona = q.persona;
+    }
+    if (q.kind === "real" || q.kind === "sts") {
+      filters.kind = q.kind;
+    }
+    if (typeof q.from === "string" && q.from.length > 0) {
+      filters.fromIso = q.from;
+    }
+    if (typeof q.to === "string" && q.to.length > 0) {
+      filters.toIso = q.to;
+    }
+    if (q.hasOverrides === "true") {
+      filters.hasOverrides = true;
+    }
+    if (typeof q.q === "string" && q.q.length > 0) {
+      filters.q = q.q;
+    }
+    if (typeof q.limit === "string") {
+      const n = Number(q.limit);
+      if (!Number.isNaN(n)) filters.limit = n;
+    }
+    return { sessions: listSessionLibrary(opts.db, filters) };
+  });
+
+  // GET /sessions/:id/replay — trace JSON full pra replay UI
+  fastify.get<{ Params: { id: string } }>(
+    "/sessions/:id/replay",
+    async (req, reply) => {
+      const trace = await readSessionTrace(opts.db, req.params.id);
+      if (trace === null) {
+        return reply
+          .code(404)
+          .send({ error: `trace not found for sessionId=${req.params.id}` });
+      }
+      return trace;
+    },
+  );
 
   // POST /sessions/:id/end — endSession
   fastify.post<{ Params: { id: string } }>(

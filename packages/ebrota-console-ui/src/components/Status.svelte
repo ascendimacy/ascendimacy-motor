@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { bffStatus, consoleMode } from "../lib/stores.js";
+  import { bffStatus, consoleMode, libraryOpen } from "../lib/stores.js";
   import type { ApiClient } from "../lib/api.js";
   import type { ConsoleMode } from "../lib/types.js";
 
@@ -52,6 +52,16 @@
       {status?.sessionCount ?? 0} sessões
     </span>
   </div>
+
+  <button
+    type="button"
+    class="history-toggle"
+    on:click={() => libraryOpen.update((o) => !o)}
+    data-testid="history-toggle"
+    title="Histórico de sessões"
+  >
+    Histórico
+  </button>
 
   <button
     type="button"
@@ -123,6 +133,7 @@
     opacity: 0.7;
   }
 
+  .history-toggle,
   .mode-toggle {
     background: rgba(127, 127, 127, 0.15);
     border: 1px solid rgba(127, 127, 127, 0.4);
@@ -132,6 +143,10 @@
     font-family: inherit;
     font-size: 0.85rem;
     color: inherit;
+  }
+
+  .history-toggle:hover {
+    background: rgba(127, 127, 127, 0.25);
   }
 
   .mode-toggle:hover {

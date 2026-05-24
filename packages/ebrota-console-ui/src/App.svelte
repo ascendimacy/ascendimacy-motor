@@ -5,6 +5,8 @@
   import SessionStart from "./components/SessionStart.svelte";
   import MotorView from "./components/MotorView.svelte";
   import ApprovalGate from "./components/ApprovalGate.svelte";
+  import SessionLibrary from "./components/SessionLibrary.svelte";
+  import Replay from "./components/Replay.svelte";
   import { createApiClient } from "./lib/api.js";
   import { bffStatus, consoleMode, globalError } from "./lib/stores.js";
   import {
@@ -62,6 +64,9 @@
   </main>
 
   <SessionStart {api} />
+
+  <SessionLibrary {api} />
+  <Replay {api} />
 
   <footer>
     <p class="muted">
