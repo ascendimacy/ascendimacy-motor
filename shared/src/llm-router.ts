@@ -125,6 +125,30 @@ export function getProviderForStep(step: string): LlmProvider {
 }
 
 /**
+ * Decide se step deve cair em mock-LLM fixture.
+ *
+ * Provider-aware (D-3-PROV ops#1055 follow-up): openai-compat = LLM local
+ * (llama.cpp/vLLM-XPU) e NÃO exige API key — sem essa exceção, o gate
+ * caía no branch legacy (checava INFOMANIAK_API_KEY) e forçava mock
+ * mesmo com llama-server up. Reproduzido em smoke STS 2026-05-24 contra
+ * Qwen3-30B (`signals=[]`, `"Mock: contexto inicial"` em strategicRationale).
+ *
+ * Ordem de precedência:
+ * 1. USE_MOCK_LLM=true → mock (override explícito do operador)
+ * 2. provider=anthropic + sem ANTHROPIC_API_KEY → mock
+ * 3. provider=infomaniak + sem INFOMANIAK_API_KEY → mock
+ * 4. provider=openai-compat → NUNCA mock por key (LLM local, sem API key)
+ */
+export function shouldUseMockLlm(step: string): boolean {
+  if (process.env["USE_MOCK_LLM"] === "true") return true;
+  const provider = getProviderForStep(step);
+  if (provider === "anthropic") return !process.env["ANTHROPIC_API_KEY"];
+  if (provider === "infomaniak") return !process.env["INFOMANIAK_API_KEY"];
+  // openai-compat: LLM local, no key required
+  return false;
+}
+
+/**
  * Resolve model pra um step. Provider-aware:
  * - Se provider=anthropic e env <STEP>_MODEL é Anthropic-style ou ausente → Claude default
  * - Se provider=infomaniak → Infomaniak model name

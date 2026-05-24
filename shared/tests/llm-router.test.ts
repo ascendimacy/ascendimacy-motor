@@ -8,6 +8,7 @@ import {
   getModelForStep,
   getMaxTokensForStep,
   shouldEnableThinking,
+  shouldUseMockLlm,
   isReasoningModel,
   DEFAULT_PROVIDERS,
   DEFAULT_MODELS,
@@ -223,6 +224,82 @@ describe("shouldEnableThinking", () => {
     expect(shouldEnableThinking("planejador", "openai-compat", true)).toBe(false);
     expect(shouldEnableThinking("drota", "openai-compat", true)).toBe(false);
     expect(shouldEnableThinking("persona-sim", "openai-compat", false)).toBe(false);
+  });
+});
+
+describe("shouldUseMockLlm (D-3-PROV ops#1055 follow-up)", () => {
+  /** Save + clear all key/provider env so each test starts pristine. */
+  const KEY_ENVS = [
+    "USE_MOCK_LLM",
+    "ANTHROPIC_API_KEY",
+    "INFOMANIAK_API_KEY",
+    "LLM_PROVIDER",
+    "PLANEJADOR_PROVIDER",
+    "DROTA_PROVIDER",
+  ];
+  const savedKeys: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const k of KEY_ENVS) {
+      savedKeys[k] = process.env[k];
+      delete process.env[k];
+    }
+  });
+  afterEach(() => {
+    for (const k of KEY_ENVS) {
+      if (savedKeys[k] === undefined) delete process.env[k];
+      else process.env[k] = savedKeys[k];
+    }
+  });
+
+  it("USE_MOCK_LLM=true força mock independente do provider", () => {
+    process.env["USE_MOCK_LLM"] = "true";
+    process.env["LLM_PROVIDER"] = "openai-compat";
+    expect(shouldUseMockLlm("planejador")).toBe(true);
+  });
+
+  it("provider=anthropic sem ANTHROPIC_API_KEY → mock", () => {
+    process.env["LLM_PROVIDER"] = "anthropic";
+    expect(shouldUseMockLlm("planejador")).toBe(true);
+  });
+
+  it("provider=anthropic com ANTHROPIC_API_KEY → real", () => {
+    process.env["LLM_PROVIDER"] = "anthropic";
+    process.env["ANTHROPIC_API_KEY"] = "sk-test";
+    expect(shouldUseMockLlm("planejador")).toBe(false);
+  });
+
+  it("provider=infomaniak sem INFOMANIAK_API_KEY → mock", () => {
+    process.env["LLM_PROVIDER"] = "infomaniak";
+    expect(shouldUseMockLlm("drota")).toBe(true);
+  });
+
+  it("provider=infomaniak com INFOMANIAK_API_KEY → real", () => {
+    process.env["LLM_PROVIDER"] = "infomaniak";
+    process.env["INFOMANIAK_API_KEY"] = "im-test";
+    expect(shouldUseMockLlm("drota")).toBe(false);
+  });
+
+  it("provider=openai-compat SEM nenhuma API key → real (LLM local)", () => {
+    // Bug raiz reproduzido em smoke STS 2026-05-24: antes desse fix, o
+    // gate caía em else legacy e forçava mock mesmo com llama-server up.
+    process.env["LLM_PROVIDER"] = "openai-compat";
+    expect(shouldUseMockLlm("planejador")).toBe(false);
+    expect(shouldUseMockLlm("drota")).toBe(false);
+  });
+
+  it("provider=openai-compat com USE_MOCK_LLM=true → mock (operador override)", () => {
+    process.env["LLM_PROVIDER"] = "openai-compat";
+    process.env["USE_MOCK_LLM"] = "true";
+    expect(shouldUseMockLlm("planejador")).toBe(true);
+  });
+
+  it("per-step provider override é respeitado", () => {
+    process.env["LLM_PROVIDER"] = "anthropic"; // global
+    process.env["DROTA_PROVIDER"] = "openai-compat"; // override
+    // anthropic gate vs openai-compat gate
+    expect(shouldUseMockLlm("planejador")).toBe(true); // anthropic sem key
+    expect(shouldUseMockLlm("drota")).toBe(false); // openai-compat sem key OK
   });
 });
 

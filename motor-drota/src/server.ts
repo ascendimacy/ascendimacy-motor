@@ -15,7 +15,7 @@ import { extractSignals } from "./signal-extractor.js";
 import { applyPostProcessors } from "./post-processor.js";
 import { buildInaugural } from "./inaugural.js";
 import { canSkipDrotaComposition } from "./compose-skip.js";
-import { logDebugEvent, getProviderForStep } from "@ascendimacy/shared";
+import { logDebugEvent, shouldUseMockLlm } from "@ascendimacy/shared";
 
 const server = new McpServer({
   name: "motor-drota",
@@ -354,13 +354,9 @@ server.registerTool(
       };
     }
 
-    // motor#22: provider-aware mock detection.
-    const drotaProvider = getProviderForStep("drota");
-    const drotaKeyMissing = drotaProvider === "anthropic"
-      ? !process.env["ANTHROPIC_API_KEY"]
-      : !process.env["INFOMANIAK_API_KEY"];
-    const useMock =
-      process.env["USE_MOCK_LLM"] === "true" || drotaKeyMissing;
+    // motor#22 + D-3-PROV (ops#1055) follow-up: gate provider-aware via
+    // shared/llm-router.ts. openai-compat (LLM local) não exige API key.
+    const useMock = shouldUseMockLlm("drota");
     // motor#25 (handoff #24 Tarefa 2): split em stable prefix + dynamic body
     // pra prompt caching. STABLE_DROTA_PREFIX (BLOCO 1+4+5) é literalmente
     // idêntico entre calls — Anthropic cache_control: ephemeral funciona.
