@@ -41,3 +41,9 @@ export const currentContentPool = writable<ScoredContentItemSummary[]>(
 
 /** Erro global pra mostrar banner. Null = sem erro. */
 export const globalError = writable<string | null>(null);
+
+/** Pending approval — populated by polling /pending-approval em
+ *  semi-auto mode. Null = sem pendência. */
+export const pendingApproval = writable<{ proposedText: string } | null>(
+  null,
+);

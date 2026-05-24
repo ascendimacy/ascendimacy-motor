@@ -60,6 +60,28 @@ export interface ApprovalDecisionRequest {
   approved: boolean;
   editedText?: string;
   rationale?: string;
+  /** Pra Edit Learner v0 (BFF persistência) — turn + originalText. */
+  turn?: number;
+  originalText?: string;
+}
+
+export interface OverrideRequest {
+  contentItemId: string;
+  /** Pra Edit Learner v0 (BFF persistência). */
+  turn?: number;
+  rationale?: string;
+}
+
+export interface JunDecisionEntry {
+  id: number;
+  sessionId: string;
+  turn: number;
+  decision: "approve" | "edit" | "reject" | "override" | "auto";
+  originalText: string | null;
+  finalText: string | null;
+  overrideCardId: string | null;
+  rationale: string | null;
+  recordedAt: string;
 }
 
 export interface ApiClient {
@@ -75,7 +97,12 @@ export interface ApiClient {
   overrideSelection(
     sessionId: string,
     contentItemId: string,
+    extras?: { turn?: number; rationale?: string },
   ): Promise<OverrideSelectionResult>;
+  listDecisions(
+    sessionId: string,
+    limit?: number,
+  ): Promise<{ decisions: JunDecisionEntry[] }>;
   getPendingApproval(
     sessionId: string,
   ): Promise<{ proposedText: string } | null>;
@@ -126,10 +153,16 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       get<{ contentPool: ScoredContentItemSummary[] }>(
         `/sessions/${encodeURIComponent(sessionId)}/options`,
       ),
-    overrideSelection: (sessionId, contentItemId) =>
+    overrideSelection: (sessionId, contentItemId, extras) =>
       post<OverrideSelectionResult>(
         `/sessions/${encodeURIComponent(sessionId)}/override`,
-        { contentItemId },
+        { contentItemId, ...(extras ?? {}) },
+      ),
+    listDecisions: (sessionId, limit) =>
+      get<{ decisions: JunDecisionEntry[] }>(
+        `/sessions/${encodeURIComponent(sessionId)}/decisions${
+          limit !== undefined ? `?limit=${limit}` : ""
+        }`,
       ),
     getPendingApproval: (sessionId) =>
       get<{ proposedText: string } | null>(

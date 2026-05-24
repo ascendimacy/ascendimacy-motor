@@ -30,6 +30,10 @@ import type {
   ApprovalDecisionPayload,
 } from "./types.js";
 import type { OrchestratorDaemonClient } from "./daemon-client.js";
+import {
+  listRecentJunDecisions,
+  recordJunDecision,
+} from "./decisions.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -180,18 +184,32 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     async (req) => opts.daemon.listOptions(req.params.id),
   );
 
-  // POST /sessions/:id/override — overrideSelection
+  // POST /sessions/:id/override — overrideSelection + log jun_decisions
   fastify.post<{
     Params: { id: string };
-    Body: { contentItemId: string };
+    Body: { contentItemId: string; turn?: number; rationale?: string };
   }>("/sessions/:id/override", async (req, reply) => {
-    const { contentItemId } = req.body ?? {};
+    const { contentItemId, turn, rationale } = req.body ?? {};
     if (typeof contentItemId !== "string") {
       return reply
         .code(400)
         .send({ error: "contentItemId obrigatório" });
     }
-    return opts.daemon.overrideSelection(req.params.id, contentItemId);
+    const result = await opts.daemon.overrideSelection(
+      req.params.id,
+      contentItemId,
+    );
+    // Edit Learner v0 — só loga se override aplicado (accepted=true)
+    if (result.accepted) {
+      recordJunDecision(opts.db, {
+        sessionId: req.params.id,
+        turn: typeof turn === "number" ? turn : -1,
+        decision: "override",
+        overrideCardId: contentItemId,
+        ...(typeof rationale === "string" ? { rationale } : {}),
+      });
+    }
+    return result;
   });
 
   // GET /sessions/:id/pending-approval — getPendingApproval
@@ -200,10 +218,13 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     async (req) => opts.daemon.getPendingApproval(req.params.id),
   );
 
-  // POST /sessions/:id/approve — approveOrEdit
+  // POST /sessions/:id/approve — approveOrEdit + log jun_decisions
   fastify.post<{
     Params: { id: string };
-    Body: ApprovalDecisionPayload;
+    Body: ApprovalDecisionPayload & {
+      turn?: number;
+      originalText?: string;
+    };
   }>("/sessions/:id/approve", async (req, reply) => {
     const body = req.body;
     if (body === undefined || typeof body.approved !== "boolean") {
@@ -211,7 +232,46 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
         .code(400)
         .send({ error: "approved (boolean) obrigatório" });
     }
-    return opts.daemon.approveOrEdit(req.params.id, body);
+    const { turn, originalText, ...decision } = body;
+    const result = await opts.daemon.approveOrEdit(
+      req.params.id,
+      decision,
+    );
+    // Edit Learner v0 — sempre loga, mesmo gate inativo (caller pode
+    // ter clicado approve sem haver pending; rastreável pra debug)
+    if (result.gateWasActive) {
+      const decisionType: "approve" | "edit" | "reject" =
+        !decision.approved
+          ? "reject"
+          : decision.editedText !== undefined &&
+              decision.editedText !== originalText
+            ? "edit"
+            : "approve";
+      recordJunDecision(opts.db, {
+        sessionId: req.params.id,
+        turn: typeof turn === "number" ? turn : -1,
+        decision: decisionType,
+        ...(originalText !== undefined ? { originalText } : {}),
+        ...(decision.editedText !== undefined
+          ? { finalText: decision.editedText }
+          : originalText !== undefined && decision.approved
+            ? { finalText: originalText }
+            : {}),
+        ...(decision.rationale !== undefined
+          ? { rationale: decision.rationale }
+          : {}),
+      });
+    }
+    return result;
+  });
+
+  // GET /sessions/:id/decisions — histórico Edit Learner v0 pra UI
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { limit?: string };
+  }>("/sessions/:id/decisions", async (req) => {
+    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    return { decisions: listRecentJunDecisions(opts.db, req.params.id, limit) };
   });
 
   // POST /sessions/:id/end — endSession
