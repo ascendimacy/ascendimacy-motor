@@ -17,12 +17,17 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { SessionState } from "@ascendimacy/shared";
+import type {
+  ScoredContentItem,
+  SessionState,
+} from "@ascendimacy/shared";
 import { connectAll, disconnectAll, type McpClients } from "./mcp-clients.js";
 import { createOrchestratorMcpServer } from "./mcp-server.js";
 import {
   runTurn,
   type CardContext,
+  type OptionsGate,
+  type OptionsGateDecision,
   type TurnStateEvent,
 } from "./orchestrator.js";
 
@@ -70,6 +75,11 @@ export interface RunCardTurnInput {
   /** Opcional. Default = `from`. PR3 não faz lookup from→persona; resolução
    *  fica pro caller (eBrota Console BFF) ou capability futura. */
   personaId?: string;
+  /** Se > 0, ativa semi-auto mode: runTurn aguarda decisão via
+   *  listOptions/overrideSelection até esse timeout (ms) antes de
+   *  proceder com pool original. Default 0 = auto mode (sem pause,
+   *  behavior PR3-PR4 idêntico). */
+  semiAutoTimeoutMs?: number;
 }
 
 export interface RunCardTurnOutput {
@@ -85,6 +95,16 @@ export interface TurnEventsSnapshot {
   nextIndex: number;
   /** Total de eventos já gerados pra essa sessão (incluindo evictados pelo cap). */
   totalEmitted: number;
+}
+
+export interface OverrideSelectionResult {
+  /** True se gate estava ativo + contentItemId existia no pool corrente. */
+  accepted: boolean;
+  /** True se contentItemId aparece no pool corrente; false sinaliza "id
+   *  inválido" pra UI (vs accepted=false por gate inativo). */
+  foundInPool: boolean;
+  /** True se uma sessão tinha gate pendente (independente do match). */
+  gateWasActive: boolean;
 }
 
 interface ToolCallResult {
@@ -106,6 +126,16 @@ export class OrchestratorDaemon {
     string,
     { events: TurnStateEvent[]; totalEmitted: number }
   >();
+  /** Gates pendentes per-session — ativos durante runTurn entre
+   *  plan_turn e evaluate_and_select quando semiAutoTimeoutMs > 0.
+   *  listOptions lê o contentPool daqui; overrideSelection resolve. */
+  private pendingGates = new Map<
+    string,
+    {
+      contentPool: ScoredContentItem[];
+      resolve: (decision: OptionsGateDecision) => void;
+    }
+  >();
   private shuttingDown = false;
   private started = false;
 
@@ -124,6 +154,34 @@ export class OrchestratorDaemon {
     this.tracesDir = opts.tracesDir ?? DEFAULT_TRACES_DIR;
   }
 
+  /**
+   * Cria optionsGate pra runTurn quando semi-auto está ativo. Gate
+   * registra entrada no pendingGates + cria timeout que resolve sem
+   * override se Jun não decidir a tempo. Returns undefined em auto
+   * mode.
+   */
+  private buildOptionsGate(
+    sessionId: string,
+    timeoutMs: number,
+  ): OptionsGate | undefined {
+    if (timeoutMs <= 0) return undefined;
+    return (gateInput) =>
+      new Promise<OptionsGateDecision>((resolve) => {
+        const timeoutHandle = setTimeout(() => {
+          this.pendingGates.delete(sessionId);
+          resolve({});
+        }, timeoutMs);
+        this.pendingGates.set(sessionId, {
+          contentPool: gateInput.contentPool,
+          resolve: (decision) => {
+            clearTimeout(timeoutHandle);
+            this.pendingGates.delete(sessionId);
+            resolve(decision);
+          },
+        });
+      });
+  }
+
   /** Push event ao buffer da sessão, respeitando o cap. Caller passa
    *  esse método como callback pra runTurn via onTurnEvent. */
   private pushTurnEvent(event: TurnStateEvent): void {
@@ -137,6 +195,40 @@ export class OrchestratorDaemon {
     if (bucket.events.length > TURN_EVENT_BUFFER_CAP) {
       bucket.events.splice(0, bucket.events.length - TURN_EVENT_BUFFER_CAP);
     }
+  }
+
+  /**
+   * Retorna pool corrente sob gate pendente (S-OD-07). Vazio se sessão
+   * não tem gate ativo (auto mode, ou turn já passou da fase). UI usa
+   * pra mostrar leque pedagógico TOP-N expansível.
+   */
+  listOptions(sessionId: string): ScoredContentItem[] {
+    return this.pendingGates.get(sessionId)?.contentPool ?? [];
+  }
+
+  /**
+   * Resolve o gate pendente forçando motor-drota a usar `contentItemId`
+   * em vez do top-score (S-OD-08). Retorna metadata:
+   *  - gateWasActive: tinha gate pendente
+   *  - foundInPool: contentItemId existe no pool atual
+   *  - accepted: ambos true → override aplicado
+   */
+  overrideSelection(
+    sessionId: string,
+    contentItemId: string,
+  ): OverrideSelectionResult {
+    const pending = this.pendingGates.get(sessionId);
+    if (pending === undefined) {
+      return { accepted: false, foundInPool: false, gateWasActive: false };
+    }
+    const foundInPool = pending.contentPool.some(
+      (s) => s.item.id === contentItemId,
+    );
+    if (!foundInPool) {
+      return { accepted: false, foundInPool: false, gateWasActive: true };
+    }
+    pending.resolve({ overrideContentItemId: contentItemId });
+    return { accepted: true, foundInPool: true, gateWasActive: true };
   }
 
   /**
@@ -176,6 +268,11 @@ export class OrchestratorDaemon {
     if (this.shuttingDown || !this.started) return;
     this.shuttingDown = true;
     this.log("[orchestrator-daemon] shutting down");
+    // Resolve gates pendentes sem override pra não deixar runTurn em pé.
+    for (const [, pending] of this.pendingGates) {
+      pending.resolve({});
+    }
+    this.pendingGates.clear();
     this.sessions.clear();
     this.turnEvents.clear();
     if (this.clients !== null) {
@@ -269,6 +366,10 @@ export class OrchestratorDaemon {
       cardId: input.cardId,
       pkgRaw: input.pkg.raw,
     };
+    const optionsGate = this.buildOptionsGate(
+      runtime.sessionId,
+      input.semiAutoTimeoutMs ?? 0,
+    );
     const { finalResponse, tracePath } = await runTurn(
       this.clients,
       runtime.sessionId,
@@ -278,6 +379,7 @@ export class OrchestratorDaemon {
       undefined,
       cardContext,
       (ev) => this.pushTurnEvent(ev),
+      optionsGate,
     );
     return {
       sessionId: runtime.sessionId,

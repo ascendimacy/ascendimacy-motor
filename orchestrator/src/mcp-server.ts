@@ -157,5 +157,56 @@ export function createOrchestratorMcpServer(
     },
   );
 
+  server.registerTool(
+    "list_options",
+    {
+      description:
+        "Lista pool de ScoredContentItem considerados pelo planejador " +
+        "(antes de evaluate_and_select). Apenas retorna populado durante " +
+        "gate ativo (semi-auto mode); auto mode retorna []. Caller usa pra " +
+        "renderizar leque pedagógico TOP-N expansível na UI.",
+      inputSchema: {
+        sessionId: z.string(),
+      } as any,
+    },
+    async (input: { sessionId: string }) => {
+      const contentPool = opts.daemon.listOptions(input.sessionId);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ contentPool }),
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "override_selection",
+    {
+      description:
+        "Força motor-drota a usar contentItemId específico em vez do " +
+        "top-score (resolve gate pendente). Retorna { accepted, " +
+        "foundInPool, gateWasActive }. accepted=true só se ambos foundInPool " +
+        "e gateWasActive forem true.",
+      inputSchema: {
+        sessionId: z.string(),
+        contentItemId: z.string(),
+      } as any,
+    },
+    async (input: { sessionId: string; contentItemId: string }) => {
+      const result = opts.daemon.overrideSelection(
+        input.sessionId,
+        input.contentItemId,
+      );
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify(result) },
+        ],
+      };
+    },
+  );
+
   return server;
 }
