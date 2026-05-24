@@ -19,7 +19,12 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { join, dirname } from "node:path";
 import { createRequire } from "node:module";
-import type { LlmProvider } from "./llm-router.js";
+import {
+  getProviderForStep,
+  getModelForStep,
+  type LlmProvider,
+} from "./llm-router.js";
+import { getLlmTimeoutMs } from "./llm-config.js";
 
 // Tipos espelham llm-gateway/src/types.ts. Mantidos sincronizados manualmente.
 export interface GatewayChatCompletionInput {
@@ -147,12 +152,116 @@ async function getClient(): Promise<Client> {
 }
 
 /**
+ * Bypass do llm-gateway pra `provider=openai-compat` — D-3-PROV (ops#1055).
+ *
+ * O gateway MCP só rotea anthropic/infomaniak (retry/fallback/bucket
+ * coordenado). LLM local (llama.cpp SYCL, vLLM-XPU) não passa pelo
+ * gateway — chamada direta via fetch ao `LLM_LOCAL_ENDPOINT`, sem
+ * retry coordenado, sem fallback cross-provider. Caller usa o mesmo
+ * `callGateway()` agnóstico; o switch é interno aqui.
+ *
+ * Endpoint default: `http://localhost:8080/v1/chat/completions`
+ * Override via env `LLM_LOCAL_ENDPOINT`.
+ *
+ * Pricing: openai-compat = custo 0 USD (LLM local, sem custo de API);
+ * `calculateCostUsd` em llm-config.ts já trata.
+ */
+interface OpenAiChatChoice {
+  message?: { content?: string };
+  finish_reason?: string;
+}
+interface OpenAiChatUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  prompt_tokens_details?: { cached_tokens?: number };
+}
+interface OpenAiChatResponse {
+  choices?: OpenAiChatChoice[];
+  usage?: OpenAiChatUsage;
+  model?: string;
+}
+
+async function callLocalChatCompletion(
+  req: GatewayChatCompletionInput,
+): Promise<GatewayChatCompletionOutput> {
+  const endpoint =
+    process.env["LLM_LOCAL_ENDPOINT"] ??
+    "http://localhost:8080/v1/chat/completions";
+  const model =
+    req.model && req.model.length > 0
+      ? req.model
+      : getModelForStep(req.step, "openai-compat");
+  // cacheableSystemPrefix é prepended pra preservar caching automático
+  // do llama.cpp (prefixos consistentes >1024 tokens cacheiam server-side).
+  const systemContent =
+    (req.cacheableSystemPrefix ?? "") + req.systemPrompt;
+  const body: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: "system", content: systemContent },
+      { role: "user", content: req.userMessage },
+    ],
+  };
+  if (req.maxTokens !== undefined) body["max_tokens"] = req.maxTokens;
+  const timeoutMs = getLlmTimeoutMs(req.step);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const t0 = Date.now();
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `gateway error: HTTP_${res.status} — ${text.slice(0, 200)}`,
+      );
+    }
+    const parsed = (await res.json()) as OpenAiChatResponse;
+    const choice = parsed.choices?.[0];
+    if (choice === undefined) {
+      throw new Error("gateway error: EMPTY_RESPONSE — no choices in response");
+    }
+    const usage = parsed.usage ?? {};
+    return {
+      content: choice.message?.content ?? "",
+      tokens: {
+        in: usage.prompt_tokens ?? 0,
+        out: usage.completion_tokens ?? 0,
+        reasoning: 0,
+        cacheRead: usage.prompt_tokens_details?.cached_tokens ?? 0,
+        cacheCreation: 0,
+      },
+      provider: "openai-compat",
+      model: parsed.model ?? model,
+      latency_ms: Date.now() - t0,
+      attempt_count: 1,
+      was_fallback: false,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Chama o gateway. Lazy-spawn no primeiro call; reusa o mesmo processo
  * gateway pro resto da vida do processo caller.
+ *
+ * D-3-PROV (ops#1055): se provider efetivo é `openai-compat`, faz bypass
+ * do gateway MCP e chama direto via fetch (LLM local não tem retry/
+ * fallback coordenado — overhead do MCP+bucket é desnecessário).
  */
 export async function callGateway(
   req: GatewayChatCompletionInput,
 ): Promise<GatewayChatCompletionOutput> {
+  const effectiveProvider = req.provider ?? getProviderForStep(req.step);
+  if (effectiveProvider === "openai-compat") {
+    return callLocalChatCompletion(req);
+  }
   const client = await getClient();
   const result = await client.callTool({
     name: "chat_completion",
