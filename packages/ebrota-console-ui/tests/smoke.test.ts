@@ -1,24 +1,64 @@
-import { describe, it, expect } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type Mock,
+} from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import App from "../src/App.svelte";
+import { globalError } from "../src/lib/stores.js";
 
-describe("App.svelte placeholder", () => {
+let fetchMock: Mock;
+
+beforeEach(() => {
+  globalError.set(null);
+  // Mock fetch pra evitar errors de network real durante mount.
+  fetchMock = vi.fn(async () => ({
+    ok: false,
+    status: 503,
+    statusText: "Service Unavailable",
+    json: async () => ({}),
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("App.svelte smoke (PR3 layout)", () => {
   it("renderiza header eBrota Console", () => {
     render(App);
-    expect(screen.getByRole("heading", { name: /eBrota Console/i })).toBeDefined();
+    expect(
+      screen.getByRole("heading", { name: /eBrota Console/i, level: 1 }),
+    ).toBeDefined();
   });
 
-  it("renderiza versão", () => {
+  it("renderiza versão v0.1.0", () => {
     render(App);
     expect(screen.getByText(/v0\.1\.0/)).toBeDefined();
   });
 
-  it("lista PRs futuros (PR2..PR6+)", () => {
+  it("renderiza chat feed + motor placeholder", () => {
     render(App);
-    // Texto quebrado entre <strong>PR2</strong> e " — BFF proxy..." então
-    // procura por substring suficiente pra match.
-    expect(screen.getByText(/BFF proxy/i)).toBeDefined();
-    expect(screen.getByText(/Vista usuário/i)).toBeDefined();
-    expect(screen.getByText(/leque pedagógico/i)).toBeDefined();
+    expect(screen.getByTestId("chat-feed")).toBeDefined();
+    expect(screen.getByTestId("motor-placeholder")).toBeDefined();
   });
+
+  it("renderiza session start form", () => {
+    render(App);
+    expect(screen.getByTestId("session-start")).toBeDefined();
+    expect(screen.getByTestId("start-button")).toBeDefined();
+  });
+
+  // Nota: error banner via store globalError tem cobertura dedicada em
+  // SessionStart.test.ts ("globalError populado quando startCardSession
+  // falha"). Smoke aqui foca em render do layout — mount lifecycle do
+  // App + status polling via fetch dependeria de jsdom fetch global +
+  // svelte onMount timing peculiar do vitest. Cobertura indireta basta
+  // pra PR3; PR seguinte pode adicionar integration test com vitest
+  // browser mode se necessário.
 });
