@@ -86,6 +86,18 @@ export interface EvaluateAndSelectOutput {
   skipReason?: string;
   /** motor#25: head do raw output pra debug log quando skipReason populado. */
   rawOutput?: string;
+  /**
+   * Sprint 5 #8: assessment snapshot quando USE_SIMPLIFIED_PIPELINE=true.
+   * Unified Assessor output exposed pra trace + downstream (Helix, etc).
+   * Undefined no fluxo antigo (backward compat).
+   */
+  assessment?: {
+    mood: number;
+    mood_method: "rule" | "llm" | "fallback";
+    mood_confidence: "high" | "medium" | "low";
+    signals: string[];
+    engagement: "high" | "medium" | "low" | "disengaging";
+  };
 }
 
 export interface ExecutePlaybookInput {
