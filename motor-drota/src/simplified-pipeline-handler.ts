@@ -25,6 +25,7 @@ import type {
 import {
   extractDiscoveries,
   extractBoundaryEvents,
+  extractPresentedConcepts,
 } from "@ascendimacy/shared";
 
 import { assess } from "./unified-assessor.js";
@@ -188,6 +189,21 @@ export async function handleSimplifiedPipeline(
     incomingMessage: lastUserMessage,
     recentTurns,
   });
+
+  // ── Fase 3: ConceptLedgerWriter — após materializar o Fact, emite
+  // presented_concept (+1pt) se item está taggeado com axis_id/family/
+  // lineage_anchor/extracted_keywords. Items legados sem tags simplesmente
+  // não geram entry. Fallback (rawText vazio) também não conta.
+  if (!matResult.fallback_triggered) {
+    subjectKnowledgeEvents.push(
+      ...extractPresentedConcepts({
+        subjectId: input.persona.id,
+        sessionId: input.sessionId,
+        turnRef,
+        item: selectionResult.selected.item,
+      }),
+    );
+  }
 
   return {
     selectedContent: selectionResult.selected,

@@ -52,6 +52,22 @@ export interface InauguralResolveInput {
   jointPartnerName?: string;
 }
 
+/**
+ * Subject Knowledge Fase 3: pergunta aberta obrigatória pra cada sessão
+ * inaugural (princípio "pergunta aberta abre cada sessão").
+ *
+ * Schema validador (validateInauguralOutput) rejeita templates sem
+ * discovery_question.text não-vazio — não passa code review nem teste.
+ */
+export interface DiscoveryQuestion {
+  /** Pergunta aberta intencional formulada ao sujeito. */
+  text: string;
+  /** O que estamos investigando — guia downstream do DiscoveryWriter. */
+  intent: "interest" | "value" | "context" | "feeling";
+  /** Categorias de signal esperadas como resposta (informativo). */
+  expected_signal_categories: string[];
+}
+
 export interface InauguralResolveOutput {
   /** Texto completo pronto pra Bridge. */
   text: string;
@@ -67,6 +83,12 @@ export interface InauguralResolveOutput {
   exit_right_present: boolean;
   /** Source da cascade ("client_override" | "cultural_default" | "universal"). */
   cascade_source: "client_override" | "cultural_default" | "universal";
+  /**
+   * Subject Knowledge Fase 3: pergunta aberta intencional do turn 0.
+   * Para sessão recorrente (sessionNumber > 1) o motor pode optar por
+   * não incluir — null sinaliza ausência consciente.
+   */
+  discovery_question: DiscoveryQuestion | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -81,6 +103,17 @@ const UNIVERSAL_FALLBACK = {
   exit_right: "Se quiser parar, é só falar.",
   confirmation_invite_default: "O que tá rolando aí?",
   confirmation_invite_template: "Hoje quer falar sobre {interest}?",
+  /**
+   * Subject Knowledge Fase 3: pergunta aberta default quando nenhuma
+   * tradição/cultura customizada provê uma. Intencionalmente investiga
+   * INTEREST (a maior probabilidade de retorno num turn 0). Cultural
+   * defaults podem override pra `feeling`, `context`, etc.
+   */
+  discovery_question: {
+    text: "Tem alguma coisa que tá te interessando agora? Pode ser qualquer coisa — algo que você faz, que aprende, ou que fica na sua cabeça mesmo sem querer.",
+    intent: "interest" as const,
+    expected_signal_categories: ["interest_marker", "engagement_high"],
+  },
 };
 
 const UNIVERSAL_RECORRENTE = {
@@ -171,6 +204,7 @@ export function resolveInauguralTemplate(
       non_evaluation_clause_present: false, // recorrente não precisa
       exit_right_present: false,
       cascade_source: recorrenteOverride ? "client_override" : "universal",
+      discovery_question: null, // recorrente: motor decide dinamicamente
     };
   }
 
@@ -229,9 +263,55 @@ export function resolveInauguralTemplate(
     invite = def.value;
   }
 
-  // Compose final text
+  // Resolve discovery_question via cascade. Cultural default pode prover
+  // tanto string solta quanto objeto completo; aqui pegamos string e usamos
+  // intent default 'interest'. Override completo via voice_profile.discovery_question.
+  const discoveryQuestionText = resolveField(
+    ["inaugural", "discovery_question"],
+    input.voiceProfile,
+    input.culturalDefault,
+    UNIVERSAL_FALLBACK.discovery_question.text,
+  );
+  // voice_profile pode declarar intent diferente (interest/value/context/feeling)
+  const discoveryQuestionIntentRaw =
+    asString(getNested(input.voiceProfile, ["inaugural", "discovery_question_intent"])) ??
+    asString(getNested(input.culturalDefault, ["inaugural", "discovery_question_intent"])) ??
+    UNIVERSAL_FALLBACK.discovery_question.intent;
+  const discoveryQuestionIntent: DiscoveryQuestion["intent"] =
+    discoveryQuestionIntentRaw === "value" ||
+    discoveryQuestionIntentRaw === "context" ||
+    discoveryQuestionIntentRaw === "feeling"
+      ? discoveryQuestionIntentRaw
+      : "interest";
+
+  const discoveryQuestion: DiscoveryQuestion = {
+    text: discoveryQuestionText.value,
+    intent: discoveryQuestionIntent,
+    expected_signal_categories:
+      UNIVERSAL_FALLBACK.discovery_question.expected_signal_categories,
+  };
+
+  // Compose final text: invite/discovery_question fecha o acolhimento.
+  // Backcompat: se interest disponível usa invite ancorado; senão, se
+  // cultural/voice trouxe confirmation_invite_default não-universal, usa
+  // ele; em último caso, usa a nova discovery_question (PT-BR universal).
+  let closingQuestion: string;
+  if (input.child.topInterest) {
+    closingQuestion = invite;
+  } else {
+    const def = resolveField(
+      inviteDefaultPath,
+      input.voiceProfile,
+      input.culturalDefault,
+      "", // universal vazio força fallback pra discovery_question
+    );
+    closingQuestion =
+      def.value && def.source !== "universal"
+        ? def.value
+        : discoveryQuestion.text;
+  }
   const greetingLine = `${greeting.value}, ${subjectNameForm}.`;
-  const text = [greetingLine, purpose.value, nonEval.value, exitRight.value, invite]
+  const text = [greetingLine, purpose.value, nonEval.value, exitRight.value, closingQuestion]
     .filter((s) => s && s.trim().length > 0)
     .join(" ");
 
@@ -255,5 +335,55 @@ export function resolveInauguralTemplate(
     non_evaluation_clause_present: nonEval.value.length > 0,
     exit_right_present: exitRight.value.length > 0,
     cascade_source: cascadeSource,
+    discovery_question: discoveryQuestion,
   };
+}
+
+/**
+ * Validador estrutural — falha hard quando o acolhimento do turn 0 não
+ * carrega `discovery_question` com texto não-vazio.
+ *
+ * Princípio "pergunta aberta abre cada sessão" (Subject Knowledge Fase 3):
+ * sessão sem pergunta aberta intencional viola o contrato pedagógico
+ * eBrota e não pode passar code review nem teste de integração.
+ *
+ * Sessões recorrentes (template_used === "inaugural_recorrente") são
+ * exceção — motor decide pergunta dinamicamente no flow normal.
+ */
+export class InauguralValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InauguralValidationError";
+  }
+}
+
+export function validateInauguralOutput(
+  output: InauguralResolveOutput,
+): void {
+  if (output.template_used === "inaugural_recorrente") {
+    return; // sessão recorrente — sem obrigatoriedade
+  }
+  if (!output.discovery_question) {
+    throw new InauguralValidationError(
+      "discovery_question ausente — princípio pedagógico exige pergunta aberta no turn 0",
+    );
+  }
+  if (
+    typeof output.discovery_question.text !== "string" ||
+    output.discovery_question.text.trim().length === 0
+  ) {
+    throw new InauguralValidationError(
+      "discovery_question.text vazio — pergunta aberta intencional obrigatória",
+    );
+  }
+  if (!output.non_evaluation_clause_present) {
+    throw new InauguralValidationError(
+      "non_evaluation_clause obrigatória no acolhimento inaugural",
+    );
+  }
+  if (!output.exit_right_present) {
+    throw new InauguralValidationError(
+      "exit_right obrigatório no acolhimento inaugural",
+    );
+  }
 }
