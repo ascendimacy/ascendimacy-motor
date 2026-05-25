@@ -1,0 +1,60 @@
+# Cultural Defaults — Japonês (JP)
+#
+# Spec: ascendimacy-ops/docs/specs/2026-04-28-motor-simplificacao-llm-spec-v1.md §5.5
+# + 2026-04-26-pulso-spec-v0.md (omikuji v0)
+#
+# Status: v0 — pendente revisão Yuji/Yuko ANTES do piloto Nagareyama.
+# cultural_default_provenance: "claude_ai_v0_pending_family_anchor"
+#
+# Quando Yuji/Yuko revisarem, atualizar provenance para "family_anchor".
+
+cultural_default_provenance: claude_ai_v0_pending_family_anchor
+language: ja
+locale: ja-JP
+
+# ─── Inaugural template (turn 0 primeira sessão) ─────────────────────
+# Spec §5.5 — slots mínimos pro piloto Nagareyama.
+inaugural:
+  greeting: "こんにちは"
+  # subject_name_form é resolvido em runtime (sem honorífico por padrão JP;
+  # família revisa). Esta é apenas a forma de saudação.
+  greeting_with_name_format: "{greeting}、{name}。"
+
+  # Propósito (1-2 frases) — claude_ai_v0; family_anchor revisará tom.
+  purpose: |
+    僕はあなたと一緒に何かを考える相手だよ。
+    答えを教える人じゃなくて、一緒に気になることを話す相手。
+
+  # Cláusula de não-avaliação (obrigatória — não é teste).
+  non_evaluation_clause: "これはテストじゃないよ。"
+
+  # Direito de saída (sempre presente).
+  exit_right: "「もういい」って言えば、いつでも終われるよ。"
+
+  # Convite pra começar (ancorado em interesse — slot dinâmico {interest}).
+  confirmation_invite_template: "今日、{interest}について話したい?"
+  confirmation_invite_default: "今日は何が気になってる?"
+
+# ─── Pulso vocabulário cultural (omikuji v0) ─────────────────────────
+# Spec 2026-04-26-pulso-spec-v0.md DA-PULSO-03: 7 níveis (drop 半吉).
+pulso:
+  type: omikuji
+  enabled: true
+  tie_threshold: 0.05
+  rng_seed_strategy: deterministic_session
+  vocabulary:
+    - { symbol: "大吉", translation: "fortuna grande", weight: 1 }
+    - { symbol: "吉", translation: "fortuna boa", weight: 2 }
+    - { symbol: "中吉", translation: "fortuna média", weight: 3 }
+    - { symbol: "小吉", translation: "fortuna pequena", weight: 2 }
+    - { symbol: "末吉", translation: "fortuna distante", weight: 2 }
+    - { symbol: "凶", translation: "azar", weight: 1 }
+    - { symbol: "大凶", translation: "azar grande", weight: 1 }
+
+# ─── Honorific defaults ──────────────────────────────────────────────
+# Família revisa: padrão é SEM honorífico (familiaridade desejada).
+honorifics:
+  default_form: bare_name
+  available_options: [bare_name, kun, chan, san]
+  # Aviso: usar honorífico errado em JP é violação social leve; defer
+  # à família.
