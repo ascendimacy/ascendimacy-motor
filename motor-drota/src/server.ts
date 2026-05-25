@@ -169,6 +169,7 @@ ${instructionAdditionBody}
 </instruction_addition>
 
 [BLOCO 3 - Numbered instructions]
+0. **PERGUNTA DIRETA do sujeito tem PRIORIDADE**: se <context_hints> contém \`respond_to_question_first: true\` OU \`question_detected: true\`, sua fala DEVE começar respondendo a pergunta do sujeito (1-2 frases curtas, diretas, sem evasão). DEPOIS pode-se introduzir o Fact via ponte natural. NUNCA emita Fact ignorando pergunta — o sujeito percebe e perde confiança. Sprint Pedagógico P1.
 1. Materialize o <selected_content> em fala natural para ${persona.name}. Use OS CAMPOS do content (fact, bridge, quest para hooks; title, trigger para cards; etc).
 2. **Ancoragem obrigatória**: a fala deve citar/adaptar o conteúdo do item selecionado — não invente fato novo.
 3. Respeite <context_hints>. Se contém 'avoid', 'evitar' ou 'alertas', esses padrões são PROIBIDOS na saída.
