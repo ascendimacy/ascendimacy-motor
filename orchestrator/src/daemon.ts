@@ -107,6 +107,33 @@ export interface OverrideSelectionResult {
   gateWasActive: boolean;
 }
 
+export interface ApprovalDecision {
+  /** True envia (com editedText se presente, senão proposedText original);
+   *  false aborta (não envia outbound). */
+  approved: boolean;
+  /** Se presente, substitui o proposedText antes do envio. */
+  editedText?: string;
+  /** Optional: comentário freeform do operador pra Edit Learner v0
+   *  (DS-04). Persistido em telemetria pelo caller (BFF). */
+  rationale?: string;
+}
+
+export interface SubmitForApprovalOptions {
+  /** Timeout em ms. Após expirar, gate resolve com `{approved: true}`
+   *  (auto-approve fail-safe — não bloqueia outbound em produção). */
+  timeoutMs: number;
+  /** Decisão default em caso de timeout. Default `{approved: true}`. Em
+   *  modo paranoid pode setar `{approved: false}` pra abortar silenciosamente. */
+  defaultDecision?: ApprovalDecision;
+}
+
+export interface ApproveOrEditResult {
+  /** True se gate estava pendente + decision foi aplicada. */
+  accepted: boolean;
+  /** True se sessionId tinha approval gate pendente. */
+  gateWasActive: boolean;
+}
+
 interface ToolCallResult {
   content: Array<{ type: string; text?: string }>;
 }
@@ -134,6 +161,16 @@ export class OrchestratorDaemon {
     {
       contentPool: ScoredContentItem[];
       resolve: (decision: OptionsGateDecision) => void;
+    }
+  >();
+  /** Approvals pendentes per-session — registradas via submitForApproval
+   *  (caller motor-channels bridge ou BFF), resolvidas via approveOrEdit
+   *  MCP tool. proposedText fica acessível pra getPendingApproval. */
+  private pendingApprovals = new Map<
+    string,
+    {
+      proposedText: string;
+      resolve: (decision: ApprovalDecision) => void;
     }
   >();
   private shuttingDown = false;
@@ -195,6 +232,74 @@ export class OrchestratorDaemon {
     if (bucket.events.length > TURN_EVENT_BUFFER_CAP) {
       bucket.events.splice(0, bucket.events.length - TURN_EVENT_BUFFER_CAP);
     }
+  }
+
+  /**
+   * Registra approval pendente pra `sessionId` (S-OD-09). Retorna
+   * Promise que resolve quando approveOrEdit é chamado, ou após timeout
+   * com `defaultDecision` (default `{approved: true}` — fail-safe que
+   * NÃO bloqueia outbound em produção). Caller (bridge ou BFF) await
+   * essa Promise antes de fazer channel.send.
+   *
+   * Se já há approval pendente pra mesma sessionId, sobrescreve (caller
+   * decide política — em geral, último win).
+   */
+  submitForApproval(
+    sessionId: string,
+    proposedText: string,
+    opts: SubmitForApprovalOptions,
+  ): Promise<ApprovalDecision> {
+    const defaultDecision: ApprovalDecision =
+      opts.defaultDecision ?? { approved: true };
+    return new Promise<ApprovalDecision>((resolve) => {
+      const existing = this.pendingApprovals.get(sessionId);
+      if (existing !== undefined) {
+        // Resolve a anterior com default (sem perder caller que estava
+        // aguardando) e sobrescreve com a nova.
+        existing.resolve(defaultDecision);
+      }
+      const timeoutHandle = setTimeout(() => {
+        this.pendingApprovals.delete(sessionId);
+        resolve(defaultDecision);
+      }, opts.timeoutMs);
+      this.pendingApprovals.set(sessionId, {
+        proposedText,
+        resolve: (decision) => {
+          clearTimeout(timeoutHandle);
+          this.pendingApprovals.delete(sessionId);
+          resolve(decision);
+        },
+      });
+    });
+  }
+
+  /**
+   * Snapshot do approval pendente. UI usa pra mostrar o proposedText
+   * antes do operador decidir.
+   */
+  getPendingApproval(
+    sessionId: string,
+  ): { proposedText: string } | undefined {
+    const pending = this.pendingApprovals.get(sessionId);
+    if (pending === undefined) return undefined;
+    return { proposedText: pending.proposedText };
+  }
+
+  /**
+   * Resolve approval pendente com a decisão do operador (S-OD-09).
+   * Caller (BFF do eBrota Console via MCP tool approve_or_edit) chama
+   * isso quando Jun clica Approve/Edit/Reject na UI.
+   */
+  approveOrEdit(
+    sessionId: string,
+    decision: ApprovalDecision,
+  ): ApproveOrEditResult {
+    const pending = this.pendingApprovals.get(sessionId);
+    if (pending === undefined) {
+      return { accepted: false, gateWasActive: false };
+    }
+    pending.resolve(decision);
+    return { accepted: true, gateWasActive: true };
   }
 
   /**
@@ -268,11 +373,17 @@ export class OrchestratorDaemon {
     if (this.shuttingDown || !this.started) return;
     this.shuttingDown = true;
     this.log("[orchestrator-daemon] shutting down");
-    // Resolve gates pendentes sem override pra não deixar runTurn em pé.
+    // Resolve gates/approvals pendentes pra não deixar callers em pé.
     for (const [, pending] of this.pendingGates) {
       pending.resolve({});
     }
     this.pendingGates.clear();
+    // Approvals: shutdown decide approved=false (não envia outbound se
+    // operador não decidiu). Conservador no shutdown.
+    for (const [, pending] of this.pendingApprovals) {
+      pending.resolve({ approved: false });
+    }
+    this.pendingApprovals.clear();
     this.sessions.clear();
     this.turnEvents.clear();
     if (this.clients !== null) {

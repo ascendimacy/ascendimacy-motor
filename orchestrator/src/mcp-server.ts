@@ -208,5 +208,67 @@ export function createOrchestratorMcpServer(
     },
   );
 
+  server.registerTool(
+    "approve_or_edit",
+    {
+      description:
+        "Resolve approval gate pendente da sessão (operator decision do " +
+        "eBrota Console). decision: { approved, editedText?, rationale? }. " +
+        "Caller (motor-channels bridge ou BFF) tinha registrado approval via " +
+        "submitForApproval e awaiting; essa tool destrava o await. Retorna " +
+        "{ accepted, gateWasActive }.",
+      inputSchema: {
+        sessionId: z.string(),
+        decision: z.object({
+          approved: z.boolean(),
+          editedText: z.string().optional(),
+          rationale: z.string().optional(),
+        }),
+      } as any,
+    },
+    async (input: {
+      sessionId: string;
+      decision: {
+        approved: boolean;
+        editedText?: string;
+        rationale?: string;
+      };
+    }) => {
+      const result = opts.daemon.approveOrEdit(
+        input.sessionId,
+        input.decision,
+      );
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify(result) },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_pending_approval",
+    {
+      description:
+        "Snapshot do approval pendente (proposedText) sem resolver o gate. " +
+        "UI usa pra renderizar texto antes do operador decidir. Retorna " +
+        "null se sessão não tem approval pendente.",
+      inputSchema: {
+        sessionId: z.string(),
+      } as any,
+    },
+    async (input: { sessionId: string }) => {
+      const pending = opts.daemon.getPendingApproval(input.sessionId);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(pending ?? null),
+          },
+        ],
+      };
+    },
+  );
+
   return server;
 }
