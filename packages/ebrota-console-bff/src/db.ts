@@ -71,6 +71,67 @@ CREATE TABLE IF NOT EXISTS debug_actions (
 );
 CREATE INDEX IF NOT EXISTS idx_debug_actions_session
   ON debug_actions(session_id);
+
+-- Subject Knowledge — fundação pedagógica eBrota (spec 2026-05-25, Fase 1).
+-- Cross-session ledger por sujeito. Append-only. Schema-only nesta fase —
+-- writers (Discovery, Boundary, ConceptLedger, RecallCheck) entregues em
+-- Fases 2/3/5.
+CREATE TABLE IF NOT EXISTS subject_knowledge (
+  id            TEXT PRIMARY KEY,
+  subject_id    TEXT NOT NULL,
+  type          TEXT NOT NULL CHECK(type IN (
+    'interest', 'value', 'need', 'discovery',
+    'boundary_event', 'presented_concept',
+    'recall_check_attempt', 'vertical_affinity_signal'
+  )),
+  source        TEXT NOT NULL CHECK(source IN (
+    'self_declared', 'parent_claimed', 'motor_inferred'
+  )),
+  confidence    REAL NOT NULL,
+  confirmed_at  TEXT,
+  alignment     TEXT NOT NULL DEFAULT 'unknown' CHECK(alignment IN (
+    'aligned', 'neutral', 'divergent', 'unknown'
+  )),
+  payload_json  TEXT NOT NULL,
+  turn_ref      TEXT NOT NULL,
+  session_id    TEXT NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_sk_subject_type
+  ON subject_knowledge(subject_id, type);
+CREATE INDEX IF NOT EXISTS idx_sk_session
+  ON subject_knowledge(session_id);
+CREATE INDEX IF NOT EXISTS idx_sk_created_at
+  ON subject_knowledge(created_at);
+
+-- Sujeito-proposto materializado por subject_id. Derivado de
+-- parental_profile.aspirations + complementos clássicos. Versionado.
+CREATE TABLE IF NOT EXISTS subject_proposed (
+  subject_id            TEXT PRIMARY KEY,
+  version               INTEGER NOT NULL DEFAULT 1,
+  axes_active           TEXT NOT NULL,
+  complements_per_axis  TEXT NOT NULL,
+  reasoning_log         TEXT NOT NULL,
+  ratified_at           TEXT,
+  last_modified_at      TEXT NOT NULL
+);
+
+-- Sinais de afinidade com verticais (eixos/tradições) — pista pra flashes
+-- culturais e pra sugestões de ajuste no sujeito-proposto.
+CREATE TABLE IF NOT EXISTS vertical_affinity_signals (
+  id              TEXT PRIMARY KEY,
+  subject_id      TEXT NOT NULL,
+  vertical_kind   TEXT NOT NULL CHECK(vertical_kind IN ('axis', 'lineage')),
+  vertical_id     TEXT NOT NULL,
+  score_affinity  REAL NOT NULL,
+  evidence_count  INTEGER NOT NULL DEFAULT 1,
+  last_seen_at    TEXT NOT NULL,
+  in_base         INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_vas_subject
+  ON vertical_affinity_signals(subject_id);
+CREATE INDEX IF NOT EXISTS idx_vas_score
+  ON vertical_affinity_signals(score_affinity);
 `;
 
 export interface InitDbOptions {
