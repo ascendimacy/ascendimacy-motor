@@ -1,0 +1,160 @@
+/**
+ * Simplified Pipeline Handler — Sprint 5 #8 (feature flag side-by-side).
+ *
+ * Wire dos 3 componentes novos (Unified Assessor + Pragmatic Selector +
+ * Constrained Materializer) + Inaugural Template Resolver. Acionado via
+ * env USE_SIMPLIFIED_PIPELINE=true em server.ts.
+ *
+ * Spec: ascendimacy-ops/docs/handoffs/2026-04-28-motor-simplificacao-step5-handoff.md
+ *
+ * Estratégia B: side-by-side, fluxo antigo PRESERVADO em server.ts.
+ * Rollback = remover env var.
+ *
+ * Re-implementação clean de feat/motor-simplificacao-v1 commit 8a92b2a.
+ * Extraído pra arquivo separado (vs inline em server.ts) pra reduzir
+ * diff no server.ts e manter handler isolado/testável.
+ */
+
+import type {
+  ContentItem,
+  EvaluateAndSelectInput,
+  EvaluateAndSelectOutput,
+  ScoredContentItem,
+} from "@ascendimacy/shared";
+
+import { assess } from "./unified-assessor.js";
+import { selectAction } from "./pragmatic-selector.js";
+import { materialize } from "./constrained-materializer.js";
+import { resolveInauguralTemplate } from "./inaugural-template.js";
+
+export async function handleSimplifiedPipeline(
+  input: EvaluateAndSelectInput,
+  ranked: ScoredContentItem[],
+): Promise<EvaluateAndSelectOutput> {
+  // Mensagem do sujeito vem em contextHints.last_user_message; fallback
+  // pra instruction_addition se ausente; se ambos vazios, assess opera com
+  // string vazia (mood=5 conservador via rule-based).
+  const lastUserMessage =
+    (input.contextHints?.["last_user_message"] as string | undefined) ??
+    (input.instruction_addition ?? "");
+
+  const recentTurns =
+    (input.contextHints?.["recent_turns"] as
+      | Array<{ role: "user" | "assistant"; content: string }>
+      | undefined) ?? [];
+
+  // 1. Unified Assessor — extrai mood + signals + engagement em 1 chamada.
+  const assessment = await assess({
+    message: lastUserMessage,
+    recentTurns,
+    personaName: input.persona.name,
+    personaAge: input.persona.age,
+    trustLevel: input.state.trustLevel,
+    run_id: input.sessionId,
+  });
+
+  // Assessment snapshot pro EvaluateAndSelectOutput (compat opt-in).
+  const assessmentForOutput = {
+    mood: assessment.mood,
+    mood_method: assessment.mood_method,
+    mood_confidence: assessment.mood_confidence,
+    signals: assessment.signals,
+    engagement: assessment.engagement,
+  };
+
+  // 2. Pragmatic Selector — determinístico, zero LLM.
+  const selectionResult = selectAction({
+    candidates: ranked,
+    assessment,
+    state: input.state,
+  });
+
+  // Escalação: pool sem viáveis ou budget exausto → fallback conversacional.
+  if (!selectionResult.selected || selectionResult.escalate_to !== null) {
+    const fallbackItem: ScoredContentItem = selectionResult.selected ?? (ranked[0] ?? {
+      item: {
+        id: "__empty_pool__",
+        type: "curiosity_hook",
+        domain: "generic",
+        casel_target: [],
+        age_range: [0, 99],
+        surprise: 7,
+        verified: false,
+        base_score: 0,
+        fact: "",
+        bridge: "",
+        quest: "",
+        sacrifice_type: "reflect",
+      } as ContentItem,
+      score: 0,
+      reasons: ["simplified_pipeline_escalation"],
+    });
+    return {
+      selectedContent: fallbackItem,
+      selectionRationale: selectionResult.decision_path,
+      linguisticMaterialization: "Me conta o que está passando na sua cabeça.",
+      assessment: assessmentForOutput,
+      ...(selectionResult.escalate_reason
+        ? { skipReason: selectionResult.escalate_reason }
+        : {}),
+    };
+  }
+
+  // 3a. Apresentação inaugural — turn 0 + flag explícita em contextHints.
+  //     Cascade resolver não chama LLM; texto retorna direto pro Bridge.
+  const isInauguralTurn =
+    input.state.turn === 0 &&
+    input.contextHints?.["is_inaugural_turn"] === true;
+
+  if (isInauguralTurn) {
+    const inauguralResult = resolveInauguralTemplate({
+      voiceProfile:
+        (input.contextHints?.["client_voice_profile"] as Record<
+          string,
+          unknown
+        > | undefined) ?? null,
+      culturalDefault:
+        (input.contextHints?.["cultural_default"] as Record<
+          string,
+          unknown
+        > | undefined) ?? null,
+      child: {
+        name: input.persona.name,
+        age: input.persona.age,
+      },
+      sessionNumber: 1,
+    });
+    return {
+      selectedContent: selectionResult.selected,
+      selectionRationale: selectionResult.decision_path,
+      linguisticMaterialization: inauguralResult.text,
+      assessment: assessmentForOutput,
+    };
+  }
+
+  // 3b. Constrained Materializer — texto final com FALLBACK handling.
+  const matResult = await materialize({
+    action: selectionResult.selected,
+    subjectNameForm: input.persona.name,
+    mood: assessment.mood,
+    engagement: assessment.engagement,
+    turnCount: input.state.turn,
+    budgetRemaining: input.state.budgetRemaining,
+    jurisdictionActive:
+      ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
+        "br") as "br" | "jp" | "ch",
+    run_id: input.sessionId,
+    incomingMessage: lastUserMessage,
+    recentTurns,
+  });
+
+  return {
+    selectedContent: selectionResult.selected,
+    selectionRationale: selectionResult.decision_path,
+    linguisticMaterialization: matResult.text,
+    assessment: assessmentForOutput,
+    ...(matResult.fallback_triggered
+      ? { skipReason: "materializer_fallback" }
+      : {}),
+  };
+}
