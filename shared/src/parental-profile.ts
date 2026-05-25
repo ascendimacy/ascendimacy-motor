@@ -74,6 +74,34 @@ export type ParentDecisionProfile =
   | "decider_risk_averse"
   | "decider_permissive";
 
+/**
+ * Sujeito-proposto = ideal explícito do programa pedagógico.
+ *
+ * Spec: 2026-05-25-subject-knowledge-bridge.md §3.2.
+ * Separado de parental_perception (que descreve "o que pai vê") —
+ * aspirations é "para onde o programa caminha".
+ */
+export interface ParentalAspirations {
+  /** Traços-alvo declarados livremente pelos pais. */
+  proposed_traits?: string[];
+  /** Virtudes-alvo ancoradas no catálogo de eixos clássicos (axis_id 1..12). */
+  proposed_virtues?: Array<{ axis: number; note?: string }>;
+  /** Competências aplicadas declaradas. */
+  proposed_competencies?: string[];
+}
+
+/**
+ * Filtro cultural — pais podem bloquear tradições inteiras do catálogo.
+ * Validador deve alertar se bloqueio reduz algum eixo a <2 alternativas.
+ */
+export interface CulturalFilter {
+  allowed_lineages?: string[];
+  blocked_lineages?: string[];
+}
+
+/** Configuração de cadência de flashes culturais (verticais fora da base). */
+export type FlashesSetting = "off" | "occasional" | "frequent";
+
 export interface ParentalProfile {
   id: string;
   role: "primary" | "secondary";
@@ -85,6 +113,22 @@ export interface ParentalProfile {
   parental_perception?: ParentalPerception;
   /** Valor opcional: minutos desde onboarding; serve pra re-onboarding trimestral. */
   onboarding_completed_at?: string;
+
+  // --- Subject Knowledge fundação (spec 2026-05-25, fase 1 opcional) ---
+  /** Norte do programa: ideal estruturado pra onde o sujeito caminha. */
+  aspirations?: ParentalAspirations;
+  /** Necessidades latentes percebidas pelos pais (não exigem confirm do filho —
+   * motor endereça obliquamente via ponte tripla). */
+  latent_needs?: string[];
+  /** Interesses que os pais acham que o filho tem — PRECISAM ser confirmados
+   * pelo filho em conversa antes do scorer ativar boost. */
+  parent_claimed_interests?: string[];
+  /** Filtro de tradições clássicas para complementos do sujeito-proposto. */
+  cultural_filter?: CulturalFilter;
+  /** Cadência de flashes culturais (verticais fora da base). Default 'occasional'. */
+  flashes_setting?: FlashesSetting;
+  /** Budget de checagens de recall por sessão. 0..2, default 1. */
+  recall_check_budget_per_session?: number;
 }
 
 /** `true` se o perfil tem o mínimo pra Milestone 1 (§9 doc). */
