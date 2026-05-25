@@ -37,19 +37,66 @@ interface RawTraceEntry {
 
 interface RawTraceTurn {
   turnNumber?: number;
+  /** STS schema alias for turnNumber. */
+  turn?: number;
   sessionId?: string;
   incomingMessage?: string;
+  /** STS schema alias for incomingMessage. */
+  personaMessage?: string;
   entries?: RawTraceEntry[];
   finalResponse?: string;
+  /** STS schema alias for finalResponse. */
+  botMessage?: string;
   timestamp?: string;
 }
 
 interface RawTrace {
   sessionId?: string;
   persona?: string;
+  /** STS schema alias for persona. */
+  personaId?: string;
   startedAt?: string;
   endedAt?: string;
+  /** STS schema alias for endedAt. */
+  completedAt?: string;
   turns?: RawTraceTurn[];
+}
+
+/**
+ * Normaliza schema do trace pra forma canônica esperada pela UI
+ * (Replay.svelte + Library). STS harness escreve campos alternativos
+ * (personaId, personaMessage, botMessage, completedAt, turn) — esse
+ * helper traduz inplace pra incomingMessage/finalResponse/turnNumber.
+ *
+ * Idempotente: campos canônicos têm precedência se ambos presentes.
+ */
+function normalizeTrace(trace: RawTrace): RawTrace {
+  if (trace.persona === undefined && typeof trace.personaId === "string") {
+    trace.persona = trace.personaId;
+  }
+  if (trace.endedAt === undefined && typeof trace.completedAt === "string") {
+    trace.endedAt = trace.completedAt;
+  }
+  if (Array.isArray(trace.turns)) {
+    for (const t of trace.turns) {
+      if (t.turnNumber === undefined && typeof t.turn === "number") {
+        t.turnNumber = t.turn;
+      }
+      if (
+        t.incomingMessage === undefined &&
+        typeof t.personaMessage === "string"
+      ) {
+        t.incomingMessage = t.personaMessage;
+      }
+      if (
+        t.finalResponse === undefined &&
+        typeof t.botMessage === "string"
+      ) {
+        t.finalResponse = t.botMessage;
+      }
+    }
+  }
+  return trace;
 }
 
 export interface ScanResult {
@@ -199,7 +246,9 @@ async function* walkTraceFiles(
     const full = join(dir, name);
     if (entry.isDirectory()) {
       yield* walkTraceFiles(full);
-    } else if (entry.isFile() && name === "trace.json") {
+    } else if (entry.isFile() && (name === "trace.json" || name.endsWith(".json"))) {
+      // Aceita: <dir>/trace.json (eBrota daemon canonical) OU <dir>/*.json
+      // flat (STS harness escreve <persona>-<ts>.json no traces dir).
       yield full;
     }
   }
@@ -260,7 +309,7 @@ export async function scanTraces(
     result.filesScanned += 1;
     try {
       const raw = await readFile(tracePath, "utf-8");
-      const trace = JSON.parse(raw) as RawTrace;
+      const trace = normalizeTrace(JSON.parse(raw) as RawTrace);
       batch.push({ trace, tracePath });
     } catch (err) {
       result.errors.push({
@@ -388,7 +437,7 @@ export async function readSessionTrace(
   if (row?.tracePath === undefined || row.tracePath === null) return null;
   try {
     const raw = await readFile(row.tracePath, "utf-8");
-    return JSON.parse(raw) as RawTrace;
+    return normalizeTrace(JSON.parse(raw) as RawTrace);
   } catch {
     return null;
   }
