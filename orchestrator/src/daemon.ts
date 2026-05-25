@@ -20,7 +20,15 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { SessionState } from "@ascendimacy/shared";
 import { connectAll, disconnectAll, type McpClients } from "./mcp-clients.js";
 import { createOrchestratorMcpServer } from "./mcp-server.js";
-import { runTurn, type CardContext } from "./orchestrator.js";
+import {
+  runTurn,
+  type CardContext,
+  type TurnStateEvent,
+} from "./orchestrator.js";
+
+/** Buffer cap por sessão. Evita memory leak em daemon long-running.
+ *  100 events × 4 phases por turn = ~25 turns retidos no buffer. */
+const TURN_EVENT_BUFFER_CAP = 100;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_TRACES_DIR = join(__dirname, "../../traces");
@@ -70,6 +78,15 @@ export interface RunCardTurnOutput {
   tracePath: string;
 }
 
+export interface TurnEventsSnapshot {
+  /** Events disponíveis a partir de sinceIndex (inclusive). */
+  events: TurnStateEvent[];
+  /** Próximo index pra usar como sinceIndex na próxima chamada. */
+  nextIndex: number;
+  /** Total de eventos já gerados pra essa sessão (incluindo evictados pelo cap). */
+  totalEmitted: number;
+}
+
 interface ToolCallResult {
   content: Array<{ type: string; text?: string }>;
 }
@@ -82,6 +99,13 @@ const parseToolJson = <T>(result: ToolCallResult): T => {
 export class OrchestratorDaemon {
   private clients: McpClients | null = null;
   private sessions = new Map<string, SessionRuntime>();
+  /** Buffer per-session de TurnStateEvents emitidos por runTurn.
+   *  Capped at TURN_EVENT_BUFFER_CAP. Indexação preserva ordem global
+   *  via `totalEmitted` per session (ver subscribeTurnState). */
+  private turnEvents = new Map<
+    string,
+    { events: TurnStateEvent[]; totalEmitted: number }
+  >();
   private shuttingDown = false;
   private started = false;
 
@@ -100,6 +124,45 @@ export class OrchestratorDaemon {
     this.tracesDir = opts.tracesDir ?? DEFAULT_TRACES_DIR;
   }
 
+  /** Push event ao buffer da sessão, respeitando o cap. Caller passa
+   *  esse método como callback pra runTurn via onTurnEvent. */
+  private pushTurnEvent(event: TurnStateEvent): void {
+    let bucket = this.turnEvents.get(event.sessionId);
+    if (bucket === undefined) {
+      bucket = { events: [], totalEmitted: 0 };
+      this.turnEvents.set(event.sessionId, bucket);
+    }
+    bucket.events.push(event);
+    bucket.totalEmitted += 1;
+    if (bucket.events.length > TURN_EVENT_BUFFER_CAP) {
+      bucket.events.splice(0, bucket.events.length - TURN_EVENT_BUFFER_CAP);
+    }
+  }
+
+  /**
+   * Pull-based subscribe — retorna events emitidos desde `sinceIndex`
+   * (global index, não array index). Caller atualiza sinceIndex com o
+   * `nextIndex` retornado pra próxima chamada.
+   *
+   * Se sinceIndex < (totalEmitted - buffer.length), eventos foram
+   * evictados pelo cap — retorna apenas o que está disponível, e caller
+   * detecta gap via comparação `(received_first_index > sinceIndex)`.
+   */
+  subscribeTurnState(sessionId: string, sinceIndex = 0): TurnEventsSnapshot {
+    const bucket = this.turnEvents.get(sessionId);
+    if (bucket === undefined) {
+      return { events: [], nextIndex: 0, totalEmitted: 0 };
+    }
+    const firstBufferedIndex = bucket.totalEmitted - bucket.events.length;
+    const sliceStart = Math.max(0, sinceIndex - firstBufferedIndex);
+    const events = bucket.events.slice(sliceStart);
+    return {
+      events,
+      nextIndex: bucket.totalEmitted,
+      totalEmitted: bucket.totalEmitted,
+    };
+  }
+
   /** Conecta o trio. Idempotente: chamadas subsequentes são no-op. */
   async start(): Promise<void> {
     if (this.started) return;
@@ -114,6 +177,7 @@ export class OrchestratorDaemon {
     this.shuttingDown = true;
     this.log("[orchestrator-daemon] shutting down");
     this.sessions.clear();
+    this.turnEvents.clear();
     if (this.clients !== null) {
       await this.dispose(this.clients);
       this.clients = null;
@@ -213,6 +277,7 @@ export class OrchestratorDaemon {
       this.tracesDir,
       undefined,
       cardContext,
+      (ev) => this.pushTurnEvent(ev),
     );
     return {
       sessionId: runtime.sessionId,

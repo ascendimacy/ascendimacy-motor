@@ -74,6 +74,65 @@ export interface CardContext {
   pkgRaw: string;
 }
 
+/**
+ * TurnStateEvent — C-MX-07 PR4 (S-OD-06). Discriminated union dos 4
+ * eventos emitidos por runTurn quando `onTurnEvent` callback é fornecido.
+ * eBrota Console BFF subscreve via MCP tool `subscribe_turn_state` pra
+ * renderir progressão pedagógica turn-a-turn em real-time.
+ *
+ * Ordem garantida: planning_started → selection_made →
+ * materialization_ready → playbook_executed.
+ *
+ * Schema deliberadamente "achatado" (sem deep nesting) pra UI parsear
+ * fácil + serialização JSON estável via MCP.
+ */
+export type TurnStateEvent =
+  | {
+      type: "planning_started";
+      sessionId: string;
+      turn: number;
+      timestamp: string;
+      payload: {
+        strategicRationale: string;
+        contentPoolSize: number;
+        contentPoolIds: string[];
+        contextHints: Record<string, unknown>;
+        transitionEvaluationsCount: number;
+      };
+    }
+  | {
+      type: "selection_made";
+      sessionId: string;
+      turn: number;
+      timestamp: string;
+      payload: {
+        selectedContentId: string;
+        selectedContentScore: number;
+        selectionRationale: string;
+      };
+    }
+  | {
+      type: "materialization_ready";
+      sessionId: string;
+      turn: number;
+      timestamp: string;
+      payload: {
+        proposedText: string;
+        instructionAdditionApplied: boolean;
+      };
+    }
+  | {
+      type: "playbook_executed";
+      sessionId: string;
+      turn: number;
+      timestamp: string;
+      payload: {
+        playbookId: string;
+        success: boolean;
+        newTurnNumber: number;
+      };
+    };
+
 const CARD_INSTRUCTION_PREFIX = "## Conteúdo da carta-acionada\n\n";
 
 const buildCardInstructionAddition = (
@@ -93,7 +152,15 @@ export async function runTurn(
   tracesDir: string,
   jointContext?: JointContext,
   cardContext?: CardContext,
+  onTurnEvent?: (event: TurnStateEvent) => void,
 ): Promise<{ finalResponse: string; tracePath: string }> {
+  const emit = (ev: TurnStateEvent): void => {
+    try {
+      onTurnEvent?.(ev);
+    } catch {
+      // fail-soft: subscriber error não trava turn
+    }
+  };
   const persona = loadPersona(personaId);
   const adquirente = loadAdquirente();
   const inventory = loadInventory();
@@ -200,6 +267,20 @@ export async function runTurn(
     output: plan as unknown as Record<string, unknown>,
   });
 
+  emit({
+    type: "planning_started",
+    sessionId,
+    turn: state.turn,
+    timestamp: new Date().toISOString(),
+    payload: {
+      strategicRationale: plan.strategicRationale,
+      contentPoolSize: plan.contentPool.length,
+      contentPoolIds: plan.contentPool.map((s) => s.item.id),
+      contextHints: plan.contextHints,
+      transitionEvaluationsCount: plan.transitionEvaluations?.length ?? 0,
+    },
+  });
+
   // motor#25 (handoff #25 B4 + B5): loga transitionEvaluations + entropy events.
   // Read-only — só registra. v0 não move statusMatrix.
   if (plan.transitionEvaluations && plan.transitionEvaluations.length > 0) {
@@ -269,6 +350,28 @@ export async function runTurn(
     output: drota as unknown as Record<string, unknown>,
   });
 
+  emit({
+    type: "selection_made",
+    sessionId,
+    turn: state.turn,
+    timestamp: new Date().toISOString(),
+    payload: {
+      selectedContentId: drota.selectedContent?.item?.id ?? "",
+      selectedContentScore: Number(drota.selectedContent?.score ?? 0),
+      selectionRationale: drota.selectionRationale ?? "",
+    },
+  });
+  emit({
+    type: "materialization_ready",
+    sessionId,
+    turn: state.turn,
+    timestamp: new Date().toISOString(),
+    payload: {
+      proposedText: drota.linguisticMaterialization ?? "",
+      instructionAdditionApplied: drotaInstructionAddition.length > 0,
+    },
+  });
+
   const t3 = Date.now();
   // v1 usa playbookId = inventory[0] como deploy profile default.
   // Plan §2.A v2: playbookId é session profile, não mais action-id.
@@ -300,6 +403,18 @@ export async function runTurn(
       selectedContentId: drota.selectedContent?.item?.id ?? "",
     },
     output: exec as unknown as Record<string, unknown>,
+  });
+
+  emit({
+    type: "playbook_executed",
+    sessionId,
+    turn: state.turn,
+    timestamp: new Date().toISOString(),
+    payload: {
+      playbookId: deployProfileId,
+      success: exec.success ?? false,
+      newTurnNumber: exec.newState?.turn ?? state.turn + 1,
+    },
   });
 
   // v0.3: enriquece o turn com snapshots e resumos.
