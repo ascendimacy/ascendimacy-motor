@@ -50,6 +50,25 @@ export function personaToChildProfile(
         .map((s) => s.trim())
     : undefined;
 
+  // Subject Knowledge: hidrata latent_needs e subject_proposed do parental_profile.
+  // - latent_needs: lista livre do pai (não exige confirm do filho — dimensão
+  //   'need' do scorer multi-dim).
+  // - subject_proposed: derivado de aspirations.proposed_virtues quando presente
+  //   no fixture (em produção vem da subject_proposed table SQLite hidratada
+  //   pelo orchestrator).
+  const parentalProfile = profile["parental_profile"] as
+    | Record<string, unknown>
+    | undefined;
+
+  const rawLatentNeeds = parentalProfile?.["latent_needs"];
+  const latentNeeds = Array.isArray(rawLatentNeeds)
+    ? (rawLatentNeeds as unknown[])
+        .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+        .map((s) => s.trim())
+    : undefined;
+
+  const subjectProposed = extractSubjectProposed(parentalProfile);
+
   return {
     age: persona.age,
     domain_ranking: domainRanking,
@@ -57,7 +76,51 @@ export function personaToChildProfile(
     cycle_day: cycleDay,
     cycle_phase: cyclePhaseFor(cycleDay),
     interests,
+    ...(latentNeeds && latentNeeds.length > 0 ? { latent_needs: latentNeeds } : {}),
+    ...(subjectProposed ? { subject_proposed: subjectProposed } : {}),
   };
+}
+
+/**
+ * Deriva subject_proposed a partir do parental_profile.aspirations:
+ *   - axes_active: union de proposed_virtues[].axis (axis_id 1..12)
+ *   - complements_per_axis: vazio v1 (pai escolhe complementos no flow
+ *     de onboarding parental quando F6 Console UI entregar)
+ *
+ * v1: complement curation fica para PR futuro (catálogo lineage carrega
+ * default plural por axis; sem complement explícito, scorer ainda dispara
+ * lineage dim quando axis_active inclui o axis_id do item).
+ */
+function extractSubjectProposed(
+  parental: Record<string, unknown> | undefined,
+): ChildScoringProfile["subject_proposed"] | undefined {
+  if (!parental) return undefined;
+  const aspirations = parental["aspirations"] as
+    | Record<string, unknown>
+    | undefined;
+  if (!aspirations) return undefined;
+
+  const rawVirtues = aspirations["proposed_virtues"];
+  if (!Array.isArray(rawVirtues) || rawVirtues.length === 0) return undefined;
+
+  const axesActive: number[] = [];
+  for (const v of rawVirtues) {
+    if (v && typeof v === "object" && typeof (v as Record<string, unknown>)["axis"] === "number") {
+      const axisId = (v as Record<string, unknown>)["axis"] as number;
+      if (axisId >= 1 && axisId <= 12 && !axesActive.includes(axisId)) {
+        axesActive.push(axisId);
+      }
+    }
+  }
+  if (axesActive.length === 0) return undefined;
+
+  // complements_per_axis vazio v1 — fica pra onboarding parental compor.
+  const complementsPerAxis: Record<number, string[]> = {};
+  for (const a of axesActive) {
+    complementsPerAxis[a] = [];
+  }
+
+  return { axes_active: axesActive, complements_per_axis: complementsPerAxis };
 }
 
 /** Mapeia cycle_day → cycle_phase conforme BRIDGING_PLAYBOOK linhas 2700-2715. */
