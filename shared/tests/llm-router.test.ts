@@ -304,8 +304,15 @@ describe("shouldUseMockLlm (D-3-PROV ops#1055 follow-up)", () => {
 });
 
 describe("constants exposure", () => {
-  it("DEFAULT_PROVIDERS é Infomaniak everywhere", () => {
-    for (const v of Object.values(DEFAULT_PROVIDERS)) expect(v).toBe("infomaniak");
+  it("DEFAULT_PROVIDERS é Infomaniak everywhere (exceto unified-assessor)", () => {
+    // Sprint 5 #4: unified-assessor é exceção DS-08 — Haiku Anthropic.
+    for (const [step, v] of Object.entries(DEFAULT_PROVIDERS)) {
+      if (step === "unified-assessor") {
+        expect(v).toBe("anthropic");
+      } else {
+        expect(v).toBe("infomaniak");
+      }
+    }
   });
   it("DEFAULT_MODELS preenchido pra todos os steps", () => {
     expect(DEFAULT_MODELS["planejador"]).toBeTruthy();
