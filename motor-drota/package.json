@@ -6,7 +6,7 @@
   "main": "./dist/server.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "postbuild": "mkdir -p dist/prompts && cp src/prompts/*.txt dist/prompts/",
+    "postbuild": "mkdir -p dist/prompts && cp src/prompts/*.txt dist/prompts/ && mkdir -p dist/data && cp data/*.yaml dist/data/",
     "test": "vitest run",
     "start": "node dist/server.js",
     "clean": "rm -rf dist"
@@ -14,6 +14,8 @@
   "dependencies": {
     "@ascendimacy/shared": "*",
     "@modelcontextprotocol/sdk": "^1.10.2",
+    "@types/js-yaml": "^4.0.9",
+    "js-yaml": "^4.1.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

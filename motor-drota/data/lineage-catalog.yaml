@@ -1,0 +1,432 @@
+# Lineage Catalog v1 — vocabulário fechado de tradições clássicas
+#
+# Spec: ascendimacy-ops/docs/specs/2026-05-25-subject-knowledge-bridge.md §2
+# Estrutura: 3 famílias × 4 eixos = 12 eixos, com ~48 complementos plurais
+# de 9 tradições.
+#
+# Princípio de redundância (validado no loader):
+#   cada eixo precisa ≥3 complementos de tradições distintas
+#   pra honrar opt-in parental sem coerção mascarada.
+#
+# Editar com cuidado: este arquivo é fundação pedagógica.
+
+version: 1
+
+axes:
+  # ─── Família CARÁTER (virtudes cardinais) ────────────────────────
+
+  - id: 1
+    family: carater
+    name: Prudência / Sabedoria-prática
+    balances:
+      - impulsividade
+      - dogmatismo
+      - perfeccionismo_paralisante
+      - regra_cega
+    complements:
+      - id: phronesis
+        lineage: aristotelica
+        axis_id: 1
+        short_definition: >-
+          sabedoria prática — discernir o agir certo aqui-agora,
+          não regra geral
+        youth_example: >-
+          "qual o tipo de jogada que cabe NESTE momento, não em todos?"
+      - id: dicotomia_controle
+        lineage: estoica
+        axis_id: 1
+        short_definition: >-
+          distinguir o que está sob mim do que não está; agir só
+          onde tenho controle
+        youth_example: '"isso que te chateou — depende de você ou não?"'
+        shared_with_axes: [12]
+      - id: wu_wei
+        lineage: taoista
+        axis_id: 1
+        short_definition: >-
+          ação-sem-forçar; saber quando esperar e quando agir
+        youth_example: '"às vezes a melhor jogada é não jogada"'
+      - id: da_xue_reflexao
+        lineage: confucionista
+        axis_id: 1
+        short_definition: >-
+          reflexão sistemática antes da ação
+          ("investigar coisas para conhecer")
+        youth_example: '"antes de responder no grupo, o que você sabe de fato?"'
+
+  - id: 2
+    family: carater
+    name: Justiça / Equanimidade
+    balances:
+      - favoritismo
+      - partidarização
+      - indiferença
+      - retribuição_vingativa
+    complements:
+      - id: justica_aristotelica
+        lineage: aristotelica
+        axis_id: 2
+        short_definition: >-
+          dar a cada um o que lhe é devido conforme proporção
+        youth_example: '"no time, o esforço de cada um conta como?"'
+      - id: mishpat
+        lineage: hebraica
+        axis_id: 2
+        short_definition: >-
+          justiça como fidelidade ao bem-do-outro, não só regra
+        youth_example: '"amigo errado merece o quê de você?"'
+      - id: ren_li
+        lineage: confucionista
+        axis_id: 2
+        short_definition: >-
+          humanidade-em-ritual — tratamento adequado a cada relação
+        youth_example: '"como você se dirige a um professor vs um colega?"'
+      - id: equanimidade_estoica
+        lineage: estoica
+        axis_id: 2
+        short_definition: >-
+          não dar peso desigual a si vs aos outros nos cálculos morais
+        youth_example: '"se fosse outra pessoa fazendo isso, você acharia ok?"'
+
+  - id: 3
+    family: carater
+    name: Fortaleza / Coragem
+    balances:
+      - timidez
+      - conformismo
+      - evitamento_de_confronto
+      - fuga_de_responsabilidade
+    complements:
+      - id: andreia
+        lineage: paideia
+        axis_id: 3
+        short_definition: >-
+          coragem grega — enfrentar perigo ou desconforto justo
+        youth_example: '"tem coisa que você não diz por medo? qual?"'
+      - id: yuki
+        lineage: bushido
+        axis_id: 3
+        short_definition: >-
+          coragem em ato — não recuar quando o certo é avançar
+        youth_example: '"naquele momento, o que você queria ter feito?"'
+      - id: hupomone_cristã
+        lineage: cristã
+        axis_id: 3
+        short_definition: >-
+          suportar sob pressão sem ceder ao mal — coragem-de-permanecer
+        youth_example: >-
+          "quando o grupo fez X, você continuou no que acreditava
+          ou foi com?"
+      - id: parresia
+        lineage: paideia
+        axis_id: 3
+        short_definition: >-
+          falar a verdade mesmo em desvantagem social
+        youth_example: '"tem coisa que precisava ser dita e você engoliu?"'
+        shared_with_axes: [9]
+
+  - id: 4
+    family: carater
+    name: Temperança / Medida
+    balances:
+      - excesso
+      - busca_de_prazer_rapido
+      - perda_de_medida_em_vitoria_ou_derrota
+    complements:
+      - id: sophrosyne
+        lineage: paideia
+        axis_id: 4
+        short_definition: >-
+          autocontrole equilibrado — "saúde da alma"
+        youth_example: '"quando você quer muito X, o que acontece com Y?"'
+      - id: enkrateia
+        lineage: aristotelica
+        axis_id: 4
+        short_definition: >-
+          domínio de si frente ao impulso
+        youth_example: '"deu vontade de respondar — você respondeu? por quê?"'
+      - id: shoshin
+        lineage: zen
+        axis_id: 4
+        short_definition: >-
+          mente-de-iniciante — não inflar pelo que já se sabe
+        youth_example: '"depois que você acertou aquilo, ficou difícil treinar como?"'
+        shared_with_axes: [10]
+      - id: mochizoku
+        lineage: bushido
+        axis_id: 4
+        short_definition: >-
+          suficiência — saber a hora de parar
+        youth_example: '"tem hora que você sabe que é bastante? como você sente?"'
+
+  # ─── Família DISPOSIÇÃO (afetivo-existencial-relacional) ──────────
+
+  - id: 5
+    family: disposicao
+    name: Confiança / Fé-em-sentido
+    balances:
+      - niilismo
+      - paralisia_existencial
+      - ceticismo_defensivo
+    complements:
+      - id: emunah
+        lineage: hebraica
+        axis_id: 5
+        short_definition: >-
+          confiança fiel — lealdade no vínculo apesar da dúvida
+        youth_example: '"no que você ainda aposta mesmo sem ver garantia?"'
+      - id: pistis_cristã
+        lineage: cristã
+        axis_id: 5
+        short_definition: >-
+          fé como adesão a um sentido maior, não certeza
+        youth_example: '"tem coisa que você acredita mesmo sem provar?"'
+      - id: assentir_estoico
+        lineage: estoica
+        axis_id: 5
+        short_definition: >-
+          dar consentimento ativo ao real, não submissão passiva
+        youth_example: >-
+          "o que aconteceu — você briga com isso ou aceita pra
+          trabalhar com?"
+      - id: xin_confucionista
+        lineage: confucionista
+        axis_id: 5
+        short_definition: >-
+          confiabilidade — ser alguém em quem se pode confiar
+        youth_example: '"as pessoas podem contar com você no quê?"'
+
+  - id: 6
+    family: disposicao
+    name: Esperança / Persistência ativa
+    balances:
+      - desanimo
+      - vitimização
+      - abandono_em_meio_ao_processo
+    complements:
+      - id: gaman
+        lineage: bushido
+        axis_id: 6
+        short_definition: >-
+          suportar com dignidade enquanto se age, não passivo
+        youth_example: '"quando ficou difícil, você continuou como?"'
+      - id: hupomone_persistencia
+        lineage: cristã
+        axis_id: 6
+        short_definition: >-
+          paciência ativa — ficar com o que ainda não amadureceu
+        youth_example: '"você esperou alguma coisa por muito tempo? como foi?"'
+      - id: amor_fati
+        lineage: estoica
+        axis_id: 6
+        short_definition: >-
+          amar o que se passa — transformar em material de crescimento
+        youth_example: '"essa coisa chata — o que ela te ensinou?"'
+      - id: tikvah
+        lineage: hebraica
+        axis_id: 6
+        short_definition: >-
+          esperança como ato de manter o fio aberto pro futuro
+        youth_example: '"quando você imagina daqui um ano, o que aparece?"'
+
+  - id: 7
+    family: disposicao
+    name: Compaixão / Vínculo
+    balances:
+      - competitividade_isolada
+      - frieza
+      - indiferença_ao_outro
+    complements:
+      - id: agape
+        lineage: cristã
+        axis_id: 7
+        short_definition: >-
+          amor que quer o bem do outro independente de retorno
+        youth_example: '"tem alguém em quem você pensa sem esperar nada?"'
+      - id: hesed
+        lineage: hebraica
+        axis_id: 7
+        short_definition: >-
+          gentileza-em-ato — compromisso amoroso com vínculo
+        youth_example: '"como você mostra que se importa sem dizer?"'
+      - id: ren
+        lineage: confucionista
+        axis_id: 7
+        short_definition: >-
+          humanidade-no-trato — sentir o que o outro sente
+        youth_example: '"o que o outro tava sentindo ali? você conseguiu pegar?"'
+      - id: karuna
+        lineage: zen
+        axis_id: 7
+        short_definition: >-
+          compaixão como reconhecer sofrimento e querer mitigar
+        youth_example: '"quando alguém tá mal, o que você faz?"'
+
+  - id: 8
+    family: disposicao
+    name: Gratidão / Reverência
+    balances:
+      - direito_adquirido
+      - cinismo
+      - achatamento_simbolico
+    complements:
+      - id: eucharistia
+        lineage: cristã
+        axis_id: 8
+        short_definition: >-
+          gratidão-em-celebração — reconhecer o dado
+        youth_example: '"o que te chegou hoje que você não pediu?"'
+      - id: xiao
+        lineage: confucionista
+        axis_id: 8
+        short_definition: >-
+          piedade filial — dever amoroso pra com quem nos formou
+        youth_example: '"o que você deve a quem te criou? como mostra?"'
+      - id: prosoche_estoica
+        lineage: estoica
+        axis_id: 8
+        short_definition: >-
+          atenção plena ao que está acontecendo agora como dom
+        youth_example: '"o que tá acontecendo agora que você nem notava?"'
+      - id: kansha
+        lineage: zen
+        axis_id: 8
+        short_definition: >-
+          gratidão como prática de ver-com-clareza
+        youth_example: '"feche os olhos. o que tem aí que merece atenção?"'
+
+  # ─── Família COGNIÇÃO-DE-SI (meta-cognitivo, agência) ────────────
+
+  - id: 9
+    family: cognicao_si
+    name: Veracidade / Honestidade
+    balances:
+      - conveniencia_social
+      - mascara
+      - conflito_avoidance_habitual
+    complements:
+      - id: parresia_veracidade
+        lineage: paideia
+        axis_id: 9
+        short_definition: >-
+          falar a verdade mesmo em desvantagem social
+        youth_example: '"tem coisa que você sabia e não falou?"'
+      - id: makoto
+        lineage: bushido
+        axis_id: 9
+        short_definition: >-
+          sinceridade-de-coração — alinhamento entre dentro e fora
+        youth_example: '"você fica diferente dependendo de quem tá perto?"'
+      - id: aletheia
+        lineage: paideia
+        axis_id: 9
+        short_definition: >-
+          verdade como des-velamento — ver o que estava encoberto
+        youth_example: '"tem coisa que você não queria ver e agora vê?"'
+      - id: emet
+        lineage: hebraica
+        axis_id: 9
+        short_definition: >-
+          verdade como solidez e fidelidade no longo prazo
+        youth_example: '"o que você fala continua de pé daqui um ano?"'
+
+  - id: 10
+    family: cognicao_si
+    name: Curiosidade / Mente-aberta
+    balances:
+      - dogmatismo
+      - fechamento
+      - falsa_certeza_adolescente
+    complements:
+      - id: shoshin_curiosidade
+        lineage: zen
+        axis_id: 10
+        short_definition: >-
+          mente-de-iniciante — olhar como se fosse a primeira vez
+        youth_example: '"essa coisa que você já conhece — o que ainda não sabe dela?"'
+      - id: thaumazein
+        lineage: paideia
+        axis_id: 10
+        short_definition: >-
+          espanto filosófico — admirar como início da pergunta
+        youth_example: '"quando foi a última vez que você ficou surpreso de verdade?"'
+      - id: aprender_aristotelico
+        lineage: aristotelica
+        axis_id: 10
+        short_definition: >-
+          desejo natural de saber — "todos os homens querem saber"
+        youth_example: '"o que você quer entender e ninguém te explica?"'
+      - id: wu_zhi_taoista
+        lineage: taoista
+        axis_id: 10
+        short_definition: >-
+          reconhecer o não-saber como abertura, não falha
+        youth_example: '"tem coisa que você não sabe e isso é bom?"'
+
+  - id: 11
+    family: cognicao_si
+    name: Autoconhecimento / Intrapessoal
+    balances:
+      - autoengano
+      - alienação
+      - identidade_emprestada_do_grupo
+    complements:
+      - id: gnothi_seauton
+        lineage: paideia
+        axis_id: 11
+        short_definition: >-
+          "conhece-te a ti mesmo" — máxima délfica
+        youth_example: '"o que você sabe de você que ninguém mais sabe?"'
+      - id: examen_estoico
+        lineage: estoica
+        axis_id: 11
+        short_definition: >-
+          exame regular do dia — o que fiz, o que poderia ter feito
+        youth_example: '"olhando o dia de hoje, onde você acha que pisou na bola?"'
+      - id: mokuso
+        lineage: bushido
+        axis_id: 11
+        short_definition: >-
+          introspecção silenciosa antes da ação
+        youth_example: '"antes de responder o grupo, você parou pra pensar?"'
+      - id: lev_hebraico
+        lineage: hebraica
+        axis_id: 11
+        short_definition: >-
+          "coração" como sede integrada de pensar+sentir+querer;
+          conhecer o próprio lev
+        youth_example: '"o que seu coração quer mesmo aqui? não o que parece bonito"'
+
+  - id: 12
+    family: cognicao_si
+    name: Responsabilidade / Agência
+    balances:
+      - externalismo
+      - vitimização
+      - dependencia
+      - desresponsabilização_adolescente
+    complements:
+      - id: dicotomia_controle_responsabilidade
+        lineage: estoica
+        axis_id: 12
+        short_definition: >-
+          identificar o que é meu agir e assumir; descartar o resto
+        youth_example: '"isso que aconteceu — qual a parte sua?"'
+      - id: giri
+        lineage: bushido
+        axis_id: 12
+        short_definition: >-
+          dever moral devido por vínculo, assumido sem reclamação
+        youth_example: '"você prometeu — agora?"'
+      - id: kavod
+        lineage: hebraica
+        axis_id: 12
+        short_definition: >-
+          honra pessoal como responsabilidade por carregar nome/vínculo
+        youth_example: '"o que você não faria porque te diminui?"'
+      - id: proairesis
+        lineage: aristotelica
+        axis_id: 12
+        short_definition: >-
+          escolha deliberada — distinguir o que escolho do que acontece comigo
+        youth_example: '"isso foi escolha sua ou foi você sendo levado?"'
