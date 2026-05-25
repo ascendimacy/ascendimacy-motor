@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { planTurn } from "../src/plan.js";
+import { planTurn, buildSystemPrompt } from "../src/plan.js";
 
 process.env["USE_MOCK_LLM"] = "true";
 
@@ -299,5 +299,86 @@ describe("planTurn — G-22 pool-builder loop integration (ops#1093)", () => {
     if (anyHasSacrificeReason) {
       expect(anyHasSacrificeReason).toBe(true);
     }
+  });
+});
+
+// ─── BUG-PL-01 Sprint 5: extracted_signals + deflection ───────────────────
+describe("buildSystemPrompt — extracted_signals + deflection (BUG-PL-01)", () => {
+  const baseInput = {
+    sessionId: "test-deflection",
+    persona: mockPersona,
+    adquirente: mockAdquirente,
+    inventory: mockInventory,
+    state: mockState,
+    incomingMessage: "tô melhor falando de tênis",
+  };
+
+  it("signal deflection_thematic → prompt contém aviso DEFLECTION ATIVO", () => {
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      contextHints: {
+        extracted_signals: ["deflection_thematic", "peer_reference"],
+      },
+    });
+    expect(prompt).toContain("SINAIS DETECTADOS NO TURNO ATUAL");
+    expect(prompt).toContain("deflection_thematic");
+    expect(prompt).toContain("DEFLECTION ATIVO");
+    expect(prompt).toContain("não retornar ao tema");
+  });
+
+  it("exit_marker_implicit também ativa deflection block", () => {
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      contextHints: { extracted_signals: ["exit_marker_implicit"] },
+    });
+    expect(prompt).toContain("DEFLECTION ATIVO");
+  });
+
+  it("signals presentes mas sem deflection → não tem bloco DEFLECTION ATIVO", () => {
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      contextHints: {
+        extracted_signals: ["peer_reference", "voluntary_topic_deepening"],
+      },
+    });
+    expect(prompt).toContain("SINAIS DETECTADOS NO TURNO ATUAL");
+    expect(prompt).toContain("peer_reference");
+    expect(prompt).not.toContain("DEFLECTION ATIVO");
+  });
+
+  it("extracted_signals vazio → prompt sem bloco SINAIS DETECTADOS", () => {
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      contextHints: { extracted_signals: [] },
+    });
+    expect(prompt).not.toContain("SINAIS DETECTADOS");
+    expect(prompt).not.toContain("DEFLECTION ATIVO");
+  });
+
+  it("contextHints undefined → comportamento legado preservado (sem signals)", () => {
+    const prompt = buildSystemPrompt(baseInput);
+    expect(prompt).not.toContain("SINAIS DETECTADOS");
+    expect(prompt).not.toContain("DEFLECTION ATIVO");
+    // Mas o prompt fundamental ainda está presente
+    expect(prompt).toContain("Planejador do motor Ascendimacy");
+  });
+});
+
+describe("planTurn — preserva extracted_signals em contextHints de output (BUG-PL-01)", () => {
+  it("input.contextHints.extracted_signals chega no output.contextHints", async () => {
+    const output = await planTurn({
+      sessionId: "test-signals-preserve",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "oi",
+      contextHints: {
+        extracted_signals: ["deflection_thematic"],
+        last_user_message: "previous msg",
+      },
+    });
+    expect(output.contextHints["extracted_signals"]).toEqual(["deflection_thematic"]);
+    expect(output.contextHints["last_user_message"]).toBe("previous msg");
   });
 });

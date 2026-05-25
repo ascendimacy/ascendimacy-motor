@@ -56,6 +56,10 @@ server.registerTool(
         kidsHelixState: z.record(z.string(), z.unknown()).optional(),
       }),
       incomingMessage: z.string(),
+      // BUG-PL-01 Sprint 5: upstream hints (extracted_signals, last_user_message,
+      // recent_turns) opcionais. Caller passa pra preservar context awareness;
+      // buildSystemPrompt consome `extracted_signals` pra deflection block.
+      contextHints: z.record(z.string(), z.unknown()).optional(),
     } as any,
   },
   async (input: PlanTurnInput) => {

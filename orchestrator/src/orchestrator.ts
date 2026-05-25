@@ -236,7 +236,11 @@ export async function runTurn(
   // Captura signals do user message + history tail. Loga signals_extracted
   // event no event_log pra Trigger Evaluator consumir.
   // Read-only — fail-soft, qualquer erro vira signals=[].
+  // BUG-PL-01 Sprint 5: extractedSignals capturado fora do try pra ser
+  // injetado em plan_turn contextHints (planejador precisa ver pra propor
+  // deflection awareness no rationale).
   const tSig = Date.now();
+  let extractedSignals: string[] = [];
   try {
     const signalsResult = await clients.motorDrota.callTool({
       name: "extract_signals",
@@ -259,6 +263,7 @@ export async function runTurn(
       overall_confidence?: number;
     }>(signalsResult);
     if (sig.signals && sig.signals.length > 0) {
+      extractedSignals = sig.signals;
       // Loga event no motor-execucao pra Trigger Evaluator ler na próxima call
       await clients.motorExecucao.callTool({
         name: "log_event",
@@ -286,9 +291,28 @@ export async function runTurn(
   void (Date.now() - tSig); // keep latency hint local — debug log captura via debug-mode
 
   const t1 = Date.now();
+  // BUG-PL-01 Sprint 5: passa extracted_signals em contextHints pro planejador
+  // injetar SINAIS DETECTADOS NO TURNO + bloco DEFLECTION ATIVO no system prompt
+  // quando deflection_thematic/exit_marker_* presentes. Antes, signals só iam
+  // pro event_log e o planejador rodava cego — deflections ignoradas por 3 turns.
+  const planContextHints: Record<string, unknown> = {};
+  if (extractedSignals.length > 0) {
+    planContextHints["extracted_signals"] = extractedSignals;
+    planContextHints["last_user_message"] = message;
+  }
   const planResult = await clients.planejador.callTool({
     name: "plan_turn",
-    arguments: { sessionId, persona, adquirente, inventory, state, incomingMessage: message },
+    arguments: {
+      sessionId,
+      persona,
+      adquirente,
+      inventory,
+      state,
+      incomingMessage: message,
+      ...(Object.keys(planContextHints).length > 0
+        ? { contextHints: planContextHints }
+        : {}),
+    },
   });
   const plan = parseToolText<import("@ascendimacy/shared").PlanTurnOutput>(planResult);
   turnEntries.push({

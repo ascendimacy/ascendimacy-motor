@@ -24,6 +24,13 @@ jobs:
       - name: Build shared
         run: npm run build -w shared
 
+      # motor-channels é cross-workspace devDep do orchestrator (integration
+      # test C-MX-07 PR7 importa via @ascendimacy/motor-channels). package.json
+      # aponta pra ./dist via exports, então vitest falha resolver entry sem
+      # build. Build aqui antes dos tests pra desbloquear orchestrator.
+      - name: Build motor-channels
+        run: npm run build -w packages/motor-channels
+
       - name: Run tests
         run: npm test
 
