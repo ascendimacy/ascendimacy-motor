@@ -150,6 +150,23 @@ export interface ContentItemBase {
    * Spec ops#1015 G-01 (CASEL × Dreyfus × Gardner), Jun ratificado 2026-05-16.
    */
   dreyfus_level_target?: [DreyfusLevel, DreyfusLevel];
+
+  /**
+   * Subject Knowledge Fase 3 — tags pra ponte tripla + ledger de conceitos.
+   * Quando os 4 campos abaixo estão presentes, ConceptLedgerWriter emite
+   * `presented_concept` (+1pt) no SubjectKnowledge após o item ser materializado.
+   *
+   * Campos opcionais por compatibilidade — items legados sem tags
+   * continuam funcionando, apenas não geram entry no ledger.
+   *
+   * Spec: 2026-05-25-subject-knowledge-bridge.md §3 + §4.4.
+   */
+  axis_id?: number; // 1..12
+  family?: "carater" | "disposicao" | "cognicao_si";
+  /** "tradicao/complemento" — ex: "estoica/dicotomia_controle". */
+  lineage_anchor?: string;
+  /** Palavras-chave do conceito pra futura detecção de recall. */
+  extracted_keywords?: string[];
 }
 
 export interface CuriosityHookItem extends ContentItemBase {
