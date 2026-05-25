@@ -402,3 +402,77 @@ describe("scoreItem — sacrifice_cost_by_id adjustment (ops#1093)", () => {
     expect(r.reasons.find((x) => x.includes("sacrifice"))).toBeUndefined();
   });
 });
+
+// ─── Sprint Pedagógico P2.1: interest_match boost ──────────────────────────
+describe("scoreItem — interest_match (Sprint Pedagógico P2.1)", () => {
+  it("interest match item.domain → +6 + reason", () => {
+    const r = scoreItem(
+      hook({ domain: "tennis", base_score: 7 }),
+      { age: 10, interests: ["tennis", "mechanics"] },
+      baseCtx,
+    );
+    expect(r.score).toBe(7 + 6);
+    expect(r.reasons.some((x) => x.includes("interest_match=+6"))).toBe(true);
+  });
+
+  it("interest match item.id substring → +6", () => {
+    const r = scoreItem(
+      hook({ id: "ling_tennis_history", domain: "linguistics", base_score: 7 }),
+      { age: 10, interests: ["tennis"] },
+      baseCtx,
+    );
+    expect(r.score).toBe(7 + 6);
+  });
+
+  it("interest match gardner_channel → +6", () => {
+    const r = scoreItem(
+      hook({ domain: "math", gardner_channels: ["logical_math"], base_score: 5 }),
+      { age: 10, interests: ["logical_math"] },
+      baseCtx,
+    );
+    expect(r.score).toBe(5 + 6);
+  });
+
+  it("nenhum match → score base", () => {
+    const r = scoreItem(
+      hook({ domain: "biology", base_score: 7 }),
+      { age: 10, interests: ["tennis"] },
+      baseCtx,
+    );
+    expect(r.score).toBe(7);
+    expect(r.reasons.some((x) => x.includes("interest_match"))).toBe(false);
+  });
+
+  it("interests undefined → backward compat (sem boost)", () => {
+    const r = scoreItem(hook({ base_score: 7 }), { age: 10 }, baseCtx);
+    expect(r.score).toBe(7);
+    expect(r.reasons.some((x) => x.includes("interest_match"))).toBe(false);
+  });
+
+  it("múltiplos interests, 1 match → +6 (não soma)", () => {
+    const r = scoreItem(
+      hook({ domain: "tennis", base_score: 7 }),
+      { age: 10, interests: ["tennis", "mechanics", "dragon_ball"] },
+      baseCtx,
+    );
+    expect(r.score).toBe(7 + 6); // não 7 + 18
+  });
+
+  it("interest com whitespace → trimado", () => {
+    const r = scoreItem(
+      hook({ domain: "tennis", base_score: 7 }),
+      { age: 10, interests: ["  tennis  "] },
+      baseCtx,
+    );
+    expect(r.score).toBe(7 + 6);
+  });
+
+  it("case insensitive match", () => {
+    const r = scoreItem(
+      hook({ domain: "Tennis", base_score: 7 }),
+      { age: 10, interests: ["TENNIS"] },
+      baseCtx,
+    );
+    expect(r.score).toBe(7 + 6);
+  });
+});
