@@ -86,6 +86,50 @@ function seedPath(): string | undefined {
  *
  * Spec: ascendimacy-ops/docs/specs/2026-05-05-bugfix-materializer-content-anchor.md
  */
+/**
+ * Sprint Pedagógico P1.1: detecta pergunta direta na incomingMessage.
+ *
+ * Heurística inicial conservadora:
+ *  - ? em qualquer posição (mais comum)
+ *  - palavras-pergunta pt-br: "por que", "o que", "como", "quando", "onde",
+ *    "qual", "quem", "será que", "tipo, ..."
+ *  - linguagem informal Kei/Ryo: "tipo... X?", "vc tá Y?"
+ *
+ * Bug evidência: Kei smoke 2026-05-25 turn 3 — "Você não respondeu nada
+ * que eu perguntei". Bot emitiu Fact ignorando question explícita do sujeito.
+ * Fix: planejador injeta question_detected pra materializer priorizar resp.
+ */
+export function detectQuestionInMessage(message: string): {
+  has_question: boolean;
+  question_text?: string;
+} {
+  const normalized = message.toLowerCase().trim();
+  if (normalized.length === 0) return { has_question: false };
+
+  const hasQuestionMark = /\?/.test(message);
+  const questionWords = [
+    "por que",
+    "porque ",
+    "pq ",
+    "o que ",
+    "oq ",
+    "como ",
+    "quando ",
+    "onde ",
+    "qual ",
+    "quais ",
+    "quem ",
+    "será que",
+    "sera que",
+  ];
+  const hasQuestionWord = questionWords.some((w) => normalized.includes(w));
+
+  if (hasQuestionMark || hasQuestionWord) {
+    return { has_question: true, question_text: message.trim() };
+  }
+  return { has_question: false };
+}
+
 export function buildSystemPrompt(input: PlanTurnInput): string {
   const { persona, state, incomingMessage, contextHints } = input;
 
@@ -107,6 +151,13 @@ export function buildSystemPrompt(input: PlanTurnInput): string {
     ? `\n⚠️ DEFLECTION ATIVO: o sujeito desviou do tema anterior. O strategicRationale DEVE reconhecer o desvio e propor tema diferente. NÃO retorne ao tema que o sujeito evitou. Em contextHints, adicione:\n  "avoid": "não retornar ao tema que o sujeito acabou de desviar",\n  "tone": "leve, sem pressão".`
     : "";
 
+  // Sprint Pedagógico P1.1: detecta question + flagga pra planejador
+  // gerar rationale ciente de que materializer DEVE responder antes de Fact.
+  const questionInfo = detectQuestionInMessage(incomingMessage);
+  const questionBlock = questionInfo.has_question
+    ? `\n❓ PERGUNTA DIRETA DETECTADA: o sujeito fez uma pergunta. O strategicRationale DEVE prever que a resposta-bot precisa RESPONDER a pergunta (antes de qualquer Fact/Bridge). Em contextHints, adicione:\n  "question_detected": true,\n  "respond_to_question_first": true.`
+    : "";
+
   return `Você é o Planejador do motor Ascendimacy. Seu papel é AUXILIAR de compositor:
 o scoring de content items é determinístico (feito no código). Você só emite:
 
@@ -116,7 +167,7 @@ o scoring de content items é determinístico (feito no código). Você só emit
 SUJEITO: ${persona.name}, ${persona.age} anos.
 Perfil: ${JSON.stringify(persona.profile, null, 2)}
 Estado: trust=${state.trustLevel.toFixed(2)}, turn=${state.turn}, budget=${state.budgetRemaining}
-Mensagem: "${incomingMessage}"${signalsBlock}${deflectionBlock}
+Mensagem: "${incomingMessage}"${signalsBlock}${deflectionBlock}${questionBlock}
 
 Detecte a língua do sujeito (ex: 'pt-br', 'pt-br limitado', 'pt-br basico', 'ja', 'en'). Se o perfil indica falante não-nativo (ex: japonês aprendendo pt-br), use 'pt-br limitado'.
 
@@ -478,6 +529,16 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   }
   if (input.contextHints?.["recent_turns"]) {
     contextHints["recent_turns"] = input.contextHints["recent_turns"];
+  }
+  // Sprint Pedagógico P1.1: detecta pergunta + propaga pra materializer
+  // ler em contextHints.question_detected/respond_to_question_first.
+  // LLM rationale pode ter respondido também — esse re-apply é defensivo:
+  // garante que a flag não some se LLM gerou hints sem question_detected.
+  const questionDetect = detectQuestionInMessage(input.incomingMessage);
+  if (questionDetect.has_question) {
+    contextHints["question_detected"] = true;
+    contextHints["question_text"] = questionDetect.question_text;
+    contextHints["respond_to_question_first"] = true;
   }
   if (focusDim) {
     contextHints["casel_focus_dimension"] = focusDim;
