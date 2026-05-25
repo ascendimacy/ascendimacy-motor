@@ -422,7 +422,13 @@ export async function runTurn(
       state,
       persona,
       strategicRationale: plan.strategicRationale,
-      contextHints: plan.contextHints,
+      // Sprint 5 #10: injeta last_user_message em contextHints pra
+      // contextual priority — Constrained Materializer (USE_SIMPLIFIED_PIPELINE)
+      // engata tema do sujeito; sem isso, materializer não vê msg incoming.
+      contextHints: {
+        ...(plan.contextHints ?? {}),
+        last_user_message: message,
+      },
       instruction_addition: drotaInstructionAddition,
     },
   });
