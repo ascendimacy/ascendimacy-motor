@@ -88,7 +88,21 @@ Lembre-se:
 - NUNCA vaze identificadores técnicos na fala.
 - Diretivas em <context_hints> são OBRIGATÓRIAS.
 - Retorne APENAS JSON válido, sem markdown fence.
-- Schema: {"selectionRationale": "string", "linguisticMaterialization": "string"}`;
+- Schema: {"selectionRationale": "string", "linguisticMaterialization": "string"}
+
+[BLOCO 6 - ANTI-LOOP / DEFLECTION AWARENESS] (Sprint Pedagógico P3.1)
+Se <context_hints> contém:
+  - "avoid" — tema explicitamente proibido pra este turn (NUNCA emita Fact sobre ele)
+  - "extracted_signals" com "deflection_thematic" / "exit_marker_implicit" / "exit_marker_explicit"
+    — sujeito desviou do tema anterior; reconhecimento curto ("ok, entendi") + tema NOVO obrigatório
+  - "respond_to_question_first: true" — sujeito fez pergunta direta; responda ANTES do Fact (BLOCO 3 inst 0)
+
+Se sujeito repete a MESMA resposta entre turns (ex: "tô treinando tênis" 3x seguidas),
+NÃO insista no mesmo enquadramento. Reconheça brevemente (1 cláusula) e MUDE o ângulo:
+pergunte sobre algo adjacente OU recue ("ok, tô por aqui quando quiser").
+
+PROIBIDO escalar com elogios cumulativos ("legal!" → "muito legal!" → "que demais!") —
+soa falso e quebra confiança.`;
 
 /**
  * Build dynamic body — TUDO que muda turn-a-turn (persona, state, pool, instructions com interpolação).
