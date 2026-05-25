@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { planTurn, buildSystemPrompt } from "../src/plan.js";
+import { planTurn, buildSystemPrompt, detectQuestionInMessage } from "../src/plan.js";
 
 process.env["USE_MOCK_LLM"] = "true";
 
@@ -380,5 +380,91 @@ describe("planTurn — preserva extracted_signals em contextHints de output (BUG
     });
     expect(output.contextHints["extracted_signals"]).toEqual(["deflection_thematic"]);
     expect(output.contextHints["last_user_message"]).toBe("previous msg");
+  });
+});
+
+// ─── Sprint Pedagógico P1.1: question detection ──────────────────────────
+describe("detectQuestionInMessage", () => {
+  it("detecta ? simples", () => {
+    expect(detectQuestionInMessage("tipo, por que?").has_question).toBe(true);
+  });
+
+  it("detecta 'por que' sem ?", () => {
+    expect(detectQuestionInMessage("por que você falou disso").has_question).toBe(true);
+  });
+
+  it("detecta 'o que' informal", () => {
+    expect(detectQuestionInMessage("oq tu quer dizer com isso").has_question).toBe(true);
+  });
+
+  it("detecta 'como'", () => {
+    expect(detectQuestionInMessage("como assim").has_question).toBe(true);
+  });
+
+  it("statement sem pergunta → false", () => {
+    expect(detectQuestionInMessage("tô bem, treinando tênis").has_question).toBe(false);
+  });
+
+  it("string vazia → false", () => {
+    expect(detectQuestionInMessage("").has_question).toBe(false);
+  });
+
+  it("retorna question_text quando detectada", () => {
+    const r = detectQuestionInMessage("Por que vc tá perguntando?");
+    expect(r.has_question).toBe(true);
+    expect(r.question_text).toBe("Por que vc tá perguntando?");
+  });
+});
+
+describe("buildSystemPrompt — question detection block (P1.1)", () => {
+  const baseInput = {
+    sessionId: "test-q",
+    persona: mockPersona,
+    adquirente: mockAdquirente,
+    inventory: mockInventory,
+    state: mockState,
+    incomingMessage: "tipo, por que você falou de borboletas?",
+  };
+
+  it("question detected → prompt contém aviso PERGUNTA DIRETA", () => {
+    const prompt = buildSystemPrompt(baseInput);
+    expect(prompt).toContain("PERGUNTA DIRETA DETECTADA");
+    expect(prompt).toContain("respond_to_question_first");
+  });
+
+  it("statement sem pergunta → sem bloco PERGUNTA", () => {
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      incomingMessage: "tô treinando tênis",
+    });
+    expect(prompt).not.toContain("PERGUNTA DIRETA");
+  });
+});
+
+describe("planTurn — propaga question_detected em contextHints (P1.1)", () => {
+  it("incomingMessage com ? → output.contextHints tem question_detected=true", async () => {
+    const output = await planTurn({
+      sessionId: "test-prop",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "por que isso agora?",
+    });
+    expect(output.contextHints["question_detected"]).toBe(true);
+    expect(output.contextHints["respond_to_question_first"]).toBe(true);
+    expect(output.contextHints["question_text"]).toBe("por que isso agora?");
+  });
+
+  it("incomingMessage sem pergunta → sem question flags", async () => {
+    const output = await planTurn({
+      sessionId: "test-no-q",
+      persona: mockPersona,
+      adquirente: mockAdquirente,
+      inventory: mockInventory,
+      state: mockState,
+      incomingMessage: "tô bem",
+    });
+    expect(output.contextHints["question_detected"]).toBeUndefined();
   });
 });
