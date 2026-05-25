@@ -22,6 +22,7 @@ export * from "./sacrifice-budget.js";
 export * from "./mixins/with-gardner-program.js";
 export * from "./parental-profile.js";
 export * from "./subject-knowledge.js";
+export * from "./subject-knowledge-writers.js";
 export * from "./parental-authorization.js";
 export * from "./gardner-onboarding.js";
 export * from "./card-catalog.js";

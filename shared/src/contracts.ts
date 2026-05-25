@@ -98,6 +98,13 @@ export interface EvaluateAndSelectOutput {
     signals: string[];
     engagement: "high" | "medium" | "low" | "disengaging";
   };
+  /**
+   * Subject Knowledge Fase 2: eventos extraídos pelos writers
+   * (DiscoveryWriter + BoundaryEventWriter) durante este turn.
+   * Escritos no trace pra BFF scanner indexar em subject_knowledge.
+   * Undefined no fluxo antigo (backward compat).
+   */
+  subjectKnowledgeEvents?: import("./subject-knowledge.js").SubjectKnowledgeEntry[];
 }
 
 export interface ExecutePlaybookInput {
