@@ -341,4 +341,41 @@ describe("callGateway openai-compat bypass (D-3-PROV)", () => {
     );
     warnSpy.mockRestore();
   });
+
+  // Sprint 5 #3: Qwen3 thinking OFF default
+  it("body inclui chat_template_kwargs.enable_thinking=false por default", async () => {
+    process.env["LLM_LOCAL_ENDPOINT"] = "http://localhost:9000/v1/chat/completions";
+    delete process.env["LOCAL_LLM_THINKING"];
+    fetchMock.mockResolvedValueOnce(mockOpenAiResponse());
+
+    await callGateway({
+      step: "drota",
+      provider: "openai-compat",
+      model: "qwen3-30b",
+      systemPrompt: "s",
+      userMessage: "u",
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(init.body as string);
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+
+  it("LOCAL_LLM_THINKING=true → enable_thinking=true", async () => {
+    process.env["LLM_LOCAL_ENDPOINT"] = "http://localhost:9000/v1/chat/completions";
+    process.env["LOCAL_LLM_THINKING"] = "true";
+    fetchMock.mockResolvedValueOnce(mockOpenAiResponse());
+
+    await callGateway({
+      step: "drota",
+      provider: "openai-compat",
+      model: "qwen3-30b",
+      systemPrompt: "s",
+      userMessage: "u",
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(init.body as string);
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: true });
+  });
 });
