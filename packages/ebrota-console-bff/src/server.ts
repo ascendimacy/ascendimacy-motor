@@ -49,6 +49,11 @@ import {
   summarizePersonas,
   getPersonaEvolution,
 } from "./analytics.js";
+import {
+  listSubjectDiscoveries,
+  listBoundaryEvents,
+  summarizeBoundariesByCategory,
+} from "./subject-knowledge-repo.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -467,6 +472,51 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   fastify.post<{ Params: { id: string } }>(
     "/sessions/:id/end",
     async (req) => opts.daemon.endSession(req.params.id),
+  );
+
+  // ── Subject Knowledge endpoints (Fase 2) ─────────────────────────
+  // GET /subjects/:id/discoveries — interest/value/need/discovery
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { type?: string; session?: string; limit?: string };
+  }>("/subjects/:id/discoveries", async (req) => {
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+    const type =
+      req.query.type === "interest" ||
+      req.query.type === "value" ||
+      req.query.type === "need" ||
+      req.query.type === "discovery"
+        ? req.query.type
+        : undefined;
+    return {
+      discoveries: listSubjectDiscoveries(opts.db, req.params.id, {
+        ...(type ? { type } : {}),
+        ...(req.query.session ? { sessionId: req.query.session } : {}),
+        ...(limit ? { limit } : {}),
+      }),
+    };
+  });
+
+  // GET /subjects/:id/boundaries — boundary_events crus
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { session?: string; limit?: string };
+  }>("/subjects/:id/boundaries", async (req) => {
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+    return {
+      boundaries: listBoundaryEvents(opts.db, req.params.id, {
+        ...(req.query.session ? { sessionId: req.query.session } : {}),
+        ...(limit ? { limit } : {}),
+      }),
+    };
+  });
+
+  // GET /subjects/:id/boundaries/summary — agregação por topic_category
+  fastify.get<{ Params: { id: string } }>(
+    "/subjects/:id/boundaries/summary",
+    async (req) => ({
+      summary: summarizeBoundariesByCategory(opts.db, req.params.id),
+    }),
   );
 
   return {

@@ -20,6 +20,11 @@ import type {
   EvaluateAndSelectInput,
   EvaluateAndSelectOutput,
   ScoredContentItem,
+  SubjectKnowledgeEntry,
+} from "@ascendimacy/shared";
+import {
+  extractDiscoveries,
+  extractBoundaryEvents,
 } from "@ascendimacy/shared";
 
 import { assess } from "./unified-assessor.js";
@@ -62,6 +67,40 @@ export async function handleSimplifiedPipeline(
     engagement: assessment.engagement,
   };
 
+  // ── Subject Knowledge Fase 2: writers extraem eventos do turn ──
+  const turnRef = `${input.sessionId}__turn_${input.state.turn}`;
+  const subjectKnowledgeEvents: SubjectKnowledgeEntry[] = [];
+  // 1. Descobertas (interest/value/need) — só da fala do sujeito.
+  subjectKnowledgeEvents.push(
+    ...extractDiscoveries({
+      subjectId: input.persona.id,
+      sessionId: input.sessionId,
+      turnRef,
+      lastUserMessage,
+      signals: assessment.signals,
+      mood: assessment.mood,
+    }),
+  );
+  // 2. Boundary events — registra recuo quando signals indicam.
+  // topicCategory v1: extraído do avoid[] do plan ou marcado como
+  // indefinido. Abstração mais sofisticada vem em fase futura.
+  const avoid = input.contextHints?.["avoid"];
+  const topicCategory =
+    Array.isArray(avoid) && avoid.length > 0
+      ? String(avoid[0])
+      : typeof avoid === "string"
+      ? avoid
+      : "indefinido";
+  subjectKnowledgeEvents.push(
+    ...extractBoundaryEvents({
+      subjectId: input.persona.id,
+      sessionId: input.sessionId,
+      turnRef,
+      signals: assessment.signals,
+      topicCategory,
+    }),
+  );
+
   // 2. Pragmatic Selector — determinístico, zero LLM.
   const selectionResult = selectAction({
     candidates: ranked,
@@ -94,6 +133,7 @@ export async function handleSimplifiedPipeline(
       selectionRationale: selectionResult.decision_path,
       linguisticMaterialization: "Me conta o que está passando na sua cabeça.",
       assessment: assessmentForOutput,
+      subjectKnowledgeEvents,
       ...(selectionResult.escalate_reason
         ? { skipReason: selectionResult.escalate_reason }
         : {}),
@@ -129,6 +169,7 @@ export async function handleSimplifiedPipeline(
       selectionRationale: selectionResult.decision_path,
       linguisticMaterialization: inauguralResult.text,
       assessment: assessmentForOutput,
+      subjectKnowledgeEvents,
     };
   }
 
@@ -153,6 +194,7 @@ export async function handleSimplifiedPipeline(
     selectionRationale: selectionResult.decision_path,
     linguisticMaterialization: matResult.text,
     assessment: assessmentForOutput,
+    subjectKnowledgeEvents,
     ...(matResult.fallback_triggered
       ? { skipReason: "materializer_fallback" }
       : {}),

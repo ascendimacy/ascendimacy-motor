@@ -48,6 +48,13 @@ interface RawTraceTurn {
   /** STS schema alias for finalResponse. */
   botMessage?: string;
   timestamp?: string;
+  /**
+   * Subject Knowledge Fase 2: eventos emitidos pelos writers no motor.
+   * Quando presente, scanner insere em subject_knowledge table.
+   * Pode estar no nível do turn (preferido) ou em motorTrace.drota.subjectKnowledgeEvents.
+   */
+  subjectKnowledgeEvents?: unknown[];
+  motorTrace?: { drota?: { subjectKnowledgeEvents?: unknown[] } };
 }
 
 interface RawTrace {
@@ -126,6 +133,20 @@ const UPSERT_SESSION_SQL = `
     trace_path = excluded.trace_path
 `;
 
+const DELETE_SK_BY_SESSION_SQL = `
+  DELETE FROM subject_knowledge WHERE session_id = @sessionId
+`;
+
+const INSERT_SK_SQL = `
+  INSERT INTO subject_knowledge (
+    id, subject_id, type, source, confidence, confirmed_at,
+    alignment, payload_json, turn_ref, session_id, created_at
+  ) VALUES (
+    @id, @subject_id, @type, @source, @confidence, @confirmed_at,
+    @alignment, @payload_json, @turn_ref, @session_id, @created_at
+  )
+`;
+
 const DELETE_FTS_BY_SESSION_SQL = `
   DELETE FROM messages_fts WHERE session_id = @sessionId
 `;
@@ -190,6 +211,44 @@ const indexTrace = (
 
   // Re-populate FTS pra essa sessão (delete-then-insert pra idempotência)
   db.prepare(DELETE_FTS_BY_SESSION_SQL).run({ sessionId });
+
+  // Re-populate subject_knowledge events da sessão (idempotente).
+  // Fase 2: motor emite eventos via simplified-pipeline output; scanner
+  // procura no turn ou em turn.motorTrace.drota.
+  db.prepare(DELETE_SK_BY_SESSION_SQL).run({ sessionId });
+  const insertSk = db.prepare(INSERT_SK_SQL);
+  for (const turn of turns) {
+    const events =
+      (turn.subjectKnowledgeEvents as unknown[] | undefined) ??
+      (turn.motorTrace?.drota?.subjectKnowledgeEvents as unknown[] | undefined) ??
+      [];
+    for (const raw of events) {
+      const ev = raw as Record<string, unknown>;
+      if (
+        typeof ev.id !== "string" ||
+        typeof ev.subject_id !== "string" ||
+        typeof ev.type !== "string"
+      )
+        continue;
+      try {
+        insertSk.run({
+          id: ev.id,
+          subject_id: ev.subject_id,
+          type: ev.type,
+          source: ev.source ?? "motor_inferred",
+          confidence: typeof ev.confidence === "number" ? ev.confidence : 0.5,
+          confirmed_at: ev.confirmed_at ?? null,
+          alignment: ev.alignment ?? "unknown",
+          payload_json: JSON.stringify(ev.payload ?? {}),
+          turn_ref: ev.turn_ref ?? `${sessionId}__turn_${turn.turnNumber ?? 0}`,
+          session_id: sessionId,
+          created_at: ev.created_at ?? new Date().toISOString(),
+        });
+      } catch {
+        // ignora linha inválida (CHECK constraint), não derruba scan
+      }
+    }
+  }
 
   let messagesIndexed = 0;
   const insertFts = db.prepare(INSERT_FTS_SQL);
