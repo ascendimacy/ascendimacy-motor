@@ -11,6 +11,8 @@ import { rankPool } from "./evaluate.js";
 import { selectFromPool, sanitizeMaterialization } from "./select.js";
 import { callLlm, callLlmMock } from "./llm-client.js";
 import { parseDrotaOutput } from "./parse-output.js";
+// Sprint 5 #8: feature flag USE_SIMPLIFIED_PIPELINE — side-by-side
+import { handleSimplifiedPipeline } from "./simplified-pipeline-handler.js";
 import { extractSignals } from "./signal-extractor.js";
 import { applyPostProcessors } from "./post-processor.js";
 import { buildInaugural } from "./inaugural.js";
@@ -295,6 +297,19 @@ server.registerTool(
     }
 
     const ranked = rankPool(input.contentPool);
+
+    // Sprint 5 #8: USE_SIMPLIFIED_PIPELINE=true desvia pro pipeline novo
+    // (Unified Assessor + Pragmatic Selector + Constrained Materializer).
+    // Fluxo antigo abaixo preservado; rollback = remover env var.
+    if (process.env["USE_SIMPLIFIED_PIPELINE"] === "true") {
+      const simplifiedOutput = await handleSimplifiedPipeline(input, ranked);
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify(simplifiedOutput) },
+        ],
+      };
+    }
+
     if (ranked.length === 0) {
       // Pool vazio: fallback conversacional (v2 §4.2 do plano).
       const output: EvaluateAndSelectOutput = {
