@@ -1,0 +1,104 @@
+{
+  "conversation": [
+    {
+      "speaker": "bot",
+      "item_id": "bench-curio-01",
+      "message": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único e os outros chamam por ele.",
+      "skip_path": "composition_skipped",
+      "tokens": {
+        "in": 0,
+        "out": 0
+      },
+      "latency_ms": 0
+    },
+    {
+      "speaker": "ryo-ochiai",
+      "name": "Ryo",
+      "message": "*rola os olhos e faz cara de \"sério?!\"*  \ntipo... e daí? meus assovios são mais legais.  \n*pega uma bola de tênis e começa a rebater no chão, sem olhar pra ninguém*",
+      "tokens": {
+        "in": 264,
+        "out": 60
+      },
+      "latency_ms": 11156
+    },
+    {
+      "speaker": "kei-ochiai",
+      "name": "Kei",
+      "message": "Tá, mas os golfinhos não precisam de um \"tá bom\" pra saber quem tá chamando.  \nÉ só o som, e todo mundo entende.  \nTu tá rebatendo como se fosse um jogo de verdade... mas a gente nem tá jogando.",
+      "tokens": {
+        "in": 337,
+        "out": 60
+      },
+      "latency_ms": 6694
+    },
+    {
+      "speaker": "bot",
+      "item_id": "bench-challenge-01",
+      "message": "Em 1 frase, descreve o que sentiu no último ponto perdido do treino.",
+      "skip_path": "composition_skipped",
+      "tokens": {
+        "in": 0,
+        "out": 0
+      },
+      "latency_ms": 0
+    },
+    {
+      "speaker": "ryo-ochiai",
+      "name": "Ryo",
+      "message": "*olha pra bola, dá um chute leve pra frente*  \ntá bom, então... eu tô só treinando pro jogo que a gente nem tá jogando.  \n\n*levanta a mão direita e faz sinal de \"fica quieto\" com os dedos*",
+      "tokens": {
+        "in": 321,
+        "out": 60
+      },
+      "latency_ms": 6561
+    },
+    {
+      "speaker": "kei-ochiai",
+      "name": "Kei",
+      "message": "Foi tipo... quando a bola bate no chão e a gente não consegue pegar, parece que o tempo some um pouquinho, como se tivesse parado só pra mostrar que perdi.  \nMas aí o papai me olhou e deu um sinal com o queixo, igual ele faz quando quer que eu mude o grip — só que de novo, sem falar nada.  \nAcho que a gente não perdeu, só tá mudando de jeito.",
+      "tokens": {
+        "in": 326,
+        "out": 108
+      },
+      "latency_ms": 9204
+    },
+    {
+      "speaker": "bot",
+      "item_id": "bench-diamond-01",
+      "message": "Suzuki Daisetz — no kendo, mestre e discípulo se entendem mais pelo gesto que pela fala.",
+      "skip_path": "composition_skipped",
+      "tokens": {
+        "in": 0,
+        "out": 0
+      },
+      "latency_ms": 0
+    },
+    {
+      "speaker": "ryo-ochiai",
+      "name": "Ryo",
+      "message": "*olha pra bola no chão, depois pra mão direita, e muda o grip sem falar nada*  \n\n...tipo o Gohan no final do Cell.  \n\n*aponta pro irmão com o taco, depois dá um sorriso fraco*",
+      "tokens": {
+        "in": 378,
+        "out": 57
+      },
+      "latency_ms": 6163
+    },
+    {
+      "speaker": "kei-ochiai",
+      "name": "Kei",
+      "message": "Tá ligado que o jeito que você mudou o grip foi igual quando o papai me mostrou a técnica do \"sopro invisível\"?  \nA gente nem precisa falar, só o corpo já sabe o que tá rolando.  \n...e o sorriso foi tipo o último movimento antes da bola sair.",
+      "tokens": {
+        "in": 332,
+        "out": 71
+      },
+      "latency_ms": 6996
+    }
+  ],
+  "stats": {
+    "total": 9,
+    "bot": 3,
+    "ryo": 3,
+    "kei": 3
+  },
+  "n": 3
+}
