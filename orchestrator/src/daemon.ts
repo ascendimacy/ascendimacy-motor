@@ -14,10 +14,16 @@
  * Logs vão pra stderr porque stdout é reservado pra JSON-RPC do MCP.
  */
 
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { SessionState } from "@ascendimacy/shared";
 import { connectAll, disconnectAll, type McpClients } from "./mcp-clients.js";
 import { createOrchestratorMcpServer } from "./mcp-server.js";
+import { runTurn, type CardContext } from "./orchestrator.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_TRACES_DIR = join(__dirname, "../../traces");
 
 /**
  * Estado por sessão. Map sessionId → SessionRuntime. state hidratado
@@ -43,6 +49,25 @@ export interface OrchestratorDaemonOptions {
   log?: (msg: string) => void;
   /** Clock injetável pra startedAt determinístico em testes. */
   now?: () => string;
+  /** Diretório onde traces dos turns são gravados. Default mantém o
+   *  mesmo path do CLI legacy (`~/ascendimacy-motor/traces/`). */
+  tracesDir?: string;
+}
+
+export interface RunCardTurnInput {
+  cardId: string;
+  conversationId: string;
+  from: string;
+  pkg: { cardId: string; raw: string; sourcePath: string };
+  /** Opcional. Default = `from`. PR3 não faz lookup from→persona; resolução
+   *  fica pro caller (eBrota Console BFF) ou capability futura. */
+  personaId?: string;
+}
+
+export interface RunCardTurnOutput {
+  sessionId: string;
+  text: string;
+  tracePath: string;
 }
 
 interface ToolCallResult {
@@ -64,6 +89,7 @@ export class OrchestratorDaemon {
   private readonly dispose: (clients: McpClients) => Promise<void>;
   private readonly log: (msg: string) => void;
   private readonly now: () => string;
+  private readonly tracesDir: string;
 
   constructor(opts: OrchestratorDaemonOptions = {}) {
     this.factory = opts.clientsFactory ?? connectAll;
@@ -71,6 +97,7 @@ export class OrchestratorDaemon {
     this.log =
       opts.log ?? ((msg: string) => process.stderr.write(`${msg}\n`));
     this.now = opts.now ?? (() => new Date().toISOString());
+    this.tracesDir = opts.tracesDir ?? DEFAULT_TRACES_DIR;
   }
 
   /** Conecta o trio. Idempotente: chamadas subsequentes são no-op. */
@@ -148,6 +175,50 @@ export class OrchestratorDaemon {
       `[orchestrator-daemon] session started: ${sessionId} (persona=${input.personaId})`,
     );
     return runtime;
+  }
+
+  /**
+   * Executa um turn de carta-acionada — S-OD-05 (PR3).
+   *
+   * Fluxo:
+   *  1. startSession (idempotente) → SessionRuntime com state hidratado
+   *  2. runTurn com cardContext = {cardId, pkgRaw} → orchestrator.ts
+   *     prefixa pkgRaw em instruction_addition antes de motor-drota
+   *  3. Retorna texto materializado pelo motor-drota
+   *
+   * message do turn = literal `card:<cardId>` (a ativação do detector).
+   * Motor vê isso como input e responde construindo opening sobre o pkg.
+   */
+  async runCardTurn(input: RunCardTurnInput): Promise<RunCardTurnOutput> {
+    if (!this.started || this.clients === null) {
+      throw new Error(
+        "OrchestratorDaemon.runCardTurn: daemon não iniciado",
+      );
+    }
+    const personaId = input.personaId ?? input.from;
+    const runtime = await this.startSession({
+      personaId,
+      conversationId: input.conversationId,
+    });
+    const message = `card:${input.cardId}`;
+    const cardContext: CardContext = {
+      cardId: input.cardId,
+      pkgRaw: input.pkg.raw,
+    };
+    const { finalResponse, tracePath } = await runTurn(
+      this.clients,
+      runtime.sessionId,
+      runtime.personaId,
+      message,
+      this.tracesDir,
+      undefined,
+      cardContext,
+    );
+    return {
+      sessionId: runtime.sessionId,
+      text: finalResponse,
+      tracePath,
+    };
   }
 
   /**
