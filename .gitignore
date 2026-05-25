@@ -9,3 +9,6 @@ traces/
 logs/
 *.d.ts
 *.d.ts.map
+
+# BFF SQLite local cache (Sprint 5)
+.ebrota-console.db*
