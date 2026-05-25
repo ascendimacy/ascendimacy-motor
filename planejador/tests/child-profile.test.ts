@@ -75,3 +75,136 @@ describe("cyclePhaseFor", () => {
     expect(cyclePhaseFor(19)).toBeUndefined();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Subject Knowledge hidratação (latent_needs + subject_proposed)
+// ─────────────────────────────────────────────────────────────────
+
+describe("personaToChildProfile — Subject Knowledge fields", () => {
+  it("extrai latent_needs de parental_profile.latent_needs", () => {
+    const persona = makePersona({
+      profile: {
+        parental_profile: {
+          latent_needs: ["autocontrole", "abertura emocional", " perda do tio Kenji "],
+        },
+      },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.latent_needs).toEqual([
+      "autocontrole",
+      "abertura emocional",
+      "perda do tio Kenji",
+    ]);
+  });
+
+  it("omite latent_needs quando array vazio", () => {
+    const persona = makePersona({
+      profile: { parental_profile: { latent_needs: [] } },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.latent_needs).toBeUndefined();
+  });
+
+  it("omite latent_needs quando parental_profile ausente", () => {
+    const persona = makePersona({ profile: {} });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.latent_needs).toBeUndefined();
+  });
+
+  it("filtra strings vazias e tipos inválidos em latent_needs", () => {
+    const persona = makePersona({
+      profile: {
+        parental_profile: {
+          latent_needs: ["autocontrole", "", 42, null, "  ", "abertura"],
+        },
+      },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.latent_needs).toEqual(["autocontrole", "abertura"]);
+  });
+
+  it("extrai subject_proposed.axes_active de aspirations.proposed_virtues", () => {
+    const persona = makePersona({
+      profile: {
+        parental_profile: {
+          aspirations: {
+            proposed_virtues: [
+              { axis: 3, note: "coragem civil" },
+              { axis: 7 },
+              { axis: 12 },
+            ],
+          },
+        },
+      },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.subject_proposed?.axes_active).toEqual([3, 7, 12]);
+  });
+
+  it("dedup axes_active mesmo com virtudes repetidas", () => {
+    const persona = makePersona({
+      profile: {
+        parental_profile: {
+          aspirations: {
+            proposed_virtues: [{ axis: 3 }, { axis: 3 }, { axis: 7 }],
+          },
+        },
+      },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.subject_proposed?.axes_active).toEqual([3, 7]);
+  });
+
+  it("complements_per_axis vazio pra cada axis (v1)", () => {
+    const persona = makePersona({
+      profile: {
+        parental_profile: {
+          aspirations: { proposed_virtues: [{ axis: 4 }, { axis: 11 }] },
+        },
+      },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.subject_proposed?.complements_per_axis).toEqual({ 4: [], 11: [] });
+  });
+
+  it("ignora axes fora de 1..12", () => {
+    const persona = makePersona({
+      profile: {
+        parental_profile: {
+          aspirations: {
+            proposed_virtues: [{ axis: 0 }, { axis: 13 }, { axis: 5 }],
+          },
+        },
+      },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.subject_proposed?.axes_active).toEqual([5]);
+  });
+
+  it("omite subject_proposed quando aspirations ausente", () => {
+    const persona = makePersona({
+      profile: { parental_profile: { latent_needs: ["x"] } },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.subject_proposed).toBeUndefined();
+    expect(p.latent_needs).toEqual(["x"]);
+  });
+
+  it("omite subject_proposed quando proposed_virtues vazio", () => {
+    const persona = makePersona({
+      profile: {
+        parental_profile: { aspirations: { proposed_virtues: [] } },
+      },
+    });
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.subject_proposed).toBeUndefined();
+  });
+
+  it("preserva backcompat — persona sem subject knowledge fields funciona", () => {
+    const persona = makePersona({});
+    const p = personaToChildProfile(persona, emptyState);
+    expect(p.age).toBe(13);
+    expect(p.subject_proposed).toBeUndefined();
+    expect(p.latent_needs).toBeUndefined();
+  });
+});
