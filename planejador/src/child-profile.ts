@@ -39,12 +39,24 @@ export function personaToChildProfile(
     ? (profile["cycle_day"] as number)
     : undefined;
 
+  // Sprint Pedagógico P2.1: extrai interests do profile pro scorer pesar
+  // interest_match. Aceita 'interests' top-level OR 'preferences.interests'
+  // (formato fixture profile-store/Phase2). String list ou skip.
+  const rawInterests = profile["interests"]
+    ?? (profile["preferences"] as Record<string, unknown> | undefined)?.["interests"];
+  const interests = Array.isArray(rawInterests)
+    ? (rawInterests as unknown[])
+        .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+        .map((s) => s.trim())
+    : undefined;
+
   return {
     age: persona.age,
     domain_ranking: domainRanking,
     recent_hook_domains: recentHookDomains,
     cycle_day: cycleDay,
     cycle_phase: cyclePhaseFor(cycleDay),
+    interests,
   };
 }
 

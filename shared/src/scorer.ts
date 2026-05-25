@@ -65,6 +65,14 @@ export const TREE_TOP_DOMAIN_BONUS = 5;
 export const CASEL_FOCUS_BONUS = 3;
 
 /**
+ * Sprint Pedagógico P2.1: bonus quando interest do sujeito match item.
+ * Match path: persona.interests ∩ (item.gardner_channels ∪ item.domain ∪ item.id).
+ * +6 escolhido pra ser ≥ surprise bonus máximo (+6 com surprise=10) — interest
+ * vence surpresa quando profile tem interests definidos.
+ */
+export const INTEREST_MATCH_SCORE = 6;
+
+/**
  * motor#23: penalidade forte pra items já consumidos na sessão atual.
  * Maior que qualquer bônus normal (base_score+surprise+casel ≈ 12-15) — efetivamente
  * exclui o item enquanto outros disponíveis. Não 1000 (parent_pinned) pois ainda
@@ -85,6 +93,14 @@ export interface ChildScoringProfile {
   domain_ranking?: Record<string, DomainRankEntry>;
   recent_hook_domains?: string[];
   engagement_by_type?: Partial<Record<ContentItemType, number>>;
+
+  /**
+   * Sprint Pedagógico P2.1: interesses livres do sujeito (tênis, mecânica,
+   * dragon_ball, etc). Match com item.gardner_channels OR substring de
+   * item.domain/item.id (case-insensitive) → INTEREST_MATCH_SCORE boost.
+   * Vindo de persona.profile.interests via personaToChildProfile.
+   */
+  interests?: string[];
 
   /**
    * Dia no ciclo helix de 18 dias (1-18). Bloco 2a adiciona o slot;
@@ -174,6 +190,31 @@ export function scoreItem(
   if (domainEntry && domainEntry.score !== 0) {
     score += domainEntry.score;
     reasons.push(`domain_interest=+${domainEntry.score}`);
+  }
+
+  // Sprint Pedagógico P2.1: interest match boost.
+  // persona.interests vs item.gardner_channels/domain/id. Case-insensitive,
+  // substring match. Múltiplos matches contam UMA vez (boost fixo, não somado)
+  // pra evitar items "genéricos" dominarem por casarem com vários interests.
+  if (child.interests && child.interests.length > 0) {
+    const itemHaystack = [
+      item.domain,
+      item.id,
+      ...(item.gardner_channels ?? []),
+    ]
+      .filter(Boolean)
+      .map((s) => String(s).toLowerCase());
+    const matched = child.interests.find((interest) => {
+      const needle = interest.toLowerCase().trim();
+      if (needle.length === 0) return false;
+      return itemHaystack.some(
+        (hay) => hay.includes(needle) || needle.includes(hay),
+      );
+    });
+    if (matched !== undefined) {
+      score += INTEREST_MATCH_SCORE;
+      reasons.push(`interest_match=+${INTEREST_MATCH_SCORE} ('${matched}')`);
+    }
   }
 
   // Surprise bonus — diamantes ganham peso.
