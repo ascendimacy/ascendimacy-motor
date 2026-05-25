@@ -220,4 +220,125 @@ describe("callGateway openai-compat bypass (D-3-PROV)", () => {
     const [url] = fetchMock.mock.calls[0] as [string];
     expect(url).toBe("http://localhost:8080/v1/chat/completions");
   });
+
+  // D-3-PROV ops#1055 follow-up: defesa contra empty content em openai-compat.
+  // Bug reproduzido em smoke STS Qwen3-30B 2026-05-24 (kei G2 fail turn 2).
+
+  it("content vazio + reasoning_content presente → usa reasoning como fallback", async () => {
+    process.env["LLM_LOCAL_ENDPOINT"] = "http://localhost:9000/v1/chat/completions";
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: "",
+              reasoning_content: "tô por aqui quando quiser conversar.",
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
+        model: "qwen3-30b",
+      }),
+    });
+
+    const out = await callGateway({
+      step: "drota",
+      provider: "openai-compat",
+      model: "qwen3-30b",
+      systemPrompt: "s",
+      userMessage: "u",
+    });
+
+    expect(out.content).toBe("tô por aqui quando quiser conversar.");
+  });
+
+  it("content vazio sem reasoning_content → retorna string vazia", async () => {
+    process.env["LLM_LOCAL_ENDPOINT"] = "http://localhost:9000/v1/chat/completions";
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          { message: { content: "" }, finish_reason: "stop" },
+        ],
+        usage: { prompt_tokens: 50, completion_tokens: 0, total_tokens: 50 },
+        model: "qwen3-30b",
+      }),
+    });
+
+    const out = await callGateway({
+      step: "drota",
+      provider: "openai-compat",
+      model: "qwen3-30b",
+      systemPrompt: "s",
+      userMessage: "u",
+    });
+
+    // Não muda comportamento (callsite faz fallback) — só não crasha.
+    expect(out.content).toBe("");
+  });
+
+  it("content presente é priorizado sobre reasoning_content", async () => {
+    process.env["LLM_LOCAL_ENDPOINT"] = "http://localhost:9000/v1/chat/completions";
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: "real response",
+              reasoning_content: "deveria ser ignorado",
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 50, completion_tokens: 5, total_tokens: 55 },
+        model: "qwen3-30b",
+      }),
+    });
+
+    const out = await callGateway({
+      step: "drota",
+      provider: "openai-compat",
+      model: "qwen3-30b",
+      systemPrompt: "s",
+      userMessage: "u",
+    });
+
+    expect(out.content).toBe("real response");
+  });
+
+  it("finish_reason=length emite warning mas não crasha", async () => {
+    process.env["LLM_LOCAL_ENDPOINT"] = "http://localhost:9000/v1/chat/completions";
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          { message: { content: "cortado..." }, finish_reason: "length" },
+        ],
+        usage: { prompt_tokens: 50, completion_tokens: 200, total_tokens: 250 },
+        model: "qwen3-30b",
+      }),
+    });
+
+    const out = await callGateway({
+      step: "drota",
+      provider: "openai-compat",
+      model: "qwen3-30b",
+      systemPrompt: "s",
+      userMessage: "u",
+    });
+
+    expect(out.content).toBe("cortado...");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("finish_reason=length"),
+    );
+    warnSpy.mockRestore();
+  });
 });

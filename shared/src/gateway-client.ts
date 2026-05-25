@@ -167,7 +167,14 @@ async function getClient(): Promise<Client> {
  * `calculateCostUsd` em llm-config.ts já trata.
  */
 interface OpenAiChatChoice {
-  message?: { content?: string };
+  /**
+   * `message.content` é o canal principal. `reasoning_content` é usado por
+   * llama.cpp quando o chat template injeta thinking mode (Qwen3 instruct
+   * pode cair nesse caminho mesmo não sendo variante reasoning — D-3-PROV
+   * follow-up ops#1055). Defesa: se `content` vier vazio mas houver
+   * `reasoning_content`, usamos esse como fallback antes de propagar "".
+   */
+  message?: { content?: string; reasoning_content?: string };
   finish_reason?: string;
 }
 interface OpenAiChatUsage {
@@ -227,8 +234,34 @@ async function callLocalChatCompletion(
       throw new Error("gateway error: EMPTY_RESPONSE — no choices in response");
     }
     const usage = parsed.usage ?? {};
+    // D-3-PROV ops#1055 follow-up: defesa contra empty content.
+    // Bug reproduzido em smoke STS Qwen3-30B 2026-05-24 (kei turn 2 G2 fail):
+    // materializer recebeu content="" e propagou pra botMessage vazia.
+    // Defesa em camadas:
+    //  1. Se content vazio mas reasoning_content presente → usa reasoning
+    //     (caso edge: chat template thinking=1 detectado em modelo instruct).
+    //  2. Se finish_reason ≠ "stop" OU content final vazio → log warning
+    //     com fingerprint pra debug (não muda comportamento, dá visibilidade).
+    const rawContent = choice.message?.content ?? "";
+    const reasoningContent = choice.message?.reasoning_content ?? "";
+    const content =
+      rawContent.length > 0
+        ? rawContent
+        : reasoningContent.length > 0
+          ? reasoningContent
+          : "";
+    if (content.length === 0 || (choice.finish_reason && choice.finish_reason !== "stop")) {
+      console.warn(
+        `[gateway-client] openai-compat suspicious response: ` +
+          `finish_reason=${choice.finish_reason ?? "?"} ` +
+          `content_len=${rawContent.length} ` +
+          `reasoning_len=${reasoningContent.length} ` +
+          `step=${req.step} ` +
+          `completion_tokens=${usage.completion_tokens ?? 0}`,
+      );
+    }
     return {
-      content: choice.message?.content ?? "",
+      content,
       tokens: {
         in: usage.prompt_tokens ?? 0,
         out: usage.completion_tokens ?? 0,
