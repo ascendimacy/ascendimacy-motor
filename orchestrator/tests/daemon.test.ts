@@ -1,12 +1,29 @@
 import { describe, it, expect, vi } from "vitest";
 import { OrchestratorDaemon, type SessionRuntime } from "../src/daemon.js";
 import type { McpClients } from "../src/mcp-clients.js";
+import type { SessionState } from "@ascendimacy/shared";
+
+const fakeState = (overrides: Partial<SessionState> = {}): SessionState => ({
+  sessionId: "stub",
+  trustLevel: 0.3,
+  budgetRemaining: 100,
+  eventLog: [],
+  turn: 0,
+  ...overrides,
+});
+
+const mockMotorExecucaoWithState = (state: SessionState) =>
+  ({
+    callTool: vi.fn(async () => ({
+      content: [{ type: "text", text: JSON.stringify(state) }],
+    })),
+  }) as never;
 
 const mockClients = (): McpClients =>
   ({
     planejador: {} as never,
     motorDrota: {} as never,
-    motorExecucao: {} as never,
+    motorExecucao: mockMotorExecucaoWithState(fakeState()),
   }) satisfies McpClients;
 
 const baseOpts = () => {
@@ -132,5 +149,151 @@ describe("OrchestratorDaemon — session registry (PR1 scaffolding)", () => {
     expect(daemon.status().sessionCount).toBe(2);
     await daemon.stop();
     expect(daemon.status().sessionCount).toBe(0);
+  });
+});
+
+describe("OrchestratorDaemon — startSession + endSession (S-OD-04)", () => {
+  it("startSession hidrata state via motorExecucao + registra runtime", async () => {
+    const state = fakeState({ trustLevel: 0.7, turn: 5 });
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () =>
+        ({
+          planejador: {} as never,
+          motorDrota: {} as never,
+          motorExecucao: mockMotorExecucaoWithState(state),
+        }) satisfies McpClients,
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+      now: () => "2026-05-24T13:00:00.000Z",
+    });
+    await daemon.start();
+    const runtime = await daemon.startSession({
+      personaId: "yuji",
+      conversationId: "5511aaa@s.whatsapp.net",
+    });
+    expect(runtime.sessionId).toBe("yuji__5511aaa@s.whatsapp.net");
+    expect(runtime.personaId).toBe("yuji");
+    expect(runtime.conversationId).toBe("5511aaa@s.whatsapp.net");
+    expect(runtime.startedAt).toBe("2026-05-24T13:00:00.000Z");
+    expect(runtime.state?.trustLevel).toBe(0.7);
+    expect(runtime.state?.turn).toBe(5);
+    expect(daemon.status().sessionCount).toBe(1);
+  });
+
+  it("startSession com sessionId explícito usa direto (sem derivar)", async () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    await daemon.start();
+    const runtime = await daemon.startSession({
+      personaId: "yuji",
+      conversationId: "conv-x",
+      sessionId: "custom-sess-id",
+    });
+    expect(runtime.sessionId).toBe("custom-sess-id");
+  });
+
+  it("startSession idempotente — mesma key retorna runtime existente", async () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    await daemon.start();
+    const a = await daemon.startSession({
+      personaId: "yuji",
+      conversationId: "conv-1",
+    });
+    const b = await daemon.startSession({
+      personaId: "yuji",
+      conversationId: "conv-1",
+    });
+    expect(a).toBe(b);
+    expect(daemon.status().sessionCount).toBe(1);
+  });
+
+  it("startSession sem daemon iniciado → throws", async () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    await expect(
+      daemon.startSession({
+        personaId: "yuji",
+        conversationId: "conv-x",
+      }),
+    ).rejects.toThrow(/daemon não iniciado/);
+  });
+
+  it("endSession remove sessão existente → { closed: true }", async () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    await daemon.start();
+    const r = await daemon.startSession({
+      personaId: "yuji",
+      conversationId: "conv-end",
+    });
+    const result = await daemon.endSession(r.sessionId);
+    expect(result).toEqual({ closed: true });
+    expect(daemon.status().sessionCount).toBe(0);
+  });
+
+  it("endSession em sessionId ausente → { closed: false }, idempotente", async () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    await daemon.start();
+    expect(await daemon.endSession("nonexistent")).toEqual({ closed: false });
+    expect(await daemon.endSession("nonexistent")).toEqual({ closed: false });
+  });
+
+  it("listSessions devolve snapshot das sessões ativas", async () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    await daemon.start();
+    await daemon.startSession({
+      personaId: "yuji",
+      conversationId: "conv-a",
+    });
+    await daemon.startSession({
+      personaId: "kei",
+      conversationId: "conv-b",
+    });
+    const list = daemon.listSessions();
+    expect(list).toHaveLength(2);
+    expect(list.map((s) => s.personaId).sort()).toEqual(["kei", "yuji"]);
+  });
+});
+
+describe("OrchestratorDaemon — getClients (PR2 helper)", () => {
+  it("getClients sem start lança erro", () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    expect(() => daemon.getClients()).toThrow(/daemon não iniciado/);
+  });
+
+  it("getClients após start retorna trio", async () => {
+    const daemon = new OrchestratorDaemon({
+      clientsFactory: async () => mockClients(),
+      clientsDisposer: async () => undefined,
+      log: () => undefined,
+    });
+    await daemon.start();
+    const c = daemon.getClients();
+    expect(c.motorExecucao).toBeDefined();
   });
 });
