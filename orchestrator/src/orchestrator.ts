@@ -86,6 +86,37 @@ export interface CardContext {
  * Schema deliberadamente "achatado" (sem deep nesting) pra UI parsear
  * fácil + serialização JSON estável via MCP.
  */
+/**
+ * OptionsGate — C-MX-07 PR5 (S-OD-07 + S-OD-08). Hook chamado entre
+ * plan_turn (contentPool emitido) e evaluate_and_select (motor-drota
+ * seleciona + materializa). Permite intervenção do Jun via eBrota
+ * Console:
+ *  - Inspeção via `daemon.listOptions(sessionId)` — retorna pool corrente
+ *  - Override via `daemon.overrideSelection(sessionId, contentItemId)` —
+ *    força motor-drota a "selecionar" uma carta específica (achieved
+ *    via pruning do pool pra single-item antes do evaluate_and_select)
+ *
+ * Em auto mode (default), optionsGate é undefined → behavior PR3 puro.
+ * Em semi-auto, daemon cria gate com timeout; se timeout expira sem
+ * override, runTurn segue com pool original.
+ */
+export interface OptionsGateInput {
+  sessionId: string;
+  turn: number;
+  contentPool: import("@ascendimacy/shared").ScoredContentItem[];
+}
+
+export interface OptionsGateDecision {
+  /** Se definido, runTurn força motor-drota a usar esse contentItemId
+   *  (pool é prunado pra single-item antes de evaluate_and_select).
+   *  Se undefined, segue com pool original. */
+  overrideContentItemId?: string;
+}
+
+export type OptionsGate = (
+  input: OptionsGateInput,
+) => Promise<OptionsGateDecision>;
+
 export type TurnStateEvent =
   | {
       type: "planning_started";
@@ -153,6 +184,7 @@ export async function runTurn(
   jointContext?: JointContext,
   cardContext?: CardContext,
   onTurnEvent?: (event: TurnStateEvent) => void,
+  optionsGate?: OptionsGate,
 ): Promise<{ finalResponse: string; tracePath: string }> {
   const emit = (ev: TurnStateEvent): void => {
     try {
@@ -325,6 +357,35 @@ export async function runTurn(
     }
   }
 
+  // C-MX-07 PR5 (S-OD-07 + S-OD-08): optionsGate hook entre plan_turn
+  // e evaluate_and_select. Permite Jun (via eBrota Console BFF) ver pool
+  // + escolher carta diferente antes da materialização. Auto mode =
+  // gate undefined = behavior PR3 puro.
+  let effectiveContentPool = plan.contentPool;
+  let overrideAppliedId: string | undefined;
+  if (optionsGate !== undefined) {
+    try {
+      const decision = await optionsGate({
+        sessionId,
+        turn: state.turn,
+        contentPool: plan.contentPool,
+      });
+      if (decision.overrideContentItemId !== undefined) {
+        const override = plan.contentPool.find(
+          (s) => s.item.id === decision.overrideContentItemId,
+        );
+        if (override !== undefined) {
+          effectiveContentPool = [override];
+          overrideAppliedId = decision.overrideContentItemId;
+        }
+        // Se overrideContentItemId não está no pool, segue com pool
+        // original (fail-soft; caller é responsável por validar antes).
+      }
+    } catch {
+      // Gate exception → segue com pool original (fail-soft)
+    }
+  }
+
   const t2 = Date.now();
   const drotaInstructionAddition = cardContext
     ? buildCardInstructionAddition(plan, cardContext)
@@ -333,7 +394,7 @@ export async function runTurn(
     name: "evaluate_and_select",
     arguments: {
       sessionId,
-      contentPool: plan.contentPool,
+      contentPool: effectiveContentPool,
       state,
       persona,
       strategicRationale: plan.strategicRationale,
@@ -346,7 +407,10 @@ export async function runTurn(
     service: "motor-drota",
     timestamp: new Date().toISOString(),
     durationMs: Date.now() - t2,
-    input: { poolSize: plan.contentPool.length },
+    input: {
+      poolSize: effectiveContentPool.length,
+      ...(overrideAppliedId !== undefined ? { overrideAppliedId } : {}),
+    },
     output: drota as unknown as Record<string, unknown>,
   });
 
