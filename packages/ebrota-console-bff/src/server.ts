@@ -37,8 +37,10 @@ import {
 import {
   listSessionLibrary,
   readSessionTrace,
+  scanTraces,
   type SessionLibraryFilters,
 } from "./traces-scanner.js";
+import { existsSync, watch as fsWatch, type FSWatcher } from "node:fs";
 import {
   createDebugEventsStore,
   recordDebugAction,
@@ -71,6 +73,13 @@ export interface CreateBffServerOptions {
    *  Default http://localhost:5173 (vite). PR9 deploy serviria o
    *  build estático no próprio BFF. */
   uiBaseUrl?: string;
+  /**
+   * Diretório de traces — se fornecido, habilita:
+   *  - POST /rescan endpoint (manual trigger)
+   *  - fs.watch auto-rescan quando novo .json é criado (debounced 1s)
+   * Default: undefined → endpoint retorna 503, sem watcher.
+   */
+  tracesDir?: string;
 }
 
 export interface BffServer {
@@ -519,6 +528,42 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     }),
   );
 
+  // POST /rescan — re-indexa o tracesDir (manual trigger).
+  // Útil quando STS roda em outro processo e deposita novos traces;
+  // o BFF normalmente só scaneia no startup.
+  fastify.post("/rescan", async (_req, reply) => {
+    if (!opts.tracesDir) {
+      return reply
+        .code(503)
+        .send({ error: "tracesDir não configurado — rescan indisponível" });
+    }
+    const result = await scanTraces({
+      tracesDir: opts.tracesDir,
+      db: opts.db,
+      log: () => {},
+    });
+    return result;
+  });
+
+  // fs.watch auto-rescan — debounce 1s pra agregar bursts.
+  // Watcher só sobe se tracesDir existir; ausente vira no-op silencioso.
+  let watcher: FSWatcher | null = null;
+  let watchDebounce: NodeJS.Timeout | null = null;
+  if (opts.tracesDir && existsSync(opts.tracesDir)) {
+    watcher = fsWatch(opts.tracesDir, { recursive: true }, (_event, filename) => {
+      if (!filename || !filename.toString().endsWith(".json")) return;
+      if (watchDebounce) clearTimeout(watchDebounce);
+      watchDebounce = setTimeout(() => {
+        watchDebounce = null;
+        void scanTraces({
+          tracesDir: opts.tracesDir!,
+          db: opts.db,
+          log: () => {},
+        });
+      }, 1000);
+    });
+  }
+
   return {
     fastify,
     getMode: () => mode,
@@ -527,6 +572,14 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
       await fastify.listen({ port, host });
     },
     async close() {
+      if (watchDebounce) {
+        clearTimeout(watchDebounce);
+        watchDebounce = null;
+      }
+      if (watcher) {
+        watcher.close();
+        watcher = null;
+      }
       await fastify.close();
       await opts.daemon.close();
       opts.db.close();
