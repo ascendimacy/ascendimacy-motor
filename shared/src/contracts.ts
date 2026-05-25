@@ -14,6 +14,19 @@ export interface PlanTurnInput {
   inventory: PlaybookIndex[];
   state: SessionState;
   incomingMessage: string;
+  /**
+   * Hints upstream do caller (orchestrator) — preservados na contextHints
+   * de output. Keys atualmente reconhecidas:
+   *  - `extracted_signals: string[]` (motor#25 — signal-extractor output;
+   *    consumido por `buildSystemPrompt` pra deflection awareness no LLM
+   *    rationale, BUG-PL-01).
+   *  - `last_user_message: string` (reservado pra recent_turns awareness).
+   *  - `recent_turns: Array<{role, content}>` (reservado).
+   *
+   * Spread inicial em planTurn faz upstream ter prioridade sobre LLM
+   * rationale — evita override silencioso.
+   */
+  contextHints?: Record<string, unknown>;
 }
 
 export interface PlanTurnOutput {
