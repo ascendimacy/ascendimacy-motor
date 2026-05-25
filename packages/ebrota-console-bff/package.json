@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "start": "node dist/cli.js",
+    "dev": "tsx watch --clear-screen=false src/cli.ts",
     "clean": "rm -rf dist"
   },
   "bin": {
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "*",
     "@types/node": "*",
+    "tsx": "^4.22.3",
     "typescript": "*",
     "vitest": "*"
   },
