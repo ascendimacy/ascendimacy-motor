@@ -211,6 +211,15 @@ async function callLocalChatCompletion(
     ],
   };
   if (req.maxTokens !== undefined) body["max_tokens"] = req.maxTokens;
+  // Sprint 5 #3: Qwen3 family ativa hybrid thinking por default, drenando
+  // 500-2000 tokens em raciocínio antes do conteúdo — infla latência e
+  // consome max_tokens. Desativar via chat_template_kwargs.enable_thinking
+  // (mecanismo oficial do Qwen3 chat template).
+  // Modelos sem suporte (Qwen2.5, Claude via Meridian, Gemma3) ignoram
+  // silenciosamente. Override via LOCAL_LLM_THINKING=true se quiser ativo.
+  body["chat_template_kwargs"] = {
+    enable_thinking: process.env["LOCAL_LLM_THINKING"] === "true",
+  };
   const timeoutMs = getLlmTimeoutMs(req.step);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
