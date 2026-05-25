@@ -73,6 +73,7 @@ const server = createBffServer({
   db,
   initialMode,
   logger: true,
+  tracesDir,
 });
 
 // Scan traces ANTES de listen (idempotente; ok mesmo se dir não existe).
