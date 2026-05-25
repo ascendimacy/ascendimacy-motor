@@ -73,6 +73,19 @@ export const CASEL_FOCUS_BONUS = 3;
 export const INTEREST_MATCH_SCORE = 6;
 
 /**
+ * Subject Knowledge Fase 5 — bonus combinatorial multi-dim (spec §4.6).
+ * Soma não-linear: items que integram múltiplas dimensões valem mais que
+ * items que tocam várias superficialmente.
+ */
+export const MULTIDIM_BONUS_2 = 6; // ≥2 dimensões matched
+export const MULTIDIM_BONUS_3 = 4; // adicional ≥3
+export const MULTIDIM_BONUS_5 = 4; // adicional 5 (todas)
+/** Peso extra quando item move sujeito-real na direção do proposto. */
+export const MOVES_TOWARD_PROPOSED_BONUS = 2;
+/** Pontos mínimos no ledger pra dimensão internalization_history disparar. */
+export const INTERNALIZATION_HISTORY_THRESHOLD = 3;
+
+/**
  * motor#23: penalidade forte pra items já consumidos na sessão atual.
  * Maior que qualquer bônus normal (base_score+surprise+casel ≈ 12-15) — efetivamente
  * exclui o item enquanto outros disponíveis. Não 1000 (parent_pinned) pois ainda
@@ -114,6 +127,29 @@ export interface ChildScoringProfile {
    *   rapport (1-3), building (4-7), peak (8-10), consolidation (11-14), buffer (15-18)
    */
   cycle_phase?: "rapport" | "building" | "peak" | "consolidation" | "buffer";
+
+  // ─── Subject Knowledge Fase 5 (multi-dim combinatorial) ───────────
+  /**
+   * Necessidades latentes declaradas pelos pais (parental_profile.latent_needs).
+   * Dimensão `need` do scoring multi-dim: item match quando alguma string
+   * aparece em item.domain/id/keywords/extracted_keywords.
+   */
+  latent_needs?: string[];
+  /**
+   * Sujeito-proposto materializado (ideal parental + complementos clássicos).
+   * Dimensões `lineage` e `moves_toward_proposed` do multi-dim usam.
+   * Caller (planejador) hidrata via subject-proposed table.
+   */
+  subject_proposed?: {
+    axes_active: number[];
+    complements_per_axis: Record<number, string[]>;
+  };
+  /**
+   * Pontos acumulados por axis_id no ledger (presented_concept + recall_check_positive).
+   * Dimensão `internalization_history`: items que tocam eixos com histórico ganham bonus.
+   * Map axis_id → pontos totais.
+   */
+  internalization_axis_points?: Record<number, number>;
 }
 
 export interface ScoringContext {
@@ -285,6 +321,31 @@ export function scoreItem(
     }
   }
 
+  // ── Subject Knowledge Fase 5: bonus combinatorial multi-dim (spec §4.6) ──
+  // Soma não-linear: items que integram múltiplas dimensões ganham mais.
+  // 5 dimensões: interest, need, lineage, moves_toward_proposed, internalization_history.
+  // Bonus dispara só quando ≥2 dims batem. Dim 'moves_toward_proposed' tem
+  // peso extra adicional (alinhamento estratégico ao norte).
+  const dimsMatched = evaluateMultiDimMatches(item, child);
+  const matchedCount =
+    (dimsMatched.interest ? 1 : 0) +
+    (dimsMatched.need ? 1 : 0) +
+    (dimsMatched.lineage ? 1 : 0) +
+    (dimsMatched.moves_toward_proposed ? 1 : 0) +
+    (dimsMatched.internalization_history ? 1 : 0);
+  if (matchedCount >= 2) {
+    let multiBonus = MULTIDIM_BONUS_2;
+    if (matchedCount >= 3) multiBonus += MULTIDIM_BONUS_3;
+    if (matchedCount === 5) multiBonus += MULTIDIM_BONUS_5;
+    if (dimsMatched.moves_toward_proposed) multiBonus += MOVES_TOWARD_PROPOSED_BONUS;
+    score += multiBonus;
+    const dimList = Object.entries(dimsMatched)
+      .filter(([, v]) => v)
+      .map(([k]) => k)
+      .join(",");
+    reasons.push(`multidim_bonus=+${multiBonus} (${matchedCount} dims: ${dimList})`);
+  }
+
   // motor#23: penalidade forte para items já usados nesta sessão.
   // Antes desta fix, drota selecionava o mesmo item turn após turn (smoke-3d:
   // 12 calls × bio_dolphin_names) porque scorer não considerava reuso intra-session.
@@ -296,6 +357,84 @@ export function scoreItem(
   }
 
   return { item, score, reasons };
+}
+
+/**
+ * Avalia as 5 dimensões do scoring multi-dim (spec §4.6).
+ * Exportado pra testes e debug — mas só `scoreItem` chama em produção.
+ */
+export interface MultiDimMatches {
+  interest: boolean;
+  need: boolean;
+  lineage: boolean;
+  moves_toward_proposed: boolean;
+  internalization_history: boolean;
+}
+
+export function evaluateMultiDimMatches(
+  item: ContentItem,
+  child: ChildScoringProfile,
+): MultiDimMatches {
+  // Reutiliza haystack do item pra match textual.
+  const haystack = [
+    item.domain,
+    item.id,
+    ...(item.gardner_channels ?? []),
+    ...(item.extracted_keywords ?? []),
+  ]
+    .filter(Boolean)
+    .map((s) => String(s).toLowerCase());
+
+  const interest =
+    (child.interests ?? []).some((i) => {
+      const needle = i.toLowerCase().trim();
+      return needle.length > 0 && haystack.some((h) => h.includes(needle) || needle.includes(h));
+    });
+
+  const need =
+    (child.latent_needs ?? []).some((n) => {
+      const needle = n.toLowerCase().trim();
+      return needle.length > 0 && haystack.some((h) => h.includes(needle) || needle.includes(h));
+    });
+
+  let lineage = false;
+  let movesTowardProposed = false;
+  if (child.subject_proposed) {
+    if (typeof item.axis_id === "number") {
+      lineage = child.subject_proposed.axes_active.includes(item.axis_id);
+      if (lineage && typeof item.lineage_anchor === "string") {
+        const tradition = item.lineage_anchor.split("/")[0];
+        const complement = item.lineage_anchor.split("/")[1];
+        const accepted = child.subject_proposed.complements_per_axis[item.axis_id] ?? [];
+        // moves_toward_proposed: item tem complement aceito no eixo E o
+        // eixo está no proposto (lineage true por construção).
+        if (complement && accepted.includes(complement)) {
+          movesTowardProposed = true;
+        } else if (accepted.length === 0 && lineage) {
+          // Eixo ativo mas sem complementos específicos selecionados pelos pais
+          // ainda — movimento conta apenas pela ativação do eixo.
+          movesTowardProposed = true;
+          // mantém variável tradition referenciada pra evitar warning de unused
+          if (tradition === undefined) {
+            // unreachable
+          }
+        }
+      }
+    }
+  }
+
+  const internalizationHistory =
+    typeof item.axis_id === "number" &&
+    typeof child.internalization_axis_points?.[item.axis_id] === "number" &&
+    (child.internalization_axis_points?.[item.axis_id] ?? 0) >= INTERNALIZATION_HISTORY_THRESHOLD;
+
+  return {
+    interest,
+    need,
+    lineage,
+    moves_toward_proposed: movesTowardProposed,
+    internalization_history: internalizationHistory,
+  };
 }
 
 /**
