@@ -274,6 +274,26 @@ export interface SubjectMapLike {
   positions: Record<string, Record<string, unknown>>;
 }
 
+/**
+ * UI-side duck-type pra LlmCallTrace (shared/src/engine-trace-v2.ts).
+ * Não importamos do shared porque o bundle UI é browser-only — repetimos
+ * apenas os campos consumidos pelo LlmXrayPanel. Spec TV2-7.
+ */
+export interface LlmCallLike {
+  id: string;
+  role: string;
+  provider: string;
+  model: string;
+  prompt: string;
+  response: string;
+  duration_ms: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  prompt_cache_hit?: boolean;
+  redacted?: boolean;
+  error?: string;
+}
+
 export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
   const baseUrl = opts.baseUrl ?? "/api";
   const f = opts.fetch ?? globalThis.fetch.bind(globalThis);

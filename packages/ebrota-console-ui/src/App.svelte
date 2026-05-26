@@ -12,6 +12,7 @@
   import JourneyPanel from "./components/JourneyPanel.svelte";
   import MapsPanel from "./components/MapsPanel.svelte";
   import DiscoveriesPanel from "./components/DiscoveriesPanel.svelte";
+  import LlmXrayPanel from "./components/LlmXrayPanel.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -104,6 +105,7 @@
   <JourneyPanel {api} />
   <MapsPanel {api} />
   <DiscoveriesPanel {api} />
+  <LlmXrayPanel />
 
   <footer>
     <p class="muted">

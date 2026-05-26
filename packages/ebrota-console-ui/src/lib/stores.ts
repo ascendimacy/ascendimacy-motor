@@ -72,3 +72,10 @@ export const discoveriesPanelOpen = writable<boolean>(false);
 
 /** Subject ID corrente nos painéis tracer. Default ryo-ochiai. */
 export const tracerSubjectId = writable<string>("ryo-ochiai");
+
+/** LLM x-ray sub-panel (TV2-7) — modal abre via ReplayTurnDetail. */
+import type { LlmCallLike } from "./api.js";
+export const llmXrayPanelOpen = writable<boolean>(false);
+/** Calls passados pelo parent (turno selecionado em engineTrace.llm_calls).
+ *  Vazio = mostrar empty state. */
+export const llmXrayCalls = writable<LlmCallLike[]>([]);
