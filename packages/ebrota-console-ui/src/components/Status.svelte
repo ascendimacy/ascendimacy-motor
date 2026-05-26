@@ -4,7 +4,10 @@
     bffStatus,
     consoleMode,
     debugPanelOpen,
+    discoveriesPanelOpen,
+    journeyPanelOpen,
     libraryOpen,
+    mapsPanelOpen,
   } from "../lib/stores.js";
   import type { ApiClient } from "../lib/api.js";
   import type { ConsoleMode } from "../lib/types.js";
@@ -89,6 +92,39 @@
     title="Debug LLM (raio-X tail)"
   >
     🔬 Debug
+  </button>
+
+  <button
+    type="button"
+    class="tracer-toggle"
+    class:active={$journeyPanelOpen}
+    on:click={() => journeyPanelOpen.update((o) => !o)}
+    data-testid="journey-toggle"
+    title="Journey State — stage da jornada do sujeito"
+  >
+    🧭 Jornada
+  </button>
+
+  <button
+    type="button"
+    class="tracer-toggle"
+    class:active={$mapsPanelOpen}
+    on:click={() => mapsPanelOpen.update((o) => !o)}
+    data-testid="maps-toggle"
+    title="Mapas multi-framework"
+  >
+    🗺️ Mapas
+  </button>
+
+  <button
+    type="button"
+    class="tracer-toggle"
+    class:active={$discoveriesPanelOpen}
+    on:click={() => discoveriesPanelOpen.update((o) => !o)}
+    data-testid="discoveries-toggle"
+    title="Descobertas + boundaries"
+  >
+    🔍 Descobertas
   </button>
 
   <button
