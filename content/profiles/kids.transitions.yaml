@@ -28,8 +28,11 @@
 # explícitos vira tarefa F+1 se piloto mostrar precisão insuficiente.
 
 profile_id: kids
-schema_version: v0.2
-last_updated: "2026-04-28"
+schema_version: v0.3
+last_updated: "2026-05-26"
+# v0.3 — BUG-KT-01 (ops#1141) — schema extension:
+#   - confirmatory_min field (combina required + confirmatory; DT-A01-02 recuperado)
+#   - consecutive_turns field (regressões exigem persistência; DT-A01-03 recuperado)
 
 transitions:
 
@@ -54,11 +57,11 @@ transitions:
   # meta_cognitive_observation + voluntary_topic_deepening elevam confidence.
   # Janela: mínimo 5 turns em baia antes de virar pasto.
   #
-  # DT-A01-02: spec original pedia required_signals_all:[frame_synthesis] +
-  # required_signals_any:[meta_cog, voluntary_topic]. Schema atual não
-  # combina 2 grupos — frame_synthesis vira required (AND com 1 elemento),
-  # os outros 2 viram confirmatory (não bloqueiam, mas documentam).
-  # Semantic loss: signals "any" não são strictly required no v0.
+  # DT-A01-02 (recuperado em v0.3, BUG-KT-01 ops#1141):
+  # spec original pedia required_signals_all:[frame_synthesis] +
+  # required_signals_any:[meta_cog, voluntary_topic]. Schema v0.3 introduz
+  # confirmatory_min: combina grupos sem nested-schema —
+  # frame_synthesis MUST (required AND com 1 elemento) + 1 of confirmatory MUST.
   baia_to_pasto:
     required_signals:
       - frame_synthesis
@@ -67,6 +70,7 @@ transitions:
     confirmatory_signals:
       - meta_cognitive_observation
       - voluntary_topic_deepening
+    confirmatory_min: 1
     regression_to_baia_if:
       - distress_marker_high
       - gatekeeper_resistance
@@ -75,10 +79,10 @@ transitions:
   # Critério: distress alto OU 2 deflexões consecutivas.
   # Janela: 0 (regressão imediata, sem buffer).
   #
-  # DT-A01-03: spec pedia consecutive_turns_required: 2 — schema não
-  # suporta consecutive matching. v0 dispara em ocorrência única.
-  # Conservative: 1 distress_marker_high É suficiente; 1 deflection
-  # também (mais permissivo que spec). Refinar v1 se false positive alto.
+  # DT-A01-03 (recuperado em v0.3, BUG-KT-01 ops#1141): spec pedia
+  # consecutive_turns_required: 2 — schema v0.3 suporta. Regressão só dispara
+  # quando required signal aparece em 2 turnos consecutivos (evita false positive
+  # de pico isolado).
   regression_baia_to_brejo:
     required_signals:
       - distress_marker_high
@@ -87,10 +91,11 @@ transitions:
     match_mode: OR
     minimum_window_turns: 0
     confirmatory_signals: []
+    consecutive_turns: 2
 
   # ── Regressão pasto → baia (explícita) ────────────────────────────────
-  # Critério: distress alto OU resistência manifesta.
-  # Janela: 0 (regressão imediata).
+  # Critério: distress alto OU resistência manifesta em 2 turnos consecutivos.
+  # Janela: 0 (regressão imediata após confirmação).
   regression_pasto_to_baia:
     required_signals:
       - distress_marker_high
@@ -98,3 +103,4 @@ transitions:
     match_mode: OR
     minimum_window_turns: 0
     confirmatory_signals: []
+    consecutive_turns: 2

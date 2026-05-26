@@ -20,13 +20,26 @@ export const TransitionRuleSchema = z.object({
   required_signals: z.array(z.string()).min(1),
   /** Janela mínima de turns desde último estado anterior. */
   minimum_window_turns: z.number().int().nonnegative().default(0),
-  /** Signals confirmatórios — não bloqueiam, mas elevam confidence. */
+  /** Signals confirmatórios — não bloqueiam por default. Se confirmatory_min > 0, exige N matches. */
   confirmatory_signals: z.array(z.string()).default([]),
+  /**
+   * BUG-KT-01 (ops#1141): mínimo de confirmatory_signals que devem matchar
+   * pra transição firar. Default 0 = backward compat (confirmatory não bloqueia).
+   * Quando >0, recupera semântica do DT-A01-02 (combinar required_all + required_any).
+   */
+  confirmatory_min: z.number().int().nonnegative().default(0),
   /** Signals que regridem o estado (se aparecem, transição não acontece + estado pode voltar). */
   regression_to_brejo_if: z.array(z.string()).optional(),
   regression_to_baia_if: z.array(z.string()).optional(),
   /** Match mode pros required signals. Default OR pra v0. */
   match_mode: TransitionMatchMode.optional(),
+  /**
+   * BUG-KT-01 (ops#1141): quando definido (>=1), os required_signals devem
+   * matchar em N turns CONSECUTIVOS finais (não apenas em qualquer turn da
+   * janela). Recupera DT-A01-03 (regressões exigem persistência).
+   * Quando set, caller deve passar signalsPerTurn pra evaluateTransition.
+   */
+  consecutive_turns: z.number().int().positive().optional(),
 });
 export type TransitionRule = z.infer<typeof TransitionRuleSchema>;
 
@@ -74,12 +87,16 @@ export interface TransitionEvaluationResult {
  * @param rule Regra da transição
  * @param signalsObserved Lista única de signals presentes (concatenada das últimas N turns)
  * @param turnsSinceLastTransition Janela de turns no estado atual
+ * @param signalsPerTurn (opcional) Signals por turno em ordem cronológica
+ *   (último é o turno mais recente). Necessário quando rule.consecutive_turns
+ *   está definido. Quando ausente e a rule exige consecutive_turns, fired=false.
  */
 export function evaluateTransition(
   transitionName: string,
   rule: TransitionRule,
   signalsObserved: string[],
   turnsSinceLastTransition: number,
+  signalsPerTurn?: string[][],
 ): TransitionEvaluationResult {
   const observed = new Set(signalsObserved);
   const requiredMatched = rule.required_signals.filter((s) => observed.has(s));
@@ -92,10 +109,39 @@ export function evaluateTransition(
 
   // Match required: AND vs OR
   const matchMode = rule.match_mode ?? "OR";
-  const requiredOk =
-    matchMode === "AND"
-      ? requiredMatched.length === rule.required_signals.length
-      : requiredMatched.length > 0;
+  const matchedInTurnSignals = (turnSignals: string[]): boolean => {
+    const turnSet = new Set(turnSignals);
+    const matchedInTurn = rule.required_signals.filter((s) => turnSet.has(s));
+    return matchMode === "AND"
+      ? matchedInTurn.length === rule.required_signals.length
+      : matchedInTurn.length > 0;
+  };
+
+  // BUG-KT-01: consecutive_turns check (DT-A01-03)
+  let requiredOk: boolean;
+  let consecutiveReason: string | null = null;
+  const consecN = rule.consecutive_turns ?? 0;
+  if (consecN > 0) {
+    if (!signalsPerTurn) {
+      requiredOk = false;
+      consecutiveReason = `consecutive_turns=${consecN} requires signalsPerTurn (not provided)`;
+    } else if (signalsPerTurn.length < consecN) {
+      requiredOk = false;
+      consecutiveReason = `consecutive_turns=${consecN} requires at least ${consecN} turns observed (got ${signalsPerTurn.length})`;
+    } else {
+      const lastN = signalsPerTurn.slice(-consecN);
+      requiredOk = lastN.every(matchedInTurnSignals);
+      if (!requiredOk) {
+        consecutiveReason = `required_signals not present in ${consecN} consecutive trailing turns`;
+      }
+    }
+  } else {
+    // Legacy: flat observed
+    requiredOk =
+      matchMode === "AND"
+        ? requiredMatched.length === rule.required_signals.length
+        : requiredMatched.length > 0;
+  }
 
   // Janela ok?
   const windowOk = turnsSinceLastTransition >= rule.minimum_window_turns;
@@ -103,21 +149,29 @@ export function evaluateTransition(
   // Sem regression?
   const noRegression = regressionPresent.length === 0;
 
-  const fired = requiredOk && windowOk && noRegression;
+  // BUG-KT-01: confirmatory_min check (DT-A01-02)
+  const confMin = rule.confirmatory_min ?? 0;
+  const confirmatoryOk = confirmatoryMatched.length >= confMin;
+
+  const fired = requiredOk && windowOk && noRegression && confirmatoryOk;
 
   let reason: string;
   if (!requiredOk) {
-    reason = `required_signals not matched (${matchMode}, got ${requiredMatched.length}/${rule.required_signals.length})`;
+    reason =
+      consecutiveReason ??
+      `required_signals not matched (${matchMode}, got ${requiredMatched.length}/${rule.required_signals.length})`;
   } else if (!windowOk) {
     reason = `minimum_window_turns not reached (${turnsSinceLastTransition} < ${rule.minimum_window_turns})`;
   } else if (!noRegression) {
     reason = `regression signals present: ${regressionPresent.join(", ")}`;
+  } else if (!confirmatoryOk) {
+    reason = `confirmatory_min not met (need ${confMin}, got ${confirmatoryMatched.length})`;
   } else {
     reason = `fired — required matched (${requiredMatched.join(", ")})${
       confirmatoryMatched.length > 0
         ? ` + confirmatory (${confirmatoryMatched.join(", ")})`
         : ""
-    }`;
+    }${consecN > 0 ? ` × ${consecN} consecutive turns` : ""}`;
   }
 
   return {

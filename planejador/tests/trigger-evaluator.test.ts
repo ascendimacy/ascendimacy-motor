@@ -257,11 +257,30 @@ describe("kids.transitions.yaml — A-01 acceptance criteria", () => {
     expect(baiaToPasto?.fired).toBe(false);
   });
 
-  it("regression_baia_to_brejo dispara com distress_marker_high (window=0)", () => {
+  // BUG-KT-01 (ops#1141): regressões agora exigem consecutive_turns: 2.
+  // Signal isolado num turn não basta; precisa de signalsPerTurn com signal
+  // em 2 turnos consecutivos (recupera DT-A01-03 da spec original).
+
+  it("regression_baia_to_brejo NÃO dispara com 1 turno de distress (consecutive_turns: 2)", () => {
     const results = evaluateAllTransitions(
       "kids",
       ["distress_marker_high"],
       0,
+      [["distress_marker_high"]],
+    );
+    const regr = results.find(
+      (r) => r.transition_name === "regression_baia_to_brejo",
+    );
+    expect(regr?.fired).toBe(false);
+    expect(regr?.reason).toContain("consecutive");
+  });
+
+  it("regression_baia_to_brejo dispara com distress em 2 turnos consecutivos", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["distress_marker_high"],
+      0,
+      [["distress_marker_high"], ["distress_marker_high"]],
     );
     const regr = results.find(
       (r) => r.transition_name === "regression_baia_to_brejo",
@@ -269,11 +288,12 @@ describe("kids.transitions.yaml — A-01 acceptance criteria", () => {
     expect(regr?.fired).toBe(true);
   });
 
-  it("regression_baia_to_brejo dispara com deflection_silence", () => {
+  it("regression_baia_to_brejo dispara com deflection_silence em 2 turnos", () => {
     const results = evaluateAllTransitions(
       "kids",
       ["deflection_silence"],
       0,
+      [["deflection_silence"], ["deflection_silence"]],
     );
     const regr = results.find(
       (r) => r.transition_name === "regression_baia_to_brejo",
@@ -281,16 +301,43 @@ describe("kids.transitions.yaml — A-01 acceptance criteria", () => {
     expect(regr?.fired).toBe(true);
   });
 
-  it("regression_pasto_to_baia dispara com gatekeeper_resistance (window=0)", () => {
+  it("regression_baia_to_brejo NÃO dispara com signal apenas no penúltimo turn", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["deflection_silence"],
+      0,
+      [["deflection_silence"], ["mood_drift_up"]],
+    );
+    const regr = results.find(
+      (r) => r.transition_name === "regression_baia_to_brejo",
+    );
+    expect(regr?.fired).toBe(false);
+  });
+
+  it("regression_pasto_to_baia dispara com gatekeeper_resistance em 2 turnos", () => {
     const results = evaluateAllTransitions(
       "kids",
       ["gatekeeper_resistance"],
       0,
+      [["gatekeeper_resistance"], ["gatekeeper_resistance"]],
     );
     const regr = results.find(
       (r) => r.transition_name === "regression_pasto_to_baia",
     );
     expect(regr?.fired).toBe(true);
+  });
+
+  it("baia_to_pasto exige confirmatory_min: 1 — só frame_synthesis NÃO basta", () => {
+    const results = evaluateAllTransitions(
+      "kids",
+      ["frame_synthesis"],
+      6,
+    );
+    const baiaToPasto = results.find(
+      (r) => r.transition_name === "baia_to_pasto",
+    );
+    expect(baiaToPasto?.fired).toBe(false);
+    expect(baiaToPasto?.reason).toContain("confirmatory_min");
   });
 
   it("texto neutro (signals vazios) → nenhuma transição dispara", () => {

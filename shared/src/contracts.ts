@@ -6,6 +6,7 @@ import type {
   PlaybookIndex,
   EventEntry,
 } from "./types.js";
+import type { CriticalReason } from "./contracts/critical-reason.js";
 
 export interface PlanTurnInput {
   sessionId: string;
@@ -60,6 +61,17 @@ export interface PlanTurnOutput {
    * diversificação upstream do drota). Útil pra debug carrossel.
    */
   candidateSetEntropy?: number;
+  /**
+   * S3 (ops#1145): true quando sinais da sessão indicam crise.
+   * Orchestrator pula materializer e despacha protocolo de crise.
+   * Default false quando nenhum sinal crítico detectado.
+   */
+  is_critical: boolean;
+  /**
+   * S3 (ops#1145): razão primária da crise — 8 gatilhos da cap-54.
+   * Presente somente quando is_critical=true.
+   */
+  critical_reason?: CriticalReason;
 }
 
 export interface EvaluateAndSelectInput {

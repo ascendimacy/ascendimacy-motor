@@ -106,6 +106,152 @@ export interface SessionLibraryEntry {
   tracePath: string | null;
 }
 
+export interface ReplayScoredItemLike {
+  item?: { id?: string; type?: string; domain?: string; axis_id?: number } & Record<string, unknown>;
+  score?: number;
+  reasons?: string[];
+}
+
+export interface ReplayMotorTraceLike {
+  plan?: {
+    contextHints?: unknown;
+    instruction_addition?: string;
+    strategicRationale?: string;
+    candidateSetEntropy?: number;
+    contentPool?: ReplayScoredItemLike[];
+  };
+  drota?: {
+    selectedContent?: ReplayScoredItemLike;
+    selectionRationale?: string;
+    linguisticMaterialization?: string;
+    subjectKnowledgeEvents?: unknown[];
+  };
+  exec?: {
+    eventLogged?: unknown;
+    newState?: unknown;
+    success?: boolean;
+  };
+}
+
+// ─── EngineTraceV2Like — TV2 (sub-fase TV2-6) ────────────────────────────
+//
+// Shape duck-typed que mirrora `EngineTraceV2` de shared/src/engine-trace-v2.ts.
+// Duplicado aqui pra não importar shared no bundle browser. Mantém apenas
+// os campos consumidos pela UI; campos não-renderizados ficam `unknown`.
+//
+// Coexiste com `motorTrace` (v1) — se ambos presentes, UI prioriza v2.
+
+export interface EngineTraceStateDiffLike {
+  journey_stage_transition?: { from: string; to: string; trigger?: string };
+  helix_advance?: {
+    dimension_changed?: boolean;
+    level_changed?: boolean;
+    cycle_completed?: boolean;
+  };
+  subject_knowledge_added_count?: number;
+  trust_delta?: number;
+  budget_delta?: number;
+  session_phase_transition?: { from: string; to: string };
+}
+
+export interface EngineTraceAssessorLike {
+  inputs?: { user_message?: string; turn_history_window?: number };
+  outputs?: {
+    mood?: number;
+    signals?: string[];
+    engagement?: string;
+  };
+  mood_method?: "rule" | "llm" | "fallback";
+  duration_ms?: number;
+  llm_call_ref?: string;
+}
+
+export interface EngineTracePlanejadorLike {
+  inputs?: Record<string, unknown>;
+  outputs?: {
+    contentPool?: ReplayScoredItemLike[];
+    strategicRationale?: string;
+    candidateSetEntropy?: number;
+    instruction_addition?: string;
+    contextHints?: unknown;
+  };
+  triageDecision?: { route?: string; reason?: string };
+  triggerEvaluation?: { transitions_checked?: string[]; fired?: string };
+  llm_call_ref?: string;
+  duration_ms?: number;
+}
+
+export interface EngineTraceStrategistLike {
+  inputs?: {
+    journey_stage?: string;
+    latent_needs?: string[];
+    current_objectives?: Array<Record<string, unknown>>;
+  };
+  outputs?: {
+    plan_id?: string;
+    target_demonstrations?: Array<Record<string, unknown>>;
+    playbook_composition?: Array<Record<string, unknown>>;
+  };
+  composition_method?: "template_v1" | "llm";
+  duration_ms?: number;
+}
+
+export interface EngineTraceSelectorLike {
+  inputs?: { pool_size?: number; mood?: number; budget?: number };
+  filters_applied?: Array<{
+    name: string;
+    items_removed?: string[];
+    reason?: string;
+  }>;
+  outputs?: { selected_id?: string; pool_remaining?: string[] };
+  duration_ms?: number;
+}
+
+export interface EngineTraceMaterializerLike {
+  inputs?: {
+    selected_item_id?: string;
+    instruction_addition?: string;
+    user_message?: string;
+  };
+  stable_prefix_hash?: string;
+  user_message_constructed?: string;
+  outputs?: { raw_response?: string; final_text?: string };
+  llm_call_ref?: string;
+  duration_ms?: number;
+}
+
+export interface EngineTraceSkWriteLike {
+  type: string;
+  payload?: Record<string, unknown>;
+  writer?: string;
+  triggered_by?: string;
+}
+
+export interface EngineTraceWarningLike {
+  component: string;
+  message: string;
+  recoverable?: boolean;
+}
+
+export interface EngineTraceV2Like {
+  schema_version?: number;
+  turn_started_at?: string;
+  turn_completed_at?: string;
+  pre_state?: Record<string, unknown>;
+  post_state?: Record<string, unknown>;
+  state_diff?: EngineTraceStateDiffLike;
+  components?: {
+    unified_assessor?: EngineTraceAssessorLike;
+    planejador?: EngineTracePlanejadorLike;
+    strategist?: EngineTraceStrategistLike;
+    pragmatic_selector?: EngineTraceSelectorLike;
+    constrained_materializer?: EngineTraceMaterializerLike;
+  };
+  llm_calls?: unknown[];
+  subject_knowledge_writes?: EngineTraceSkWriteLike[];
+  warnings?: EngineTraceWarningLike[];
+}
+
 export interface ReplayTraceTurn {
   turnNumber?: number;
   sessionId?: string;
@@ -113,6 +259,33 @@ export interface ReplayTraceTurn {
   finalResponse?: string;
   timestamp?: string;
   entries?: Array<Record<string, unknown>>;
+
+  // ─── engine x-ray (S-OC-22 follow-up) — read straight from raw trace ────
+  /** Trust level pós-turn (0..1). */
+  trustLevel?: number;
+  /** Budget restante pra sessão (qualquer escala). */
+  budgetRemaining?: number;
+  playbookId?: string;
+  durationMs?: number;
+  /** Razão de skip de card emission, quando aplicável. */
+  cardEmissionSkipReason?: string;
+
+  /** Trace estruturado do motor pipeline (plan / drota / exec). */
+  motorTrace?: ReplayMotorTraceLike;
+
+  /**
+   * Engine Trace v2 (sub-fase TV2-6) — full engine telemetry per turn.
+   * Convive com motorTrace v1: quando ambos presentes, UI prioriza v2.
+   * Quando ausente, UI cai pra v1 (motorTrace) sem mudança comportamental.
+   */
+  engineTrace?: EngineTraceV2Like;
+
+  /**
+   * Subject Knowledge events emitidos por writers neste turn. Pode estar
+   * no nível do turn (preferido) OU em motorTrace.drota.subjectKnowledgeEvents
+   * (legacy STS schema).
+   */
+  subjectKnowledgeEvents?: unknown[];
 }
 
 export interface ReplayTrace {
@@ -272,6 +445,26 @@ export interface SubjectMapLike {
   subject_id: string;
   computed_at: string;
   positions: Record<string, Record<string, unknown>>;
+}
+
+/**
+ * UI-side duck-type pra LlmCallTrace (shared/src/engine-trace-v2.ts).
+ * Não importamos do shared porque o bundle UI é browser-only — repetimos
+ * apenas os campos consumidos pelo LlmXrayPanel. Spec TV2-7.
+ */
+export interface LlmCallLike {
+  id: string;
+  role: string;
+  provider: string;
+  model: string;
+  prompt: string;
+  response: string;
+  duration_ms: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  prompt_cache_hit?: boolean;
+  redacted?: boolean;
+  error?: string;
 }
 
 export function createApiClient(opts: ApiClientOptions = {}): ApiClient {

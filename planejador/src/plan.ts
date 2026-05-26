@@ -43,6 +43,7 @@ import {
   isExhausted,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
+import { detectMilestone } from "./milestone-detector.js";
 import type { LlmTraceCollector, PlanejadorTrace } from "@ascendimacy/shared";
 
 export interface PlanTurnOpts {
@@ -50,7 +51,12 @@ export interface PlanTurnOpts {
   collector?: LlmTraceCollector;
 }
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
-import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
+import {
+  evaluateAllTransitions,
+  collectRecentSignals,
+  collectRecentSignalsPerTurn,
+} from "./trigger-evaluator.js";
+import { detectCritical } from "./critical-detector.js";
 import { personaToChildProfile } from "./child-profile.js";
 import { lookupActionMenu } from "./strategist/menu-lookup.js";
 import {
@@ -811,11 +817,18 @@ export async function planTurn(
     data: Record<string, unknown>;
   }>;
   const recentSignals = collectRecentSignals(eventLog, 5);
+  const recentSignalsPerTurn = collectRecentSignalsPerTurn(eventLog, 5);
   const turnsSinceLastTransition = countTurnsSinceLastTransition(eventLog);
   const transitionEvaluations =
     recentSignals.length > 0
-      ? evaluateAllTransitions(profileId, recentSignals, turnsSinceLastTransition)
+      ? evaluateAllTransitions(
+          profileId,
+          recentSignals,
+          turnsSinceLastTransition,
+          recentSignalsPerTurn,
+        )
       : [];
+  const criticalDetection = detectCritical(recentSignals);
 
   // Fase 8 PR — Strategist context (sub-PR pós tracer bullet):
   // Propaga subject_proposed + latent_needs do ChildScoringProfile pro
@@ -827,6 +840,14 @@ export async function planTurn(
   }
   if (child.latent_needs && child.latent_needs.length > 0) {
     contextHints["latent_needs"] = child.latent_needs;
+  }
+
+  // ops#1152 S1: milestone detector V0 rule-based (sem LLM).
+  // Detecta no incomingMessage + recentSignals; propaga via contextHints
+  // pra executor.ts logar como "milestone_detected" event no event_log.
+  const milestone = detectMilestone(input.incomingMessage, recentSignals, input.persona.id);
+  if (milestone) {
+    contextHints["milestone_detected"] = milestone;
   }
 
   // motor#25 (handoff #25 B5): Shannon entropy do candidate set antes de retornar.
@@ -858,6 +879,8 @@ export async function planTurn(
     instruction_addition: gardnerInstruction.text,
     transitionEvaluations: transitionEvaluations.length > 0 ? transitionEvaluations : undefined,
     candidateSetEntropy,
+    is_critical: criticalDetection.is_critical,
+    ...(criticalDetection.critical_reason ? { critical_reason: criticalDetection.critical_reason } : {}),
     ...(planTrace ? { _trace: planTrace } : {}),
   };
 }

@@ -21,6 +21,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "*",
     "@types/node": "*",
+    "@types/qrcode-terminal": "^0.12.2",
     "typescript": "*",
     "vitest": "*"
   },
