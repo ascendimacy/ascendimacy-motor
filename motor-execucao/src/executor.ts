@@ -4,6 +4,7 @@ import type {
   ExecutePlaybookInput,
   ExecutePlaybookOutput,
   InquiryChoice,
+  MilestoneEvent,
 } from "@ascendimacy/shared";
 import { parseRepetitionAnswer } from "@ascendimacy/shared";
 import { getState, updateState, logEvent, getDbInstance } from "./state-manager.js";
@@ -135,6 +136,16 @@ export function executePlaybook(
       timestamp: getNow(),
       type: "repetition_inquiry_suppressed",
       data: { reason: suppressedReason },
+    });
+  }
+
+  // ops#1152 S1: log milestone_detected event when planejador detected one.
+  const milestone = contextHints?.["milestone_detected"] as MilestoneEvent | undefined;
+  if (milestone) {
+    logEvent(sessionId, {
+      timestamp: getNow(),
+      type: "milestone_detected",
+      data: milestone as unknown as Record<string, unknown>,
     });
   }
 

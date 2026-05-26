@@ -43,6 +43,7 @@ import {
   isExhausted,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
+import { detectMilestone } from "./milestone-detector.js";
 import type { LlmTraceCollector, PlanejadorTrace } from "@ascendimacy/shared";
 
 export interface PlanTurnOpts {
@@ -839,6 +840,14 @@ export async function planTurn(
   }
   if (child.latent_needs && child.latent_needs.length > 0) {
     contextHints["latent_needs"] = child.latent_needs;
+  }
+
+  // ops#1152 S1: milestone detector V0 rule-based (sem LLM).
+  // Detecta no incomingMessage + recentSignals; propaga via contextHints
+  // pra executor.ts logar como "milestone_detected" event no event_log.
+  const milestone = detectMilestone(input.incomingMessage, recentSignals, input.persona.id);
+  if (milestone) {
+    contextHints["milestone_detected"] = milestone;
   }
 
   // motor#25 (handoff #25 B5): Shannon entropy do candidate set antes de retornar.

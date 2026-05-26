@@ -111,3 +111,11 @@ export {
   type NextSpeakerTarget,
   type TrioDecision,
 } from "./trio-runtime.js";
+
+export {
+  MilestoneEventSchema,
+  MilestoneEventTypeSchema,
+  MILESTONE_EVENT_TYPES,
+  type MilestoneEvent,
+  type MilestoneEventType,
+} from "./milestone-event.js";
