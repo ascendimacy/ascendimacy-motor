@@ -105,6 +105,16 @@ export interface EvaluateAndSelectOutput {
    * Undefined no fluxo antigo (backward compat).
    */
   subjectKnowledgeEvents?: import("./subject-knowledge.js").SubjectKnowledgeEntry[];
+  /**
+   * Fase 8 PR 2: resolved session state (phase + journey_stage + elapsed).
+   * Propagado pro trace pra Console UI Mapa de Jornada (F6) consumir.
+   */
+  sessionState?: {
+    phase: import("./session-phases.js").SessionPhase;
+    journey_stage: import("./session-phases.js").JourneyStage;
+    elapsed_minutes_estimate: number;
+    minutes_until_next_phase: number;
+  };
 }
 
 export interface ExecutePlaybookInput {

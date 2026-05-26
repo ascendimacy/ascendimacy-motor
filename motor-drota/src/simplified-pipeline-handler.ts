@@ -26,7 +26,18 @@ import {
   extractDiscoveries,
   extractBoundaryEvents,
   extractPresentedConcepts,
+  resolveSessionState,
+  type JourneyStage,
+  type SessionPhase,
 } from "@ascendimacy/shared";
+
+/** PR 2 tracer — confidence threshold por fase pro DiscoveryWriter. */
+const DISCOVERY_MIN_CONFIDENCE_BY_PHASE: Record<SessionPhase, number> = {
+  ice_breaker: 0.4,        // agressivo — captura sinais frágeis
+  challenge_explain: 0.5,
+  challenge_execute: 0.6,  // normal
+  follow_up: 0.7,          // conservador — só sinais fortes
+};
 
 import { assess } from "./unified-assessor.js";
 import { selectAction } from "./pragmatic-selector.js";
@@ -68,10 +79,24 @@ export async function handleSimplifiedPipeline(
     engagement: assessment.engagement,
   };
 
+  // ── PR 2 tracer: resolveSessionState pra phase-aware behavior ──
+  // Journey stage vem por contextHints (planejador hidrata via BFF).
+  // Default discovery_only quando ausente (backcompat — primeiras sessões
+  // sem fase aplicada).
+  const journeyStage =
+    (input.contextHints?.["journey_stage"] as JourneyStage | undefined) ??
+    "discovery_only";
+  const sessionState = resolveSessionState({
+    turn: input.state.turn,
+    journeyStage,
+  });
+
   // ── Subject Knowledge Fase 2: writers extraem eventos do turn ──
   const turnRef = `${input.sessionId}__turn_${input.state.turn}`;
   const subjectKnowledgeEvents: SubjectKnowledgeEntry[] = [];
   // 1. Descobertas (interest/value/need) — só da fala do sujeito.
+  //    PR 2: threshold de confidence ajustado por fase
+  //    (ice_breaker agressivo, follow_up conservador).
   subjectKnowledgeEvents.push(
     ...extractDiscoveries({
       subjectId: input.persona.id,
@@ -80,6 +105,7 @@ export async function handleSimplifiedPipeline(
       lastUserMessage,
       signals: assessment.signals,
       mood: assessment.mood,
+      minConfidence: DISCOVERY_MIN_CONFIDENCE_BY_PHASE[sessionState.phase],
     }),
   );
   // 2. Boundary events — registra recuo quando signals indicam.
@@ -135,6 +161,7 @@ export async function handleSimplifiedPipeline(
       linguisticMaterialization: "Me conta o que está passando na sua cabeça.",
       assessment: assessmentForOutput,
       subjectKnowledgeEvents,
+      sessionState,
       ...(selectionResult.escalate_reason
         ? { skipReason: selectionResult.escalate_reason }
         : {}),
@@ -171,6 +198,7 @@ export async function handleSimplifiedPipeline(
       linguisticMaterialization: inauguralResult.text,
       assessment: assessmentForOutput,
       subjectKnowledgeEvents,
+      sessionState,
     };
   }
 
@@ -203,6 +231,7 @@ export async function handleSimplifiedPipeline(
   // presented_concept (+1pt) se item está taggeado com axis_id/family/
   // lineage_anchor/extracted_keywords. Items legados sem tags simplesmente
   // não geram entry. Fallback (rawText vazio) também não conta.
+  // PR 2: sessionPhase gate — ice_breaker NÃO acumula ledger.
   if (!matResult.fallback_triggered) {
     subjectKnowledgeEvents.push(
       ...extractPresentedConcepts({
@@ -210,6 +239,7 @@ export async function handleSimplifiedPipeline(
         sessionId: input.sessionId,
         turnRef,
         item: selectionResult.selected.item,
+        sessionPhase: sessionState.phase,
       }),
     );
   }
@@ -246,6 +276,7 @@ export async function handleSimplifiedPipeline(
     linguisticMaterialization: matResult.text,
     assessment: assessmentForOutput,
     subjectKnowledgeEvents,
+    sessionState,
     ...(matResult.fallback_triggered
       ? { skipReason: "materializer_fallback" }
       : {}),

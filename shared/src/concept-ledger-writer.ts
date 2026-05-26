@@ -18,6 +18,16 @@ export interface ConceptLedgerWriterInput {
   sessionId: string;
   turnRef: string;
   item: ContentItem;
+  /**
+   * PR 2 tracer — fase atual da sessão. Quando = "ice_breaker",
+   * writer retorna null automaticamente (ledger NÃO acumula durante
+   * quebra-gelo; presented_concept é instrumento de internalization
+   * pedagógica, não de descoberta).
+   *
+   * Outras fases não bloqueiam. Default (undefined): comportamento
+   * backcompat — emite sempre que item está taggeado.
+   */
+  sessionPhase?: "ice_breaker" | "challenge_explain" | "challenge_execute" | "follow_up";
 }
 
 /**
@@ -36,6 +46,9 @@ export interface ConceptLedgerWriterInput {
 export function extractPresentedConcept(
   input: ConceptLedgerWriterInput,
 ): SubjectKnowledgeEntry | null {
+  // PR 2: gate por fase — ice_breaker NÃO acumula ledger
+  if (input.sessionPhase === "ice_breaker") return null;
+
   const { item } = input;
   if (
     typeof item.axis_id !== "number" ||
