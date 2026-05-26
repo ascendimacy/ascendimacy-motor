@@ -315,6 +315,25 @@ export async function runTurn(
     },
   });
   const plan = parseToolText<import("@ascendimacy/shared").PlanTurnOutput>(planResult);
+
+  // S3 (ops#1145): crise detectada → pula materializer, despacha protocolo.
+  if (plan.is_critical) {
+    try {
+      await clients.motorExecucao.callTool({
+        name: "log_event",
+        arguments: {
+          sessionId,
+          type: "crisis_detected",
+          data: { critical_reason: plan.critical_reason ?? "distress", turn: state.turn },
+        },
+      });
+    } catch {
+      // fail-soft
+    }
+    const tracePath = saveTrace(trace, tracesDir);
+    return { finalResponse: "", tracePath };
+  }
+
   turnEntries.push({
     service: "planejador",
     timestamp: new Date().toISOString(),

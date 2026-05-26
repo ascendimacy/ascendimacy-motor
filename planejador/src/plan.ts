@@ -51,6 +51,7 @@ export interface PlanTurnOpts {
 }
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
+import { detectCritical } from "./critical-detector.js";
 import { personaToChildProfile } from "./child-profile.js";
 import { lookupActionMenu } from "./strategist/menu-lookup.js";
 import {
@@ -816,6 +817,7 @@ export async function planTurn(
     recentSignals.length > 0
       ? evaluateAllTransitions(profileId, recentSignals, turnsSinceLastTransition)
       : [];
+  const criticalDetection = detectCritical(recentSignals);
 
   // Fase 8 PR — Strategist context (sub-PR pós tracer bullet):
   // Propaga subject_proposed + latent_needs do ChildScoringProfile pro
@@ -858,6 +860,8 @@ export async function planTurn(
     instruction_addition: gardnerInstruction.text,
     transitionEvaluations: transitionEvaluations.length > 0 ? transitionEvaluations : undefined,
     candidateSetEntropy,
+    is_critical: criticalDetection.is_critical,
+    ...(criticalDetection.critical_reason ? { critical_reason: criticalDetection.critical_reason } : {}),
     ...(planTrace ? { _trace: planTrace } : {}),
   };
 }

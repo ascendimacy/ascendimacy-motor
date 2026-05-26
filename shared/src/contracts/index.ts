@@ -79,6 +79,12 @@ export {
   type CaselDimensionPair,
 } from "./kids-helix-state.js";
 
+export {
+  CRITICAL_REASONS,
+  CriticalReasonSchema,
+  type CriticalReason,
+} from "./critical-reason.js";
+
 // Trio runtime engine (ops#1086) — types puros; lógica em
 // orchestrator/src/trio-runtime.ts. Doctrine §10 + §11 dinamicas-grupo.
 export {
