@@ -178,9 +178,11 @@ export const AssessorTraceSchema = z.object({
   outputs: z.object({
     mood: z.number(),
     signals: z.array(z.string()),
-    engagement: z.enum(["low", "mid", "high"]),
+    /** Alinhado com EngagementLevel em stable-state-cache.ts. */
+    engagement: z.enum(["high", "medium", "low", "disengaging"]),
   }),
-  mood_method: z.enum(["rule", "llm"]),
+  /** "fallback" cobre Step 3 do unified-assessor (rule ambíguo + LLM indisponível). */
+  mood_method: z.enum(["rule", "llm", "fallback"]),
   duration_ms: z.number().nonnegative(),
   llm_call_ref: z.string().optional(),
 });

@@ -85,7 +85,7 @@ describe("EngineTraceV2Schema", () => {
       components: {
         unified_assessor: {
           inputs: { user_message: "tipo, jogando..." },
-          outputs: { mood: 7, signals: ["positive_engagement"], engagement: "mid" },
+          outputs: { mood: 7, signals: ["positive_engagement"], engagement: "medium" },
           mood_method: "rule",
           duration_ms: 12,
         },

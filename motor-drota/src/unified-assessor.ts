@@ -27,9 +27,15 @@
 
 import {
   callGateway,
+  callGatewayWithTracing,
   isSemanticSignal,
 } from "@ascendimacy/shared";
-import type { SemanticSignal, EngagementLevel } from "@ascendimacy/shared";
+import type {
+  AssessorTrace,
+  EngagementLevel,
+  LlmTraceCollector,
+  SemanticSignal,
+} from "@ascendimacy/shared";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -81,6 +87,18 @@ export interface AssessmentResult {
 
   /** Latência da chamada LLM em ms (0 se rule-only). */
   latency_ms: number;
+
+  /**
+   * TV2-3 (spec ops#1136): trace section opcional. Presente quando
+   * caller passou `opts.collector`. Consumido pelo agregador
+   * EngineTraceV2.components.unified_assessor.
+   */
+  _trace?: AssessorTrace;
+}
+
+export interface AssessOpts {
+  /** Trace collector — quando presente, LLM call é coletada + _trace emitido. */
+  collector?: LlmTraceCollector;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -312,19 +330,26 @@ Responda em JSON.`;
 
 async function assessByLlm(
   input: AssessorInput,
-): Promise<{ result: LlmJsonOutput; latency_ms: number } | null> {
+  collector?: LlmTraceCollector,
+): Promise<{ result: LlmJsonOutput; latency_ms: number; llmCallId?: string } | null> {
   const t0 = Date.now();
   try {
-    const out = await callGateway({
+    const req = {
       step: "unified-assessor",
       systemPrompt: SYSTEM_PROMPT,
       userMessage: buildUserMessage(input),
       maxTokens: 256,
       run_id: input.run_id,
-    });
+    };
+    const beforeSize = collector?.size() ?? 0;
+    const out = collector
+      ? await callGatewayWithTracing(req, "assessor", collector)
+      : await callGateway(req);
     const parsed = parseJsonResponse(out.content);
     if (!parsed) return null;
-    return { result: parsed, latency_ms: Date.now() - t0 };
+    // Capture id do LLM call recém-adicionado (pra llm_call_ref no trace).
+    const llmCallId = collector?.peek()[beforeSize]?.id;
+    return { result: parsed, latency_ms: Date.now() - t0, llmCallId };
   } catch {
     return null;
   }
@@ -344,7 +369,28 @@ async function assessByLlm(
  */
 export async function assess(
   input: AssessorInput,
+  opts?: AssessOpts,
 ): Promise<AssessmentResult> {
+  const t0 = Date.now();
+  const buildTrace = opts?.collector
+    ? (
+        method: "rule" | "llm" | "fallback",
+        mood: number,
+        signals: SemanticSignal[],
+        engagement: EngagementLevel,
+        llmCallRef?: string,
+      ): AssessorTrace => ({
+        inputs: {
+          user_message: input.message,
+          turn_history_window: input.recentTurns.length,
+        },
+        outputs: { mood, signals, engagement },
+        mood_method: method,
+        duration_ms: Date.now() - t0,
+        ...(llmCallRef !== undefined ? { llm_call_ref: llmCallRef } : {}),
+      })
+    : undefined;
+
   // Step 1 — rule-based
   const rule = assessByRules(input);
   if (rule && rule.mood_confidence === "high") {
@@ -357,11 +403,14 @@ export async function assess(
       assessment_method: "rule_only",
       rationale: rule.rationale,
       latency_ms: 0,
+      ...(buildTrace
+        ? { _trace: buildTrace("rule", rule.mood, rule.signals, rule.engagement) }
+        : {}),
     };
   }
 
   // Step 2 — LLM (Haiku)
-  const llm = await assessByLlm(input);
+  const llm = await assessByLlm(input, opts?.collector);
   if (llm) {
     const validSignals = llm.result.signals.filter(isSemanticSignal);
     return {
@@ -373,6 +422,17 @@ export async function assess(
       assessment_method: "unified_haiku",
       rationale: llm.result.rationale,
       latency_ms: llm.latency_ms,
+      ...(buildTrace
+        ? {
+            _trace: buildTrace(
+              "llm",
+              llm.result.mood,
+              validSignals,
+              llm.result.engagement,
+              llm.llmCallId,
+            ),
+          }
+        : {}),
     };
   }
 
@@ -388,6 +448,9 @@ export async function assess(
       assessment_method: "rule_only",
       rationale: rule.rationale + " (LLM indisponível)",
       latency_ms: 0,
+      ...(buildTrace
+        ? { _trace: buildTrace("rule", rule.mood, rule.signals, rule.engagement) }
+        : {}),
     };
   }
 
@@ -400,5 +463,18 @@ export async function assess(
     assessment_method: "fallback",
     rationale: "fallback: rule-based ambíguo + LLM indisponível",
     latency_ms: 0,
+    ...(opts?.collector
+      ? {
+          _trace: {
+            inputs: {
+              user_message: input.message,
+              turn_history_window: input.recentTurns.length,
+            },
+            outputs: { mood: MOOD_FALLBACK, signals: [], engagement: "medium" },
+            mood_method: "fallback",
+            duration_ms: Date.now() - t0,
+          } satisfies AssessorTrace,
+        }
+      : {}),
   };
 }

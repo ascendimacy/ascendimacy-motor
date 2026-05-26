@@ -43,6 +43,12 @@ import {
   isExhausted,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
+import type { LlmTraceCollector, PlanejadorTrace } from "@ascendimacy/shared";
+
+export interface PlanTurnOpts {
+  /** TV2-3 (spec ops#1136): coletor pra LLM call + trace section. */
+  collector?: LlmTraceCollector;
+}
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
@@ -274,7 +280,11 @@ function applyPinnedDecisions(pool: ContentItem[], persona: PlanTurnInput["perso
     });
 }
 
-export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
+export async function planTurn(
+  input: PlanTurnInput,
+  opts?: PlanTurnOpts,
+): Promise<PlanTurnOutput> {
+  const planT0 = Date.now();
   const sessionMode = input.state.sessionMode ?? "solo";
 
   // G-22 pool-builder integration (ops#1093) — hidratação de sacrifice context
@@ -432,6 +442,7 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   const t0 = Date.now();
   let llmResult: LlmCallResult | null = null;
   let llmLatency = 0;
+  let llmCallId: string | undefined;
   let rationale: { strategicRationale: string; contextHints: Record<string, unknown> };
   if (canSkipLlmRationale) {
     rationale = {
@@ -451,10 +462,15 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       // Telemetry não bloqueia.
     }
   } else {
+    const beforeSize = opts?.collector?.size() ?? 0;
     llmResult = useMockLlm
       ? await callLlmMock(systemPrompt, userMessage)
-      : await callLlm(systemPrompt, userMessage);
+      : await callLlm(systemPrompt, userMessage, opts);
     llmLatency = Date.now() - t0;
+    // Captura llm_call_ref pro trace (se collector ativo + não-mock).
+    if (opts?.collector && !useMockLlm) {
+      llmCallId = opts.collector.peek()[beforeSize]?.id;
+    }
     rationale = parseRationale(llmResult.content);
     if (topK !== null && menuSource?.strategic_rationale == null) {
       // Menu hit mas rationale ausente → fallback to LLM. Log pra observability.
@@ -816,6 +832,25 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
   // motor#25 (handoff #25 B5): Shannon entropy do candidate set antes de retornar.
   const candidateSetEntropy = shannonEntropy(slimPool.map((s) => s.item.id));
 
+  const planTrace: PlanejadorTrace | undefined = opts?.collector
+    ? {
+        inputs: {},
+        outputs: {
+          contentPool: slimPool.map((s) => ({
+            item: { id: s.item.id, type: s.item.type, domain: s.item.domain },
+            score: s.score,
+            reasons: s.reasons,
+          })),
+          contextHints,
+          instruction_addition: gardnerInstruction.text,
+          strategicRationale: rationale.strategicRationale,
+          candidateSetEntropy,
+        },
+        ...(llmCallId !== undefined ? { llm_call_ref: llmCallId } : {}),
+        duration_ms: Date.now() - planT0,
+      }
+    : undefined;
+
   return {
     strategicRationale: rationale.strategicRationale,
     contentPool: slimPool,
@@ -823,6 +858,7 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     instruction_addition: gardnerInstruction.text,
     transitionEvaluations: transitionEvaluations.length > 0 ? transitionEvaluations : undefined,
     candidateSetEntropy,
+    ...(planTrace ? { _trace: planTrace } : {}),
   };
 }
 

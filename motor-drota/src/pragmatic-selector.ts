@@ -19,6 +19,7 @@
 import { deductBudget } from "@ascendimacy/shared";
 import type {
   ScoredContentItem,
+  SelectorTrace,
   SessionState,
   EngagementLevel,
 } from "@ascendimacy/shared";
@@ -70,6 +71,19 @@ export interface SelectionResult {
   escalate_to: "bridge" | "planner" | null;
   /** Reason de escalação (se aplicável). */
   escalate_reason?: EscalationReason;
+
+  /**
+   * TV2-3 (spec ops#1136): trace section opcional. Presente quando
+   * caller passou `opts.captureTrace=true`. Estrutura: pool_size,
+   * mood, budget + filters_applied (criticality/budget/mood/engagement)
+   * com items_removed.
+   */
+  _trace?: SelectorTrace;
+}
+
+export interface SelectActionOpts {
+  /** Quando true, monta SelectorTrace em result._trace. */
+  captureTrace?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -157,9 +171,30 @@ function describeViabilityFilter(
  *
  * Sempre retorna SelectionResult válido, nunca lança.
  */
-export function selectAction(input: SelectorInput): SelectionResult {
+export function selectAction(
+  input: SelectorInput,
+  opts?: SelectActionOpts,
+): SelectionResult {
   const { candidates, assessment, state, criticalityByItemId } = input;
   const budgetBefore = state.budgetRemaining;
+  const t0 = Date.now();
+  const filtersApplied: SelectorTrace["filters_applied"] = [];
+  const buildTrace = opts?.captureTrace
+    ? (selectedId: string, poolRemaining: string[]): SelectorTrace => ({
+        inputs: {
+          pool_size: candidates.length,
+          mood: assessment.mood,
+          budget: budgetBefore,
+        },
+        filters_applied: filtersApplied,
+        outputs: { selected_id: selectedId, pool_remaining: poolRemaining },
+        duration_ms: Date.now() - t0,
+      })
+    : undefined;
+  const removedNotIn = (after: ScoredContentItem[]): string[] => {
+    const kept = new Set(after.map((c) => c.item.id));
+    return candidates.filter((c) => !kept.has(c.item.id)).map((c) => c.item.id);
+  };
 
   // Pool vazio → escala Planejador
   if (candidates.length === 0) {
@@ -175,6 +210,7 @@ export function selectAction(input: SelectorInput): SelectionResult {
       pulso_emitted: false,
       escalate_to: "planner",
       escalate_reason: "no_viable_action",
+      ...(buildTrace ? { _trace: buildTrace("", []) } : {}),
     };
   }
 
@@ -186,6 +222,13 @@ export function selectAction(input: SelectorInput): SelectionResult {
     const selected = securityActions[0]!;
     const cost = getCost(selected);
     const newState = deductBudget(state, cost);
+    if (buildTrace) {
+      filtersApplied.push({
+        name: "criticality_security_gate",
+        items_removed: removedNotIn(securityActions),
+        reason: "criticality=seguranca presente; outras filtradas",
+      });
+    }
     return {
       selected,
       newState,
@@ -198,12 +241,22 @@ export function selectAction(input: SelectorInput): SelectionResult {
       pulso_emitted: false,
       escalate_to: "bridge",
       escalate_reason: "criticality_seguranca",
+      ...(buildTrace
+        ? { _trace: buildTrace(selected.item.id, securityActions.map((c) => c.item.id)) }
+        : {}),
     };
   }
 
   // Step 4 (early) — Budget ≤ 0 → modo mínimo
   if (budgetBefore <= 0) {
     const minimal = applyCostCap(candidates, MINIMAL_COST_CAP);
+    if (buildTrace) {
+      filtersApplied.push({
+        name: "budget_exhausted_minimal_cap",
+        items_removed: removedNotIn(minimal),
+        reason: `budget=${budgetBefore} ≤ 0 → cost≤${MINIMAL_COST_CAP}`,
+      });
+    }
     if (minimal.length === 0) {
       return {
         selected: null,
@@ -217,6 +270,7 @@ export function selectAction(input: SelectorInput): SelectionResult {
         pulso_emitted: false,
         escalate_to: "planner",
         escalate_reason: "budget_exhausted",
+        ...(buildTrace ? { _trace: buildTrace("", []) } : {}),
       };
     }
     minimal.sort((a, b) => getCost(a) - getCost(b));
@@ -234,6 +288,9 @@ export function selectAction(input: SelectorInput): SelectionResult {
       budget_after: newState.budgetRemaining,
       pulso_emitted: false,
       escalate_to: null,
+      ...(buildTrace
+        ? { _trace: buildTrace(selected.item.id, minimal.map((c) => c.item.id)) }
+        : {}),
     };
   }
 
@@ -242,14 +299,29 @@ export function selectAction(input: SelectorInput): SelectionResult {
   const engagement = assessment.engagement;
 
   let viable: ScoredContentItem[];
+  let viabilityFilterName = "no_filter";
+  let viabilityFilterReason = "mood/budget ok";
   if (mood <= MOOD_LOW_THRESHOLD) {
     viable = applyCostCap(candidates, MOOD_LOW_COST_CAP);
+    viabilityFilterName = "mood_low_cap";
+    viabilityFilterReason = `mood=${mood} ≤ ${MOOD_LOW_THRESHOLD} → cost≤${MOOD_LOW_COST_CAP}`;
   } else if (engagement === "disengaging") {
     viable = applyCostCap(candidates, DISENGAGING_COST_CAP);
+    viabilityFilterName = "disengaging_cap";
+    viabilityFilterReason = `engagement=disengaging → cost≤${DISENGAGING_COST_CAP}`;
   } else if (budgetBefore < BUDGET_LOW_THRESHOLD) {
     viable = applyCostCap(candidates, BUDGET_LOW_COST_CAP);
+    viabilityFilterName = "budget_low_cap";
+    viabilityFilterReason = `budget=${budgetBefore} < ${BUDGET_LOW_THRESHOLD} → cost≤${BUDGET_LOW_COST_CAP}`;
   } else {
     viable = [...candidates];
+  }
+  if (buildTrace && viabilityFilterName !== "no_filter") {
+    filtersApplied.push({
+      name: viabilityFilterName,
+      items_removed: removedNotIn(viable),
+      reason: viabilityFilterReason,
+    });
   }
 
   // Step 3 — Sem viáveis → escala Planejador
@@ -266,6 +338,7 @@ export function selectAction(input: SelectorInput): SelectionResult {
       pulso_emitted: false,
       escalate_to: "planner",
       escalate_reason: "no_viable_action",
+      ...(buildTrace ? { _trace: buildTrace("", []) } : {}),
     };
   }
 
@@ -317,5 +390,8 @@ export function selectAction(input: SelectorInput): SelectionResult {
     budget_after: newState.budgetRemaining,
     pulso_emitted: false,
     escalate_to: null,
+    ...(buildTrace
+      ? { _trace: buildTrace(selected.item.id, viable.map((c) => c.item.id)) }
+      : {}),
   };
 }
