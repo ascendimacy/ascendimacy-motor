@@ -115,6 +115,13 @@ export interface EvaluateAndSelectOutput {
     elapsed_minutes_estimate: number;
     minutes_until_next_phase: number;
   };
+  /**
+   * Fase 8 PR 3: StrategyPlan composto pelo Strategist quando
+   * journey_stage = applied_double_helix. Apenas no início da sessão
+   * (turn baixo / challenge_explain); turns subsequentes referenciam o
+   * mesmo plan via session_id.
+   */
+  strategyPlan?: import("./strategy-plan.js").StrategyPlan;
 }
 
 export interface ExecutePlaybookInput {

@@ -149,6 +149,24 @@ CREATE TABLE IF NOT EXISTS journey_state (
   last_updated_at       TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_journey_stage ON journey_state(stage);
+
+-- StrategyPlan — Fase 8 PR 3 (spec 2026-05-25 §5 + §10.2).
+-- 1 plan por sessão em journey_stage=applied_double_helix. Composto pelo
+-- Strategist no início (challenge_explain) e referenciado durante execute.
+-- demonstrations_observed atualizado no follow_up.
+CREATE TABLE IF NOT EXISTS strategy_plans (
+  session_id                    TEXT PRIMARY KEY,
+  subject_id                    TEXT NOT NULL,
+  composed_at                   TEXT NOT NULL,
+  target_demonstrations_json    TEXT NOT NULL,
+  playbook_composition_json     TEXT NOT NULL,
+  overall_success_criteria      TEXT,
+  fallback_strategy             TEXT,
+  subject_map_snapshot_json     TEXT,
+  demonstrations_observed_json  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_strategy_plans_subject
+  ON strategy_plans(subject_id);
 `;
 
 export interface InitDbOptions {
