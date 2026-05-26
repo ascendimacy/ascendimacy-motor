@@ -225,12 +225,15 @@ async function callLocalChatCompletion(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const t0 = Date.now();
   try {
+     const bearer = process.env["LLM_LOCAL_AUTH_BEARER"];
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (bearer) headers["Authorization"] = `Bearer ${bearer}`;
     const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+       method: "POST",
+       headers,
+       body: JSON.stringify(body),
+       signal: controller.signal,
+     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(
