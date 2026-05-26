@@ -132,6 +132,23 @@ CREATE INDEX IF NOT EXISTS idx_vas_subject
   ON vertical_affinity_signals(subject_id);
 CREATE INDEX IF NOT EXISTS idx_vas_score
   ON vertical_affinity_signals(score_affinity);
+
+-- Journey State — Fase 8 PR 1 (spec 2026-05-25 §3 + §10.1).
+-- Estado da jornada cross-session por sujeito (stage atual, discoveries
+-- contadas pro threshold, override parental). Atualizado lazy na leitura
+-- a partir de subject_knowledge.
+CREATE TABLE IF NOT EXISTS journey_state (
+  subject_id            TEXT PRIMARY KEY,
+  stage                 TEXT NOT NULL DEFAULT 'discovery_only' CHECK(stage IN (
+    'discovery_only', 'mapping_ready', 'applied_double_helix'
+  )),
+  stage_entered_at      TEXT NOT NULL,
+  discoveries_count     INTEGER NOT NULL DEFAULT 0,
+  families_covered      TEXT NOT NULL DEFAULT '[]',
+  override_by_parent    TEXT,
+  last_updated_at       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_journey_stage ON journey_state(stage);
 `;
 
 export interface InitDbOptions {
