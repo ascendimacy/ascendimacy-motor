@@ -64,3 +64,11 @@ export const analyticsOpen = writable<boolean>(false);
  *  via API + store reset. */
 import type { DebugLlmCallEvent } from "./api.js";
 export const debugLlmEvents = writable<DebugLlmCallEvent[]>([]);
+
+/** Mini-UI tracer views (Fase 8): toggles abrem/fecham painéis. */
+export const journeyPanelOpen = writable<boolean>(false);
+export const mapsPanelOpen = writable<boolean>(false);
+export const discoveriesPanelOpen = writable<boolean>(false);
+
+/** Subject ID corrente nos painéis tracer. Default ryo-ochiai. */
+export const tracerSubjectId = writable<string>("ryo-ochiai");

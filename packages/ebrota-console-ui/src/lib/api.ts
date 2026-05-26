@@ -206,6 +206,72 @@ export interface ApiClient {
   getPersonaEvolution(personaId: string): Promise<PersonaEvolution>;
   /** Resolve URL completa pro EventSource consumir SSE. */
   turnStateSseUrl(sessionId: string): string;
+
+  // ─── Subject Knowledge + Journey + Maps (Mini-UI tracer views) ─────
+  listSubjectDiscoveries(
+    subjectId: string,
+    opts?: { type?: string; limit?: number },
+  ): Promise<{ discoveries: SubjectKnowledgeEntryLike[] }>;
+  listSubjectBoundaries(
+    subjectId: string,
+    opts?: { limit?: number },
+  ): Promise<{ boundaries: SubjectKnowledgeEntryLike[] }>;
+  getBoundariesSummary(
+    subjectId: string,
+  ): Promise<{ summary: BoundarySummary[] }>;
+  getJourneyState(subjectId: string): Promise<{ state: JourneyStateLike }>;
+  setJourneyOverride(
+    subjectId: string,
+    stage: string,
+    reason: string,
+  ): Promise<{ state: JourneyStateLike }>;
+  clearJourneyOverride(subjectId: string): Promise<{ state: JourneyStateLike }>;
+  listFrameworks(): Promise<{ frameworks: FrameworkMeta[] }>;
+  getSubjectMaps(
+    subjectId: string,
+    frameworkIds?: string[],
+  ): Promise<{ maps: SubjectMapLike }>;
+}
+
+export interface SubjectKnowledgeEntryLike {
+  id: string;
+  type: string;
+  source: string;
+  confidence: number;
+  payload: Record<string, unknown>;
+  turn_ref: string;
+  session_id: string;
+  created_at: string;
+}
+
+export interface BoundarySummary {
+  topic_category: string;
+  count: number;
+  high_intensity_count: number;
+  last_seen_at: string;
+}
+
+export interface JourneyStateLike {
+  subject_id: string;
+  stage: "discovery_only" | "mapping_ready" | "applied_double_helix";
+  stage_entered_at: string;
+  discoveries_count: number;
+  families_covered: string[];
+  override_by_parent?: { forced_stage: string; reason: string; timestamp: string };
+  last_updated_at: string;
+}
+
+export interface FrameworkMeta {
+  id: string;
+  display_name: string;
+  dimensions: readonly string[];
+  render_hint: "radar" | "bar" | "tree" | "list";
+}
+
+export interface SubjectMapLike {
+  subject_id: string;
+  computed_at: string;
+  positions: Record<string, Record<string, unknown>>;
 }
 
 export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
@@ -316,6 +382,62 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       ),
     turnStateSseUrl: (sessionId) =>
       `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/turn-state`,
+
+    // ── Mini-UI tracer views ─────────────────────────────────────
+    listSubjectDiscoveries: (subjectId, opts) => {
+      const params = new URLSearchParams();
+      if (opts?.type !== undefined) params.set("type", opts.type);
+      if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
+      const q = params.toString();
+      return get<{ discoveries: SubjectKnowledgeEntryLike[] }>(
+        `/subjects/${encodeURIComponent(subjectId)}/discoveries${q ? `?${q}` : ""}`,
+      );
+    },
+    listSubjectBoundaries: (subjectId, opts) => {
+      const params = new URLSearchParams();
+      if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
+      const q = params.toString();
+      return get<{ boundaries: SubjectKnowledgeEntryLike[] }>(
+        `/subjects/${encodeURIComponent(subjectId)}/boundaries${q ? `?${q}` : ""}`,
+      );
+    },
+    getBoundariesSummary: (subjectId) =>
+      get<{ summary: BoundarySummary[] }>(
+        `/subjects/${encodeURIComponent(subjectId)}/boundaries/summary`,
+      ),
+    getJourneyState: (subjectId) =>
+      get<{ state: JourneyStateLike }>(
+        `/subjects/${encodeURIComponent(subjectId)}/journey-state`,
+      ),
+    setJourneyOverride: (subjectId, stage, reason) =>
+      post<{ state: JourneyStateLike }>(
+        `/subjects/${encodeURIComponent(subjectId)}/journey-state/override`,
+        { stage, reason },
+      ),
+    clearJourneyOverride: async (subjectId) => {
+      const res = await f(
+        `${baseUrl}/subjects/${encodeURIComponent(subjectId)}/journey-state/override`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        throw new Error(
+          `BFF DELETE journey-state/override failed: ${res.status}`,
+        );
+      }
+      return (await res.json()) as { state: JourneyStateLike };
+    },
+    listFrameworks: () =>
+      get<{ frameworks: FrameworkMeta[] }>("/frameworks"),
+    getSubjectMaps: (subjectId, frameworkIds) => {
+      const params = new URLSearchParams();
+      if (frameworkIds && frameworkIds.length > 0) {
+        params.set("framework", frameworkIds.join(","));
+      }
+      const q = params.toString();
+      return get<{ maps: SubjectMapLike }>(
+        `/subjects/${encodeURIComponent(subjectId)}/maps${q ? `?${q}` : ""}`,
+      );
+    },
   };
 }
 

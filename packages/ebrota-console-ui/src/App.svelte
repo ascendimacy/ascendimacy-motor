@@ -9,6 +9,9 @@
   import Replay from "./components/Replay.svelte";
   import DebugPanel from "./components/DebugPanel.svelte";
   import Analytics from "./components/Analytics.svelte";
+  import JourneyPanel from "./components/JourneyPanel.svelte";
+  import MapsPanel from "./components/MapsPanel.svelte";
+  import DiscoveriesPanel from "./components/DiscoveriesPanel.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -98,6 +101,9 @@
   <Replay {api} />
   <DebugPanel {api} />
   <Analytics {api} />
+  <JourneyPanel {api} />
+  <MapsPanel {api} />
+  <DiscoveriesPanel {api} />
 
   <footer>
     <p class="muted">
