@@ -196,7 +196,8 @@ export function computeDiscoveryMaturity(
     count += 1;
     // Tenta extrair família via lineage_anchor do payload se houver,
     // senão via axis_id quando presente, senão via heurística parcial.
-    const payload = e.payload as Record<string, unknown>;
+    // Double cast unknown → Record evita TS2352 com union discriminada.
+    const payload = e.payload as unknown as Record<string, unknown>;
     if (typeof payload["family"] === "string") {
       families.add(payload["family"] as string);
     } else if (typeof payload["axis_id"] === "number" && axisToFamilyFn) {
