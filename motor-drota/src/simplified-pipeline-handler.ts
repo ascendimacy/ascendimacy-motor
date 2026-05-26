@@ -174,6 +174,14 @@ export async function handleSimplifiedPipeline(
     };
   }
 
+  // Fase 8 PR — recall check candidate (spec §4.5). Caller hidrata
+  // via contextHints quando RecallCheckEvaluator (BFF/orchestrator)
+  // decide testar concept anterior. Materializer anexa framing ao Fact.
+  // Integração full com evaluator in-process vem em PR futuro.
+  const recallCheckCandidate = input.contextHints?.["recall_check_candidate"] as
+    | { concept_id: string; suggested_framing: string }
+    | undefined;
+
   // 3b. Constrained Materializer — texto final com FALLBACK handling.
   const matResult = await materialize({
     action: selectionResult.selected,
@@ -188,6 +196,7 @@ export async function handleSimplifiedPipeline(
     run_id: input.sessionId,
     incomingMessage: lastUserMessage,
     recentTurns,
+    ...(recallCheckCandidate ? { recallCheckCandidate } : {}),
   });
 
   // ── Fase 3: ConceptLedgerWriter — após materializar o Fact, emite
@@ -203,6 +212,32 @@ export async function handleSimplifiedPipeline(
         item: selectionResult.selected.item,
       }),
     );
+  }
+
+  // Fase 8 PR — Quando recall_check foi emitido, grava attempt no ledger.
+  // Resposta é classificada no turn seguinte via classifyRecallResponse
+  // (não in-process aqui — caller resolve). points_awarded=0 inicialmente;
+  // BFF/orchestrator atualiza pra 5 quando resposta=positive.
+  if (matResult.recall_check_emitted) {
+    subjectKnowledgeEvents.push({
+      id: `sk-rc-${input.persona.id}-${turnRef}-${matResult.recall_check_emitted.concept_id}`,
+      subject_id: input.persona.id,
+      type: "recall_check_attempt",
+      source: "motor_inferred",
+      confidence: 1.0,
+      confirmed_at: turnRef,
+      alignment: "unknown",
+      payload: {
+        kind: "recall_check_attempt",
+        concept_id_referenced: matResult.recall_check_emitted.concept_id,
+        framing_used: matResult.recall_check_emitted.framing_used,
+        result: "ambiguous", // pending — classify no turn seguinte
+        points_awarded: 0,
+      },
+      turn_ref: turnRef,
+      session_id: input.sessionId,
+      created_at: new Date().toISOString(),
+    });
   }
 
   return {
