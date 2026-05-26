@@ -18,8 +18,14 @@
  * model dali.
  */
 
-import { callGateway } from "@ascendimacy/shared";
-import type { ScoredContentItem, EngagementLevel } from "@ascendimacy/shared";
+import { callGateway, callGatewayWithTracing } from "@ascendimacy/shared";
+import type {
+  EngagementLevel,
+  LlmTraceCollector,
+  MaterializerTrace,
+  ScoredContentItem,
+} from "@ascendimacy/shared";
+import { createHash } from "node:crypto";
 import { sanitizeMaterialization } from "./select.js";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -103,6 +109,16 @@ export interface MaterializationResult {
     concept_id: string;
     framing_used: string;
   };
+  /**
+   * TV2-3 (spec ops#1136): trace section opcional. Presente quando
+   * caller passou `opts.collector`. Inclui stable_prefix_hash, user
+   * message construído, raw response, final_text + llm_call_ref.
+   */
+  _trace?: MaterializerTrace;
+}
+
+export interface MaterializeOpts {
+  collector?: LlmTraceCollector;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -277,9 +293,11 @@ function adaptiveMaxTokens(
  */
 export async function materialize(
   ctx: MaterializerContext,
+  opts?: MaterializeOpts,
 ): Promise<MaterializationResult> {
   const t0 = Date.now();
   const userMessage = buildUserMessage(ctx);
+  const collector = opts?.collector;
   if (process.env["ASC_DEBUG_MATERIALIZER"] === "true") {
     // eslint-disable-next-line no-console
     console.error(
@@ -290,23 +308,25 @@ export async function materialize(
   let rawText: string;
   let modelUsed = "unknown";
   let outTokens = 0;
+  let llmCallId: string | undefined;
+  let cacheablePrefixUsed: string = STABLE_MATERIALIZER_PREFIX;
 
   try {
     // 2026-05-07 Nível A (#476 Phase 2): profile vai pro cacheableSystemPrefix
     // pra cache hit cross-turn dentro da sessão (profile constante por 6 turns
     // entre compressões). llama-server prefix caching pega automaticamente.
     const profileBlock = (ctx.personaProfileBlock ?? "").trim();
-    const cacheablePrefix =
+    cacheablePrefixUsed =
       profileBlock.length > 0
         ? `${STABLE_MATERIALIZER_PREFIX}\n\n${profileBlock}`
         : STABLE_MATERIALIZER_PREFIX;
 
-    const out = await callGateway({
+    const req = {
       step: ctx.llmStep ?? "drota",
       // systemPrompt vazio: tudo fixo está em cacheableSystemPrefix.
       // Preserva prefix caching no vLLM (Step 8 do handoff).
       systemPrompt: "",
-      cacheableSystemPrefix: cacheablePrefix,
+      cacheableSystemPrefix: cacheablePrefixUsed,
       userMessage,
       // 2026-05-05 (sts-realista): turn 1-3 mantém 300 (rapport curto).
       // turn 4+ permite 600 — abre espaço pra profundidade quando há contexto
@@ -317,19 +337,40 @@ export async function materialize(
       // Override explícito via ctx.maxTokens vence.
       maxTokens: ctx.maxTokens ?? adaptiveMaxTokens(ctx.turnCount, ctx.engagement, ctx.mood),
       run_id: ctx.run_id,
-    });
+    };
+    const beforeSize = collector?.size() ?? 0;
+    const out = collector
+      ? await callGatewayWithTracing(req, "materializer", collector)
+      : await callGateway(req);
     rawText = out.content;
     modelUsed = `${out.provider}:${out.model}`;
     outTokens = out.tokens.out;
+    llmCallId = collector?.peek()[beforeSize]?.id;
   } catch {
     // LLM error → texto neutro fallback hardcoded
+    const fallbackText = "Tô por aqui. Quando quiser me contar mais, conta.";
     return {
-      text: "Tô por aqui. Quando quiser me contar mais, conta.",
+      text: fallbackText,
       model_used: "fallback_hardcoded",
       fallback_triggered: true,
       latency_ms: Date.now() - t0,
       token_count: 0,
       sanitization_applied: false,
+      ...(collector
+        ? {
+            _trace: {
+              inputs: {
+                selected_item_id: ctx.action.item.id,
+                user_message: userMessage,
+              },
+              stable_prefix_hash: hashCacheablePrefix(cacheablePrefixUsed),
+              user_message_constructed: userMessage,
+              outputs: { raw_response: "", final_text: fallbackText },
+              llm_call_ref: collector.peek()[collector.size() - 1]?.id ?? "",
+              duration_ms: Date.now() - t0,
+            } satisfies MaterializerTrace,
+          }
+        : {}),
     };
   }
 
@@ -361,7 +402,33 @@ export async function materialize(
     token_count: outTokens,
     sanitization_applied: sanitizationApplied,
     ...(recallEmission.emitted ? { recall_check_emitted: recallEmission.emitted } : {}),
+    ...(collector
+      ? {
+          _trace: {
+            inputs: {
+              selected_item_id: ctx.action.item.id,
+              user_message: userMessage,
+            },
+            stable_prefix_hash: hashCacheablePrefix(cacheablePrefixUsed),
+            user_message_constructed: userMessage,
+            outputs: { raw_response: rawText, final_text: recallEmission.text },
+            llm_call_ref: llmCallId ?? "",
+            duration_ms: Date.now() - t0,
+          } satisfies MaterializerTrace,
+        }
+      : {}),
   };
+}
+
+/**
+ * Hash sha256 (first 16 chars) do cacheable prefix — pra debug do prefix
+ * caching cross-turn. Mesmo hash entre turns = cache hit no vLLM/llama-server.
+ */
+function hashCacheablePrefix(prefix: string): string {
+  return (
+    "sha256:" +
+    createHash("sha256").update(prefix).digest("hex").slice(0, 16)
+  );
 }
 
 /**

@@ -14,6 +14,7 @@
 
 import {
   callGateway,
+  callGatewayWithTracing,
   isDebugModeEnabled,
   getProviderForStep,
   getModelForStep,
@@ -21,6 +22,8 @@ import {
   shouldEnableThinking,
   getThinkingBudgetTokens,
   type LlmProvider,
+  type LlmCallRole,
+  type LlmTraceCollector,
 } from "@ascendimacy/shared";
 
 export interface LlmCallResult {
@@ -33,14 +36,29 @@ export interface LlmCallResult {
   model: string;
 }
 
-async function callViaGateway(step: string, systemPrompt: string, userMessage: string): Promise<LlmCallResult> {
+/**
+ * TV2-3 (spec ops#1136): opções opcionais pra coletar LlmCallTrace.
+ * Backward 100% — quando ausente, comporta-se como antes.
+ */
+export interface CallLlmOpts {
+  collector?: LlmTraceCollector;
+  /** Role pro trace catalog. Default "planejador". */
+  role?: LlmCallRole;
+}
+
+async function callViaGateway(
+  step: string,
+  systemPrompt: string,
+  userMessage: string,
+  opts?: CallLlmOpts,
+): Promise<LlmCallResult> {
   const provider = getProviderForStep(step);
   const model = getModelForStep(step, provider);
   const maxTokens = getMaxTokensForStep(step, model);
   const enableThinking = shouldEnableThinking(step, provider, isDebugModeEnabled());
   const thinkingBudgetTokens = enableThinking ? getThinkingBudgetTokens() : undefined;
 
-  const out = await callGateway({
+  const req = {
     step,
     provider,
     model,
@@ -50,7 +68,10 @@ async function callViaGateway(step: string, systemPrompt: string, userMessage: s
     enableThinking: enableThinking || undefined,
     thinkingBudgetTokens,
     run_id: process.env["ASC_DEBUG_RUN_ID"],
-  });
+  };
+  const out = opts?.collector
+    ? await callGatewayWithTracing(req, opts.role ?? "planejador", opts.collector)
+    : await callGateway(req);
 
   return {
     content: out.content,
@@ -64,8 +85,12 @@ async function callViaGateway(step: string, systemPrompt: string, userMessage: s
 /**
  * callLlm — motor#28c dispatcher via gateway pra step `planejador`.
  */
-export async function callLlm(systemPrompt: string, userMessage: string): Promise<LlmCallResult> {
-  return callViaGateway("planejador", systemPrompt, userMessage);
+export async function callLlm(
+  systemPrompt: string,
+  userMessage: string,
+  opts?: CallLlmOpts,
+): Promise<LlmCallResult> {
+  return callViaGateway("planejador", systemPrompt, userMessage, opts);
 }
 
 /**
@@ -74,8 +99,12 @@ export async function callLlm(systemPrompt: string, userMessage: string): Promis
  * Default agora é Infomaniak/mistral3 (small fast). Opt-in pra Anthropic Haiku
  * via HAIKU_TRIAGE_PROVIDER=anthropic.
  */
-export async function callHaiku(systemPrompt: string, userMessage: string): Promise<LlmCallResult> {
-  return callViaGateway("haiku-triage", systemPrompt, userMessage);
+export async function callHaiku(
+  systemPrompt: string,
+  userMessage: string,
+  opts?: CallLlmOpts,
+): Promise<LlmCallResult> {
+  return callViaGateway("haiku-triage", systemPrompt, userMessage, opts);
 }
 
 export async function callLlmMock(_systemPrompt: string, _userMessage: string): Promise<LlmCallResult> {

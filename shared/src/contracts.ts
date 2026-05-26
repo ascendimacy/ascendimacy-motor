@@ -38,6 +38,13 @@ export interface PlanTurnOutput {
   contentPool: ScoredContentItem[];
   contextHints: Record<string, unknown>;
   /**
+   * TV2-3 (spec ops#1136): trace section opcional. Presente quando
+   * caller passou `opts.collector` em planTurn. Inclui contentPool,
+   * contextHints, instruction_addition, strategicRationale, entropy +
+   * llm_call_ref + duration. Importado tardiamente pra evitar dep loop.
+   */
+  _trace?: import("./engine-trace-v2.js").PlanejadorTrace;
+  /**
    * Composed pelo planejador quando mixin ativo (ex: withGardnerProgram).
    * Repassado para `EvaluateAndSelectInput.instruction_addition` (Bloco 2b).
    */
