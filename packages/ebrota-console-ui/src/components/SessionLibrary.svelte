@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import {
     libraryOpen,
     replaySessionId,
@@ -20,6 +20,9 @@
   let q = "";
   let hasOverrides = false;
   let lastFetch = Date.now();
+  let refreshInterval: ReturnType<typeof setInterval> | null = null;
+
+  const LIBRARY_REFRESH_MS = 5000;
 
   $: open = $libraryOpen;
 
@@ -47,10 +50,27 @@
 
   $: if (open) {
     void refresh();
+    if (refreshInterval === null) {
+      refreshInterval = setInterval(() => {
+        void refresh();
+      }, LIBRARY_REFRESH_MS);
+    }
+  } else {
+    if (refreshInterval !== null) {
+      clearInterval(refreshInterval);
+      refreshInterval = null;
+    }
   }
 
   onMount(() => {
     if (open) void refresh();
+  });
+
+  onDestroy(() => {
+    if (refreshInterval !== null) {
+      clearInterval(refreshInterval);
+      refreshInterval = null;
+    }
   });
 
   function openReplay(sessionId: string): void {
