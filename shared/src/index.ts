@@ -28,6 +28,7 @@ export * from "./concept-ledger-writer.js";
 export * from "./recall-check-evaluator.js";
 export * from "./map-framework.js";
 export * from "./session-phases.js";
+export * from "./strategy-plan.js";
 export * from "./parental-authorization.js";
 export * from "./gardner-onboarding.js";
 export * from "./card-catalog.js";

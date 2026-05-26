@@ -27,8 +27,11 @@ import {
   extractBoundaryEvents,
   extractPresentedConcepts,
   resolveSessionState,
+  composeStrategyPlan,
   type JourneyStage,
   type SessionPhase,
+  type StrategyPlan,
+  type SubjectKnowledgeEntry as SkEntry,
 } from "@ascendimacy/shared";
 
 /** PR 2 tracer — confidence threshold por fase pro DiscoveryWriter. */
@@ -90,6 +93,34 @@ export async function handleSimplifiedPipeline(
     turn: input.state.turn,
     journeyStage,
   });
+
+  // ── PR 3 tracer: Strategist.compose no início (turn 1) ──
+  // Só ativo em applied_double_helix; outras stages = null.
+  // v1: heurística template-based (sem LLM call).
+  let strategyPlan: StrategyPlan | undefined;
+  if (
+    journeyStage === "applied_double_helix" &&
+    input.state.turn <= 1
+  ) {
+    const prior = (input.contextHints?.["subject_knowledge_entries"] as
+      | SkEntry[]
+      | undefined) ?? [];
+    const latentNeeds = input.contextHints?.["latent_needs"] as
+      | string[]
+      | undefined;
+    const subjectProposed = input.contextHints?.["subject_proposed"] as
+      | { axes_active: number[]; complements_per_axis: Record<number, string[]> }
+      | undefined;
+    const composed = composeStrategyPlan({
+      sessionId: input.sessionId,
+      subjectId: input.persona.id,
+      journeyStage,
+      knowledgeEntries: prior,
+      latentNeeds,
+      subjectProposed,
+    });
+    if (composed) strategyPlan = composed;
+  }
 
   // ── Subject Knowledge Fase 2: writers extraem eventos do turn ──
   const turnRef = `${input.sessionId}__turn_${input.state.turn}`;
@@ -162,6 +193,7 @@ export async function handleSimplifiedPipeline(
       assessment: assessmentForOutput,
       subjectKnowledgeEvents,
       sessionState,
+      ...(strategyPlan ? { strategyPlan } : {}),
       ...(selectionResult.escalate_reason
         ? { skipReason: selectionResult.escalate_reason }
         : {}),
@@ -199,6 +231,7 @@ export async function handleSimplifiedPipeline(
       assessment: assessmentForOutput,
       subjectKnowledgeEvents,
       sessionState,
+      ...(strategyPlan ? { strategyPlan } : {}),
     };
   }
 
@@ -277,6 +310,7 @@ export async function handleSimplifiedPipeline(
     assessment: assessmentForOutput,
     subjectKnowledgeEvents,
     sessionState,
+    ...(strategyPlan ? { strategyPlan } : {}),
     ...(matResult.fallback_triggered
       ? { skipReason: "materializer_fallback" }
       : {}),

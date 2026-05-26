@@ -67,6 +67,10 @@ import {
   setParentalOverride,
   clearParentalOverride,
 } from "./journey-state-repo.js";
+import {
+  getStrategyPlan,
+  listStrategyPlansBySubject,
+} from "./strategy-plan-repo.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -639,6 +643,30 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
       state: clearParentalOverride(opts.db, req.params.id),
     }),
   );
+
+  // ── StrategyPlan endpoints (Fase 8 PR 3) ─────────────────────────
+  // GET /sessions/:id/strategy-plan — plan composto pra esta sessão
+  fastify.get<{ Params: { id: string } }>(
+    "/sessions/:id/strategy-plan",
+    async (req, reply) => {
+      const plan = getStrategyPlan(opts.db, req.params.id);
+      if (!plan) {
+        return reply.code(404).send({ error: "strategy_plan não encontrado" });
+      }
+      return { plan };
+    },
+  );
+
+  // GET /subjects/:id/strategy-plans — histórico recente
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { limit?: string };
+  }>("/subjects/:id/strategy-plans", async (req) => {
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+    return {
+      plans: listStrategyPlansBySubject(opts.db, req.params.id, limit ?? 20),
+    };
+  });
 
   // POST /rescan — re-indexa o tracesDir (manual trigger).
   // Útil quando STS roda em outro processo e deposita novos traces;
