@@ -56,6 +56,11 @@ import {
   listBoundaryEvents,
   summarizeBoundariesByCategory,
 } from "./subject-knowledge-repo.js";
+import {
+  computeMapPositions,
+  listFrameworks,
+  type SubjectKnowledgeEntry,
+} from "@ascendimacy/shared";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -527,6 +532,71 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
       summary: summarizeBoundariesByCategory(opts.db, req.params.id),
     }),
   );
+
+  // ── MapFramework endpoints (Fase 8 sub-fase 8.3) ──────────────────
+  // GET /frameworks — lista frameworks registrados (display_name + dims)
+  fastify.get("/frameworks", async () => ({
+    frameworks: listFrameworks().map((fw) => ({
+      id: fw.id,
+      display_name: fw.display_name,
+      dimensions: fw.dimensions,
+      render_hint: fw.render_hint,
+    })),
+  }));
+
+  // GET /subjects/:id/maps[?framework=X,Y] — projeções multi-framework
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { framework?: string };
+  }>("/subjects/:id/maps", async (req) => {
+    const frameworkIds = req.query.framework
+      ? req.query.framework.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
+      : undefined;
+
+    // Carrega entries do ledger pra projeção (todas as types relevantes).
+    const entries = opts.db
+      .prepare(
+        `SELECT id, subject_id, type, source, confidence, confirmed_at,
+                alignment, payload_json, turn_ref, session_id, created_at
+         FROM subject_knowledge
+         WHERE subject_id = ?`,
+      )
+      .all(req.params.id) as Array<{
+        id: string;
+        subject_id: string;
+        type: string;
+        source: string;
+        confidence: number;
+        confirmed_at: string | null;
+        alignment: string;
+        payload_json: string;
+        turn_ref: string;
+        session_id: string;
+        created_at: string;
+      }>;
+
+    const skEntries: SubjectKnowledgeEntry[] = entries.map((row) => ({
+      id: row.id,
+      subject_id: row.subject_id,
+      type: row.type as SubjectKnowledgeEntry["type"],
+      source: row.source as SubjectKnowledgeEntry["source"],
+      confidence: row.confidence,
+      confirmed_at: row.confirmed_at,
+      alignment: row.alignment as SubjectKnowledgeEntry["alignment"],
+      payload: JSON.parse(row.payload_json),
+      turn_ref: row.turn_ref,
+      session_id: row.session_id,
+      created_at: row.created_at,
+    }));
+
+    return {
+      maps: computeMapPositions({
+        subjectId: req.params.id,
+        entries: skEntries,
+        ...(frameworkIds ? { frameworkIds } : {}),
+      }),
+    };
+  });
 
   // POST /rescan — re-indexa o tracesDir (manual trigger).
   // Útil quando STS roda em outro processo e deposita novos traces;
