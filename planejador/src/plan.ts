@@ -801,6 +801,18 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
       ? evaluateAllTransitions(profileId, recentSignals, turnsSinceLastTransition)
       : [];
 
+  // Fase 8 PR — Strategist context (sub-PR pós tracer bullet):
+  // Propaga subject_proposed + latent_needs do ChildScoringProfile pro
+  // contextHints, pra motor-drota's composeStrategyPlan consumir quando
+  // journey_stage = applied_double_helix. Sem isso, Strategist v1 retorna
+  // null e ponte tripla não tem norte.
+  if (child.subject_proposed) {
+    contextHints["subject_proposed"] = child.subject_proposed;
+  }
+  if (child.latent_needs && child.latent_needs.length > 0) {
+    contextHints["latent_needs"] = child.latent_needs;
+  }
+
   // motor#25 (handoff #25 B5): Shannon entropy do candidate set antes de retornar.
   const candidateSetEntropy = shannonEntropy(slimPool.map((s) => s.item.id));
 
