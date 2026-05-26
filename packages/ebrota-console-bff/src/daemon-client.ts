@@ -14,6 +14,9 @@
  *  evitar dependência circular entre workspaces. Mantido em sync
  *  manualmente. */
 
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+
 export interface ScoredContentItemShape {
   item: {
     id: string;
@@ -151,6 +154,126 @@ export interface MockDaemonClient extends OrchestratorDaemonClient {
     sessionId: string;
     decision: ApprovalDecision;
   }>;
+}
+
+/**
+ * Production stdio daemon client — spawna o binary `motor-daemon`
+ * como subprocesso e comunica via stdio MCP (C-MX-07).
+ *
+ * @param daemonBin - caminho absoluto pro binary `motor-daemon`
+ *                    (tipicamente `dist/cli.js` do orchestrator workspace)
+ */
+export function createStdioDaemonClient(
+  daemonBin: string,
+): OrchestratorDaemonClient {
+  const transport = new StdioClientTransport({
+    command: "node",
+    args: [daemonBin],
+    stderr: "inherit",
+  });
+
+  const client = new Client(
+    { name: "ebrota-console-bff", version: "0.1.0" },
+    { capabilities: {} },
+  );
+
+  let connected = false;
+
+  const ensureConnected = async (): Promise<void> => {
+    if (!connected) {
+      await client.connect(transport);
+      connected = true;
+    }
+  };
+
+  const callTool = async <T>(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<T> => {
+    await ensureConnected();
+    const result = await client.callTool({ name: toolName, arguments: args });
+    // MCP tools retornam content array; extraímos o primeiro item de texto
+    const content = result.content;
+    if (!Array.isArray(content) || content.length === 0) {
+      throw new Error(`Tool ${toolName} retornou content vazio`);
+    }
+    const first = content[0];
+    if (first.type !== "text" || typeof first.text !== "string") {
+      throw new Error(
+        `Tool ${toolName} retornou content inesperado: ${JSON.stringify(first)}`,
+      );
+    }
+    return JSON.parse(first.text) as T;
+  };
+
+  return {
+    async startCardSession(input) {
+      return callTool<StartCardSessionOutput>("startCardSession", {
+        cardId: input.cardId,
+        conversationId: input.conversationId,
+        from: input.from,
+        pkg: input.pkg,
+        ...(input.personaId !== undefined
+          ? { personaId: input.personaId }
+          : {}),
+      });
+    },
+
+    async subscribeTurnState(sessionId, sinceIndex = 0) {
+      return callTool<TurnEventsSnapshot>("subscribe_turn_state", {
+        sessionId,
+        sinceIndex,
+      });
+    },
+
+    async listOptions(sessionId) {
+      return callTool<{ contentPool: ScoredContentItemShape[] }>(
+        "list_options",
+        { sessionId },
+      );
+    },
+
+    async overrideSelection(sessionId, contentItemId) {
+      return callTool<OverrideSelectionResult>("override_selection", {
+        sessionId,
+        contentItemId,
+      });
+    },
+
+    async approveOrEdit(sessionId, decision) {
+      return callTool<ApproveOrEditResult>("approve_or_edit", {
+        sessionId,
+        approved: decision.approved,
+        ...(decision.editedText !== undefined
+          ? { editedText: decision.editedText }
+          : {}),
+        ...(decision.rationale !== undefined
+          ? { rationale: decision.rationale }
+          : {}),
+      });
+    },
+
+    async getPendingApproval(sessionId) {
+      return callTool<PendingApproval | null>("get_pending_approval", {
+        sessionId,
+      });
+    },
+
+    async daemonStatus() {
+      return callTool<DaemonStatus>("daemon.status", {});
+    },
+
+    async endSession(sessionId) {
+      return callTool<{ closed: boolean }>("endSession", { sessionId });
+    },
+
+    async close() {
+      if (connected) {
+        await transport.close();
+        connected = false;
+      }
+    },
+  };
 }
 
 export function createMockDaemonClient(

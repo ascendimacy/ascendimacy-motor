@@ -13,6 +13,7 @@
  *   GET  /mode                                  → { mode }
  *   POST /mode { mode }                         → { mode }
  *   POST /sessions/start-card                   → startCardSession output
+ *   GET  /sessions/active                       → { sessionIds: string[] }
  *   GET  /sessions/:id/turn-state               → SSE stream (polling)
  *   GET  /sessions/:id/options                  → { contentPool }
  *   POST /sessions/:id/override { contentItemId } → OverrideSelectionResult
@@ -117,6 +118,11 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   const debugEvents = createDebugEventsStore();
   let mode: ConsoleMode = opts.initialMode ?? "auto";
 
+  // In-memory set de sessionIds ativos (iniciados via /sessions/start-card,
+  // removidos via /sessions/:id/end). Permite que App.svelte faça polling
+  // em GET /sessions/active e auto-conecte ao live stream (Fix 3 / S-OC-05).
+  const activeSessions = new Set<string>();
+
   // GET /status — health + observabilidade
   fastify.get("/status", async () => {
     const daemonStatus = await opts.daemon.daemonStatus();
@@ -173,8 +179,16 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
         .code(400)
         .send({ error: "campos obrigatórios: cardId, conversationId, from, pkg" });
     }
-    return opts.daemon.startCardSession(body);
+    const result = await opts.daemon.startCardSession(body);
+    activeSessions.add(result.sessionId);
+    return result;
   });
+
+  // GET /sessions/active — lista sessionIds ativos (iniciados, não encerrados).
+  // App.svelte faz polling aqui pra auto-conectar ao live stream (Fix 3).
+  fastify.get("/sessions/active", async () => ({
+    sessionIds: [...activeSessions],
+  }));
 
   // GET /sessions/:id/turn-state — SSE stream polling subscribeTurnState
   fastify.get<{ Params: { id: string } }>(
@@ -495,7 +509,10 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   // POST /sessions/:id/end — endSession
   fastify.post<{ Params: { id: string } }>(
     "/sessions/:id/end",
-    async (req) => opts.daemon.endSession(req.params.id),
+    async (req) => {
+      activeSessions.delete(req.params.id);
+      return opts.daemon.endSession(req.params.id);
+    },
   );
 
   // ── Subject Knowledge endpoints (Fase 2) ─────────────────────────

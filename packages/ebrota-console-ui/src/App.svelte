@@ -30,7 +30,9 @@
 
   const api = createApiClient();
   const STATUS_POLL_INTERVAL_MS = 2000;
+  const ACTIVE_SESSIONS_POLL_MS = 3000;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let activeSessionsPollTimer: ReturnType<typeof setInterval> | undefined;
   let streamManager: TurnStateStreamManager | undefined;
 
   async function refreshStatus(): Promise<void> {
@@ -44,6 +46,26 @@
       globalError.set(
         `BFF offline: ${err instanceof Error ? err.message : String(err)}`,
       );
+    }
+  }
+
+  /**
+   * Verifica sessões ativas no BFF — se existir uma sessão ativa e nenhuma
+   * sessão corrente estiver definida na UI, auto-conecta ao live stream
+   * (Fix 3 / S-OC-05). Usa a mais recente (última no array).
+   */
+  async function checkActiveSessions(): Promise<void> {
+    try {
+      const { sessionIds } = await api.getActiveSessions();
+      const currentId = $currentSessionId;
+      if (sessionIds.length > 0 && currentId === null) {
+        const latest = sessionIds[sessionIds.length - 1];
+        if (latest !== undefined) {
+          currentSessionId.set(latest);
+        }
+      }
+    } catch {
+      // silencioso — polling não crítico
     }
   }
 
@@ -68,14 +90,20 @@
   onMount(() => {
     applyUrlParams();
     void refreshStatus();
+    void checkActiveSessions();
     pollTimer = setInterval(() => {
       void refreshStatus();
     }, STATUS_POLL_INTERVAL_MS);
+    activeSessionsPollTimer = setInterval(() => {
+      void checkActiveSessions();
+    }, ACTIVE_SESSIONS_POLL_MS);
     streamManager = startTurnStateStream(api);
   });
 
   onDestroy(() => {
     if (pollTimer !== undefined) clearInterval(pollTimer);
+    if (activeSessionsPollTimer !== undefined)
+      clearInterval(activeSessionsPollTimer);
     streamManager?.stop();
   });
 </script>
