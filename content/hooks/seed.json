@@ -351,7 +351,7 @@
       7,
       14
     ],
-    "surprise": 10,
+    "surprise": 7,
     "verified": true,
     "base_score": 7,
     "fact": "Golfinhos têm NOME. Cada golfinho cria um assovio único que é SÓ dele. Os outros chamam pelo assovio. Se o golfinho morre, os amigos repetem o assovio dele por dias.",
@@ -467,7 +467,7 @@
       7,
       14
     ],
-    "surprise": 10,
+    "surprise": 7,
     "verified": true,
     "base_score": 7,
     "fact": "Dentro do casulo, a lagarta se dissolve COMPLETAMENTE em sopa. Vira líquido. Não \"cresce asas\" — se destrói e reconstrói do zero como borboleta.",
@@ -1692,7 +1692,7 @@
       7,
       14
     ],
-    "surprise": 10,
+    "surprise": 7,
     "verified": true,
     "base_score": 7,
     "fact": "No Japão, quando uma tigela quebra, reparam com OURO. Não escondem a rachadura — celebram. O objeto quebrado vale MAIS que o inteiro. Chama 金継ぎ kintsugi.",

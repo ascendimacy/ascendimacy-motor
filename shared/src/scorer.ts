@@ -93,6 +93,28 @@ export const INTERNALIZATION_HISTORY_THRESHOLD = 3;
  */
 export const USED_IN_SESSION_PENALTY = 100;
 
+/**
+ * Expose gate — items com sacrifice_type=expose pedem ao sujeito que mostre
+ * vulnerabilidade ("você já se sentiu assim?"). Disparam mal quando ele
+ * está fechado: trust baixa, mood ruim, ou sinais explícitos de recusa
+ * (frame_rejection, deflection_thematic).
+ *
+ * Observado no smoke tracer-helix-3sessions-ryo: bio_caterpillar_dissolve
+ * dominou 3 sessões consecutivas; Ryo disse "por que você quer tanto ficar
+ * falando de lágrima? é estranho" na S3T4. Penalty -8 derruba expose pra
+ * baixo dos hooks neutros (base_score~5-10) sem excluí-los completamente.
+ */
+export const EXPOSE_GATE_PENALTY = 8;
+/** Threshold de trust abaixo do qual expose dispara penalty. */
+export const EXPOSE_GATE_TRUST_THRESHOLD = 0.5;
+/** Threshold de mood abaixo do qual expose dispara penalty. */
+export const EXPOSE_GATE_MOOD_THRESHOLD = 6;
+/** Sinais que indicam recusa de frame — expose vira inapropriado. */
+export const EXPOSE_GATE_BLOCKING_SIGNALS: readonly string[] = [
+  "frame_rejection",
+  "deflection_thematic",
+];
+
 export interface DomainRankEntry {
   score: number;
 }
@@ -150,6 +172,14 @@ export interface ChildScoringProfile {
    * Map axis_id → pontos totais.
    */
   internalization_axis_points?: Record<number, number>;
+
+  /**
+   * Confiança acumulada [0..1]. Cross-session, vinda do subject_knowledge
+   * ledger ou heurística do BFF. Usado pelo expose gate: items vulneráveis
+   * desabilitados quando trust < EXPOSE_GATE_TRUST_THRESHOLD.
+   * Ausente → tratado como 1.0 (sem gate).
+   */
+  trust?: number;
 }
 
 export interface ScoringContext {
@@ -177,6 +207,20 @@ export interface ScoringContext {
    * usam fallback `SACRIFICE_BASE_EFFORT_DEFAULT (8)` → 0 adjustment.
    */
   sacrifice_cost_by_id?: Record<string, number>;
+
+  /**
+   * Mood corrente do sujeito [0..10] vindo do unified-assessor. Usado pelo
+   * expose gate: items vulneráveis desabilitados quando mood < threshold.
+   * Ausente → mood neutro (sem gate).
+   */
+  current_mood?: number;
+
+  /**
+   * Signals extraídos do turn corrente OU dos N turns recentes (caller decide).
+   * Expose gate dispara penalty quando contém `frame_rejection` ou
+   * `deflection_thematic` — sujeito recusou frame, vulnerabilidade não cabe.
+   */
+  recent_signals?: string[];
 }
 
 function daysBetween(laterIso: string, earlierIso: string): number {
@@ -344,6 +388,37 @@ export function scoreItem(
       .map(([k]) => k)
       .join(",");
     reasons.push(`multidim_bonus=+${multiBonus} (${matchedCount} dims: ${dimList})`);
+  }
+
+  // Expose gate: items que pedem vulnerabilidade sofrem penalty quando o
+  // sujeito está fechado. Aplicado APÓS multi-dim (não bloqueia, só baixa
+  // ranking) e ANTES de used_in_session (este último vence sempre).
+  // `sacrifice_type` só existe em curiosity_hook + cultural_diamond.
+  if ("sacrifice_type" in item && item.sacrifice_type === "expose") {
+    const trustLow =
+      typeof child.trust === "number" && child.trust < EXPOSE_GATE_TRUST_THRESHOLD;
+    const moodLow =
+      typeof context.current_mood === "number" &&
+      context.current_mood < EXPOSE_GATE_MOOD_THRESHOLD;
+    const signalBlock =
+      context.recent_signals?.some((s) =>
+        EXPOSE_GATE_BLOCKING_SIGNALS.includes(s),
+      ) ?? false;
+    if (trustLow || moodLow || signalBlock) {
+      score -= EXPOSE_GATE_PENALTY;
+      const triggers: string[] = [];
+      if (trustLow) triggers.push(`trust=${child.trust?.toFixed(2)}`);
+      if (moodLow) triggers.push(`mood=${context.current_mood}`);
+      if (signalBlock) {
+        const blocked = context.recent_signals?.filter((s) =>
+          EXPOSE_GATE_BLOCKING_SIGNALS.includes(s),
+        );
+        triggers.push(`signals=[${blocked?.join(",")}]`);
+      }
+      reasons.push(
+        `expose_gate_penalty=-${EXPOSE_GATE_PENALTY} (${triggers.join(", ")})`,
+      );
+    }
   }
 
   // motor#23: penalidade forte para items já usados nesta sessão.
