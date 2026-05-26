@@ -371,6 +371,46 @@ export interface MultiDimMatches {
   internalization_history: boolean;
 }
 
+/**
+ * Stopwords PT-BR pequenas — filtradas ao tokenizar latent_needs/interests
+ * pra evitar match espúrio em palavras irrelevantes.
+ */
+const TOKENIZE_STOPWORDS: ReadonlySet<string> = new Set([
+  "de", "da", "do", "das", "dos", "em", "para", "com", "sem", "por",
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "no", "na", "nos", "nas",
+  "que", "se", "e", "ou", "mas",
+]);
+
+/**
+ * Tokenize string longa em palavras significativas (>3 chars, sem stopwords).
+ * Usado pra match de latent_needs ("expressão emocional" → ["expressão","emocional"])
+ * contra haystack curto (keywords/domain).
+ */
+function tokenizeForMatch(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 3 && !TOKENIZE_STOPWORDS.has(t));
+}
+
+/**
+ * Match via tokens (sempre): needle longa quebrada em tokens >3 chars
+ * (sem stopwords) que vão match individualmente contra haystack.
+ *
+ * Evita que stopword na needle (ex: "coisa importante de verdade")
+ * matche trivialmente via substring.
+ */
+function fuzzyMatch(needle: string, haystack: string[]): boolean {
+  const tokens = tokenizeForMatch(needle);
+  if (tokens.length === 0) return false;
+  // Match bidirecional só quando ambos lados têm length >3 — evita
+  // "de" (haystack curto) matchear como substring de "verdade" (tok longo).
+  return tokens.some((tok) =>
+    haystack.some((h) => h.length > 3 && (h.includes(tok) || tok.includes(h))),
+  );
+}
+
 export function evaluateMultiDimMatches(
   item: ContentItem,
   child: ChildScoringProfile,
@@ -385,17 +425,15 @@ export function evaluateMultiDimMatches(
     .filter(Boolean)
     .map((s) => String(s).toLowerCase());
 
-  const interest =
-    (child.interests ?? []).some((i) => {
-      const needle = i.toLowerCase().trim();
-      return needle.length > 0 && haystack.some((h) => h.includes(needle) || needle.includes(h));
-    });
+  // interest: persona.interests OU fallback pra domain_ranking quando vazio
+  const interestSource =
+    child.interests && child.interests.length > 0
+      ? child.interests
+      : Object.keys(child.domain_ranking ?? {});
+  const interest = interestSource.some((i) => fuzzyMatch(i, haystack));
 
-  const need =
-    (child.latent_needs ?? []).some((n) => {
-      const needle = n.toLowerCase().trim();
-      return needle.length > 0 && haystack.some((h) => h.includes(needle) || needle.includes(h));
-    });
+  // need: tokenize latent_needs longos (ex: "expressão emocional")
+  const need = (child.latent_needs ?? []).some((n) => fuzzyMatch(n, haystack));
 
   let lineage = false;
   let movesTowardProposed = false;
