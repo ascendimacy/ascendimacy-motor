@@ -56,6 +56,12 @@ import {
   listBoundaryEvents,
   summarizeBoundariesByCategory,
 } from "./subject-knowledge-repo.js";
+import {
+  readOrComputeJourneyState,
+  setParentalOverride,
+  clearParentalOverride,
+} from "./journey-state-repo.js";
+import type { JourneyStage } from "@ascendimacy/shared";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -525,6 +531,42 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     "/subjects/:id/boundaries/summary",
     async (req) => ({
       summary: summarizeBoundariesByCategory(opts.db, req.params.id),
+    }),
+  );
+
+  // ── Journey State endpoints (Fase 8 PR 1) ────────────────────────
+  // GET /subjects/:id/journey-state — recomputa e retorna estado atual
+  fastify.get<{ Params: { id: string } }>(
+    "/subjects/:id/journey-state",
+    async (req) => ({
+      state: readOrComputeJourneyState(opts.db, req.params.id),
+    }),
+  );
+
+  // POST /subjects/:id/journey-state/override — pai força stage específico
+  fastify.post<{
+    Params: { id: string };
+    Body: { stage: JourneyStage; reason: string };
+  }>("/subjects/:id/journey-state/override", async (req, reply) => {
+    const { stage, reason } = req.body ?? ({} as { stage?: JourneyStage; reason?: string });
+    if (
+      stage !== "discovery_only" &&
+      stage !== "mapping_ready" &&
+      stage !== "applied_double_helix"
+    ) {
+      return reply.code(400).send({ error: "stage inválido" });
+    }
+    if (typeof reason !== "string" || reason.trim().length === 0) {
+      return reply.code(400).send({ error: "reason obrigatório" });
+    }
+    return { state: setParentalOverride(opts.db, req.params.id, stage, reason) };
+  });
+
+  // DELETE /subjects/:id/journey-state/override — remove override
+  fastify.delete<{ Params: { id: string } }>(
+    "/subjects/:id/journey-state/override",
+    async (req) => ({
+      state: clearParentalOverride(opts.db, req.params.id),
     }),
   );
 
