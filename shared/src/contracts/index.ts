@@ -79,6 +79,12 @@ export {
   type CaselDimensionPair,
 } from "./kids-helix-state.js";
 
+export {
+  CRITICAL_REASONS,
+  CriticalReasonSchema,
+  type CriticalReason,
+} from "./critical-reason.js";
+
 // S1 unified read contract (ops#1150) — LearnerSummary schema + type.
 export {
   LearnerSummarySchema,
