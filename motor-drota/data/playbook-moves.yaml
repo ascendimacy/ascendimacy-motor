@@ -1,0 +1,175 @@
+# Playbook Moves Catalog v1 — vocabulário pedagógico do Strategist.
+#
+# Spec: ascendimacy-ops/docs/specs/2026-05-25-session-phases-journey-stages-strategist.md §5
+#
+# Cada move é um verbo pedagógico componível. Strategist compõe sessões
+# selecionando 1-3 moves do catálogo combinados criativamente, ancorados
+# em targets nos mapas multi-framework.
+#
+# v1: 13 moves substantivos cobrindo as 4 SessionPhases.
+# Spec separada (sub-spec): 2026-05-25-playbook-moves-catalog-v1.md (futuro)
+
+version: 1
+
+moves:
+  # ─── ICE_BREAKER (15 min — abrir + descobrir) ──────────────────────
+
+  - id: open_with_interest_probe
+    phase: ice_breaker
+    estimated_minutes: 5
+    framing_template: >-
+      "Tem alguma coisa que tá te interessando agora? Pode ser
+      qualquer coisa — algo que você faz, que aprende, ou que fica
+      na sua cabeça mesmo sem querer."
+    success_signal: sujeito_declarou_interesse_concreto
+    targets:
+      - framework: gardner
+        goal: probe_channel_preference
+    notes: >-
+      Move inaugural por excelência. Discovery agressiva — keyword
+      matching + framework projection sobre a resposta.
+
+  - id: reflect_back
+    phase: ice_breaker
+    estimated_minutes: 2
+    framing_template: '"Deixa eu ver se entendi: {summary}. É isso?"'
+    success_signal: sujeito_confirmou_ou_corrigiu
+    notes: >-
+      Espelha o que sujeito disse pra confirmar entendimento. Útil
+      quando sinal ambíguo ou múltiplas interpretações.
+
+  - id: ask_open_about_routine
+    phase: ice_breaker
+    estimated_minutes: 4
+    framing_template: >-
+      "Como tá sua rotina agora? Tem algo nela que te energiza,
+      e algo que te drena?"
+    success_signal: sujeito_descreveu_aspectos_rotina
+    targets:
+      - framework: casel
+        goal: probe_SA
+    notes: >-
+      Descobre context + sinal de SA/SM via auto-relato.
+
+  - id: validate_emotion_present
+    phase: ice_breaker
+    estimated_minutes: 2
+    framing_template: >-
+      "{emotion_observed} faz sentido nessa situação. Não precisa
+      consertar agora — só registrar."
+    success_signal: sujeito_relaxou_postura_defensiva
+    notes: >-
+      Quando assessor detecta mood baixo / sinal de distress.
+      Sem ação, só reconhecimento. Constrói trust pra futuras fases.
+
+  # ─── CHALLENGE_EXPLAIN (transição — 3-5 min) ────────────────────────
+
+  - id: offer_choice
+    phase: challenge_explain
+    estimated_minutes: 3
+    framing_template: >-
+      "Tenho 2 caminhos pra próxima parte: (a) {choice_a} ou
+      (b) {choice_b}. Qual te interessa mais?"
+    success_signal: sujeito_escolheu_caminho
+    notes: >-
+      Dar agência logo no início da execução. Tradeoffs visíveis
+      = sujeito sente que pilota.
+
+  - id: propose_challenge_anchor
+    phase: challenge_explain
+    estimated_minutes: 4
+    framing_template: >-
+      "Vou propor uma coisa pra fazer: {challenge_description}.
+      Isso conecta com {anchor_to_interest}. Quer experimentar?"
+    success_signal: sujeito_aceitou_ou_negociou
+    notes: >-
+      Apresenta o desafio do bloco execute, ancorado em interesse
+      previamente descoberto. Opt-out explícito.
+
+  # ─── CHALLENGE_EXECUTE (30 min — ação efetiva) ──────────────────────
+
+  - id: propose_dilemma
+    phase: challenge_execute
+    estimated_minutes: 10
+    framing_template: >-
+      "Imagina: {dilemma}. Você escolheria {option_a} ou
+      {option_b}? Por quê?"
+    success_signal: sujeito_escolheu_E_justificou
+    targets:
+      - framework: valores_classicos
+        goal: expose_axis
+    notes: >-
+      Move clássico de demonstração de phronesis / responsabilidade.
+      Justificativa é o sinal de internalização — não a escolha em si.
+
+  - id: request_demonstration_multimodal
+    phase: challenge_execute
+    estimated_minutes: 15
+    framing_template: >-
+      "Me mostra como você faria {action}. Pode ser por foto,
+      áudio, ou descrever em texto — o que for melhor."
+    success_signal: sujeito_demonstrou_action_em_modalidade
+    notes: >-
+      Demonstração multi-modal explícita (texto/imagem/som). Usar
+      quando target é Gardner não-linguistic (bodily, spatial, musical).
+
+  - id: bridge_to_lineage
+    phase: challenge_execute
+    estimated_minutes: 5
+    framing_template: >-
+      "O que você acabou de fazer me lembra de {lineage_name}:
+      {lineage_short_def}. Faz sentido pra você no que falou?"
+    success_signal: sujeito_ressoou_com_lineage
+    targets:
+      - framework: valores_classicos
+        goal: bridge_to_axis
+    notes: >-
+      Ponte tripla — conecta ação do sujeito com complemento clássico
+      do subject_proposed. Strategist puxa lineage do catálogo F4.
+
+  - id: ask_recall
+    phase: challenge_execute
+    estimated_minutes: 2
+    framing_template: '"Lembra daquela ideia de {concept}? O que ficou disso pra você?"'
+    success_signal: sujeito_demonstrou_recall_positivo
+    notes: >-
+      Checagem ativa de internalização (+5pt se positive). Spec §4.5.
+      Usar 1× por sessão em applied_double_helix.
+
+  - id: surface_contradiction
+    phase: challenge_execute
+    estimated_minutes: 6
+    framing_template: >-
+      "Você disse {statement_a}, mas também {statement_b}.
+      Como esses dois ficam juntos pra você?"
+    success_signal: sujeito_articulou_resolução_ou_aceitou_tensão
+    notes: >-
+      Move avançado — exige rapport alto + applied stage. Expõe
+      contradição sem julgamento; sujeito decide se concilia ou
+      reconhece a tensão.
+
+  # ─── FOLLOW_UP (5 min — consolidar) ─────────────────────────────────
+
+  - id: name_what_was_demonstrated
+    phase: follow_up
+    estimated_minutes: 3
+    framing_template: >-
+      "Hoje você {demonstration_observed}. Isso é {label_pedagogico}
+      — não como rótulo, mas como nome do que você tava fazendo."
+    success_signal: sujeito_reconheceu_ou_renomeou
+    notes: >-
+      Nomear a capacidade demonstrada com vocabulário clássico.
+      Permite re-rotulagem pelo sujeito ("eu chamaria de X") —
+      adoção do conceito vira sinal.
+
+  - id: hook_next_session
+    phase: follow_up
+    estimated_minutes: 2
+    framing_template: >-
+      "Na próxima vez, talvez a gente {next_idea}. Topa pensar
+      sobre {open_question} até lá?"
+    success_signal: sujeito_aceitou_gancho_ou_propôs_alternativa
+    notes: >-
+      Fecha com continuidade explícita. Pergunta aberta pendente é
+      gatilho pro motor lembrar na próxima sessão (via cross-session
+      memory do persona-simulator + journey_state).
