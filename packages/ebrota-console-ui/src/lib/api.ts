@@ -106,6 +106,33 @@ export interface SessionLibraryEntry {
   tracePath: string | null;
 }
 
+export interface ReplayScoredItemLike {
+  item?: { id?: string; type?: string; domain?: string; axis_id?: number } & Record<string, unknown>;
+  score?: number;
+  reasons?: string[];
+}
+
+export interface ReplayMotorTraceLike {
+  plan?: {
+    contextHints?: unknown;
+    instruction_addition?: string;
+    strategicRationale?: string;
+    candidateSetEntropy?: number;
+    contentPool?: ReplayScoredItemLike[];
+  };
+  drota?: {
+    selectedContent?: ReplayScoredItemLike;
+    selectionRationale?: string;
+    linguisticMaterialization?: string;
+    subjectKnowledgeEvents?: unknown[];
+  };
+  exec?: {
+    eventLogged?: unknown;
+    newState?: unknown;
+    success?: boolean;
+  };
+}
+
 export interface ReplayTraceTurn {
   turnNumber?: number;
   sessionId?: string;
@@ -113,6 +140,26 @@ export interface ReplayTraceTurn {
   finalResponse?: string;
   timestamp?: string;
   entries?: Array<Record<string, unknown>>;
+
+  // ─── engine x-ray (S-OC-22 follow-up) — read straight from raw trace ────
+  /** Trust level pós-turn (0..1). */
+  trustLevel?: number;
+  /** Budget restante pra sessão (qualquer escala). */
+  budgetRemaining?: number;
+  playbookId?: string;
+  durationMs?: number;
+  /** Razão de skip de card emission, quando aplicável. */
+  cardEmissionSkipReason?: string;
+
+  /** Trace estruturado do motor pipeline (plan / drota / exec). */
+  motorTrace?: ReplayMotorTraceLike;
+
+  /**
+   * Subject Knowledge events emitidos por writers neste turn. Pode estar
+   * no nível do turn (preferido) OU em motorTrace.drota.subjectKnowledgeEvents
+   * (legacy STS schema).
+   */
+  subjectKnowledgeEvents?: unknown[];
 }
 
 export interface ReplayTrace {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { replaySessionId, globalError } from "../lib/stores.js";
   import type { ApiClient, ReplayTrace } from "../lib/api.js";
+  import ReplayTurnDetail from "./ReplayTurnDetail.svelte";
 
   export let api: ApiClient;
 
@@ -113,6 +114,7 @@
                     <p>{turn.finalResponse}</p>
                   </div>
                 {/if}
+                <ReplayTurnDetail {turn} />
               </li>
             {/each}
           </ol>
