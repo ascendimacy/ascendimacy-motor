@@ -167,6 +167,33 @@ export interface ContentItemBase {
   lineage_anchor?: string;
   /** Palavras-chave do conceito pra futura detecção de recall. */
   extracted_keywords?: string[];
+
+  /**
+   * Scorer Objective-Driven sub-fase 5.1 — polaridade pedagógica tríplice.
+   * Spec: 2026-05-26-scorer-objective-driven.md §3.1.
+   *
+   * Item pode ser exemplo POSITIVO de uma virtude (lagarta = +autoconhecimento)
+   * E anti-exemplo de outra (dilema "quem pisou no outro" = -justiça). Anti-
+   * exemplos são pedagogicamente valiosos — discernir o errado treina julgamento
+   * (estoico `praemeditatio malorum`; tragédia aristotélica).
+   *
+   * Campos OPCIONAIS — items legados sem tags funcionam via fallback
+   * `taught_axes ?? [axis_id]`. Sub-fase 5.7 (curadoria) backfilla 30-40 items
+   * principais com tags revisadas manualmente.
+   *
+   * `taught_axes` (sem sufixo) é union helper — quando ausente, consumers
+   * devem computar via `computeTaughtAxes(item)`.
+   */
+  taught_axes_positive?: number[];
+  taught_axes_negative?: number[];
+  taught_axes?: number[];
+
+  /**
+   * Lineage anchors plausíveis — múltiplos quando item ressoa em várias
+   * tradições. Strategist usa pra match com `currentObjectives.lineages`.
+   * Backward compat: se ausente, fallback `[lineage_anchor]` (sub-fase 5.2).
+   */
+  taught_lineages?: string[];
 }
 
 export interface CuriosityHookItem extends ContentItemBase {
@@ -302,4 +329,45 @@ export function isContentItem(value: unknown): value is ContentItem {
     if (!SACRIFICE_TYPES.includes(v.sacrifice_type as SacrificeType)) return false;
   }
   return true;
+}
+
+/**
+ * Scorer Objective-Driven sub-fase 5.1 — union de eixos ensinados.
+ *
+ * Resolução por precedência:
+ *   1. `taught_axes` explícito (curado manualmente) — usa direto
+ *   2. union de `taught_axes_positive ∪ taught_axes_negative`
+ *   3. fallback `[axis_id]` (backward compat com schema pré-sub-fase-5.1)
+ *   4. `[]` quando nenhum dos campos populado
+ *
+ * Garante invariante usado por `coberturaObjetivos` (sub-fase 5.3):
+ *   "todo item tem zero ou mais eixos ensinados; vazio = inelegível pra match".
+ */
+export function computeTaughtAxes(item: ContentItemBase): number[] {
+  if (item.taught_axes && item.taught_axes.length > 0) {
+    return item.taught_axes;
+  }
+  const positive = item.taught_axes_positive ?? [];
+  const negative = item.taught_axes_negative ?? [];
+  if (positive.length > 0 || negative.length > 0) {
+    return Array.from(new Set([...positive, ...negative]));
+  }
+  if (typeof item.axis_id === "number") {
+    return [item.axis_id];
+  }
+  return [];
+}
+
+/**
+ * Mesma resolução pra lineages — `taught_lineages` explícito ou
+ * fallback `[lineage_anchor]`. Vazio quando nenhum.
+ */
+export function computeTaughtLineages(item: ContentItemBase): string[] {
+  if (item.taught_lineages && item.taught_lineages.length > 0) {
+    return item.taught_lineages;
+  }
+  if (item.lineage_anchor) {
+    return [item.lineage_anchor];
+  }
+  return [];
 }
