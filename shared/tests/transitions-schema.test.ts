@@ -128,3 +128,194 @@ describe("evaluateTransition — match_mode AND", () => {
     expect(both.fired).toBe(true);
   });
 });
+
+// ─── BUG-KT-01 fix (ops#1141) — confirmatory_min + consecutive_turns ───────
+
+describe("evaluateTransition — confirmatory_min (DT-A01-02)", () => {
+  const rule: TransitionRule = {
+    required_signals: ["frame_synthesis"],
+    minimum_window_turns: 5,
+    confirmatory_signals: ["meta_cognitive_observation", "voluntary_topic_deepening"],
+    confirmatory_min: 1,
+    match_mode: "AND",
+  };
+
+  it("fired=false quando required match mas confirmatory_min=1 não atingido", () => {
+    const r = evaluateTransition("baia_to_pasto", rule, ["frame_synthesis"], 6);
+    expect(r.fired).toBe(false);
+    expect(r.reason).toContain("confirmatory_min");
+  });
+
+  it("fired=true quando required match + 1 confirmatory presente", () => {
+    const r = evaluateTransition(
+      "baia_to_pasto",
+      rule,
+      ["frame_synthesis", "meta_cognitive_observation"],
+      6,
+    );
+    expect(r.fired).toBe(true);
+    expect(r.confirmatory_matched).toContain("meta_cognitive_observation");
+  });
+
+  it("fired=true quando required match + qualquer 1 dos 2 confirmatory", () => {
+    const r1 = evaluateTransition(
+      "baia_to_pasto",
+      rule,
+      ["frame_synthesis", "voluntary_topic_deepening"],
+      6,
+    );
+    expect(r1.fired).toBe(true);
+  });
+
+  it("confirmatory_min default = 0 (backward compat — confirmatory não bloqueia)", () => {
+    const ruleNoMin: TransitionRule = {
+      required_signals: ["a"],
+      minimum_window_turns: 0,
+      confirmatory_signals: ["c"],
+      // confirmatory_min not set
+    };
+    const r = evaluateTransition("t", ruleNoMin, ["a"], 0);
+    expect(r.fired).toBe(true);
+  });
+
+  it("confirmatory_min=2 exige 2 of N confirmatory", () => {
+    const ruleStrict: TransitionRule = {
+      required_signals: ["a"],
+      minimum_window_turns: 0,
+      confirmatory_signals: ["c1", "c2", "c3"],
+      confirmatory_min: 2,
+    };
+    const oneOnly = evaluateTransition("t", ruleStrict, ["a", "c1"], 0);
+    expect(oneOnly.fired).toBe(false);
+    const twoOk = evaluateTransition("t", ruleStrict, ["a", "c1", "c2"], 0);
+    expect(twoOk.fired).toBe(true);
+  });
+});
+
+describe("evaluateTransition — consecutive_turns (DT-A01-03)", () => {
+  const rule: TransitionRule = {
+    required_signals: ["distress_marker_high", "gatekeeper_resistance"],
+    minimum_window_turns: 0,
+    confirmatory_signals: [],
+    match_mode: "OR",
+    consecutive_turns: 2,
+  };
+
+  it("fired=false quando signal aparece em 1 turn apenas (flat — sem signalsPerTurn)", () => {
+    const r = evaluateTransition(
+      "regression_pasto_to_baia",
+      rule,
+      ["distress_marker_high"],
+      0,
+    );
+    expect(r.fired).toBe(false);
+    expect(r.reason).toContain("consecutive_turns");
+  });
+
+  it("fired=false quando signalsPerTurn tem distress em apenas 1 dos últimos 2 turns", () => {
+    const r = evaluateTransition(
+      "regression_pasto_to_baia",
+      rule,
+      ["distress_marker_high"],
+      0,
+      [["mood_drift_up"], ["distress_marker_high"]],
+    );
+    expect(r.fired).toBe(false);
+    expect(r.reason).toContain("consecutive");
+  });
+
+  it("fired=true quando signal aparece em 2 turns CONSECUTIVOS no final", () => {
+    const r = evaluateTransition(
+      "regression_pasto_to_baia",
+      rule,
+      ["distress_marker_high"],
+      0,
+      [["mood_drift_up"], ["distress_marker_high"], ["gatekeeper_resistance"]],
+    );
+    expect(r.fired).toBe(true);
+  });
+
+  it("fired=false quando signalsPerTurn tem menos turns que consecutive_turns", () => {
+    const r = evaluateTransition(
+      "regression_pasto_to_baia",
+      rule,
+      ["distress_marker_high"],
+      0,
+      [["distress_marker_high"]],
+    );
+    expect(r.fired).toBe(false);
+  });
+
+  it("consecutive_turns NÃO definido = comportamento legacy (signal em qualquer turn)", () => {
+    const ruleLegacy: TransitionRule = {
+      required_signals: ["a"],
+      minimum_window_turns: 0,
+      confirmatory_signals: [],
+      // consecutive_turns not set
+    };
+    const r = evaluateTransition("t", ruleLegacy, ["a"], 0);
+    expect(r.fired).toBe(true);
+  });
+});
+
+describe("parseTransitionsConfig — novos campos opcionais (BUG-KT-01)", () => {
+  it("aceita confirmatory_min como number", () => {
+    const c = parseTransitionsConfig({
+      profile_id: "kids",
+      schema_version: "v0.3",
+      transitions: {
+        baia_to_pasto: {
+          required_signals: ["frame_synthesis"],
+          minimum_window_turns: 5,
+          confirmatory_signals: ["meta_cognitive_observation"],
+          confirmatory_min: 1,
+          match_mode: "AND",
+        },
+      },
+    });
+    expect(c.transitions.baia_to_pasto!.confirmatory_min).toBe(1);
+  });
+
+  it("aceita consecutive_turns como number positivo", () => {
+    const c = parseTransitionsConfig({
+      profile_id: "kids",
+      schema_version: "v0.3",
+      transitions: {
+        regression_pasto_to_baia: {
+          required_signals: ["distress_marker_high"],
+          minimum_window_turns: 0,
+          consecutive_turns: 2,
+        },
+      },
+    });
+    expect(c.transitions.regression_pasto_to_baia!.consecutive_turns).toBe(2);
+  });
+
+  it("rejeita consecutive_turns negativo ou zero", () => {
+    expect(() =>
+      parseTransitionsConfig({
+        profile_id: "kids",
+        schema_version: "v0.3",
+        transitions: {
+          bad: {
+            required_signals: ["a"],
+            minimum_window_turns: 0,
+            consecutive_turns: 0,
+          },
+        },
+      }),
+    ).toThrow();
+  });
+
+  it("backward compat — config sem novos campos ainda parseia", () => {
+    const c = parseTransitionsConfig({
+      profile_id: "test",
+      schema_version: "v0",
+      transitions: {
+        t1: { required_signals: ["a"], minimum_window_turns: 0 },
+      },
+    });
+    expect(c.transitions.t1!.confirmatory_min).toBe(0);
+    expect(c.transitions.t1!.consecutive_turns).toBeUndefined();
+  });
+});

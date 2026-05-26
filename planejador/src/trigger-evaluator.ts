@@ -65,21 +65,34 @@ export function resetTransitionsConfigCache(): void {
  *
  * v0: caller emite events transition_evaluated mas NÃO move statusMatrix.
  *
+ * BUG-KT-01 (ops#1141): signalsPerTurn opcional — necessário pra transições
+ * com `consecutive_turns` definido. Quando ausente, transições que exigem
+ * consecutive_turns retornam fired=false. Para suportar regressões com persistência,
+ * caller deve usar `collectRecentSignalsPerTurn` em vez de `collectRecentSignals`.
+ *
  * @param profileId perfil (kids, eprumo, drota-corp, ...)
  * @param signalsObserved signals únicos das últimas N turns (já deduped)
  * @param turnsSinceLastTransition mínima janela em turns no estado atual
+ * @param signalsPerTurn (opcional) signals por turno em ordem cronológica
  */
 export function evaluateAllTransitions(
   profileId: string,
   signalsObserved: string[],
   turnsSinceLastTransition: number,
+  signalsPerTurn?: string[][],
 ): TransitionEvaluationResult[] {
   const config = loadTransitionsConfig(profileId);
   if (!config) return [];
   const results: TransitionEvaluationResult[] = [];
   for (const [name, rule] of Object.entries(config.transitions)) {
     results.push(
-      evaluateTransition(name, rule, signalsObserved, turnsSinceLastTransition),
+      evaluateTransition(
+        name,
+        rule,
+        signalsObserved,
+        turnsSinceLastTransition,
+        signalsPerTurn,
+      ),
     );
   }
   return results;
@@ -108,4 +121,26 @@ export function collectRecentSignals(
     }
   }
   return Array.from(new Set(all));
+}
+
+/**
+ * BUG-KT-01 (ops#1141): variante per-turn de collectRecentSignals.
+ *
+ * Retorna lista de listas — uma por turno — preservando estrutura cronológica.
+ * Necessária pra transições com `consecutive_turns` (regressões com persistência).
+ *
+ * @returns string[][] em ordem cronológica (último = turno mais recente)
+ */
+export function collectRecentSignalsPerTurn(
+  eventLog: Array<{ type: string; data: Record<string, unknown> }>,
+  lookbackTurns: number = 5,
+): string[][] {
+  const signalEvents = eventLog
+    .filter((e) => e.type === "signals_extracted")
+    .slice(-lookbackTurns);
+  return signalEvents.map((ev) => {
+    const data = ev.data as { signals?: unknown };
+    if (!Array.isArray(data.signals)) return [];
+    return data.signals.filter((s): s is string => typeof s === "string");
+  });
 }
