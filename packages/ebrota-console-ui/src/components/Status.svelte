@@ -7,6 +7,7 @@
     discoveriesPanelOpen,
     journeyPanelOpen,
     libraryOpen,
+    llmXrayPanelOpen,
     mapsPanelOpen,
   } from "../lib/stores.js";
   import type { ApiClient } from "../lib/api.js";
@@ -125,6 +126,17 @@
     title="Descobertas + boundaries"
   >
     🔍 Descobertas
+  </button>
+
+  <button
+    type="button"
+    class="tracer-toggle"
+    class:active={$llmXrayPanelOpen}
+    on:click={() => llmXrayPanelOpen.update((o) => !o)}
+    data-testid="llm-xray-toggle"
+    title="LLM x-ray — drill em engineTrace.llm_calls[] do turno"
+  >
+    🔬 LLM x-ray
   </button>
 
   <button
