@@ -29,13 +29,34 @@
   $: skEvents = (turn.subjectKnowledgeEvents ??
     drota.subjectKnowledgeEvents ??
     []) as Array<Record<string, unknown>>;
+
+  // ─── v2 engine trace (sub-fase TV2-6) ──────────────────────────────────
+  $: engineV2 = turn.engineTrace;
+  $: hasV2 = engineV2 !== undefined;
+  $: v2StateDiff = engineV2?.state_diff;
+  $: v2Components = engineV2?.components ?? {};
+  $: v2SkWrites = engineV2?.subject_knowledge_writes ?? [];
+  $: v2Warnings = engineV2?.warnings ?? [];
+
   $: hasEngineData =
+    hasV2 ||
     pool.length > 0 ||
     selected !== null ||
     skEvents.length > 0 ||
     plan.strategicRationale !== undefined ||
     plan.instruction_addition !== undefined ||
     exec.eventLogged !== undefined;
+
+  function fmtDelta(d: number | undefined): string {
+    if (typeof d !== "number") return "?";
+    const sign = d > 0 ? "+" : "";
+    return `${sign}${d.toFixed(2)}`;
+  }
+
+  function joinSignals(s: string[] | undefined): string {
+    if (!s || s.length === 0) return "(none)";
+    return s.join(", ");
+  }
 
   function fmtScore(s: number | undefined): string {
     if (typeof s !== "number") return "?";
@@ -101,11 +122,247 @@
         {#if pool.length > 0}
           <span class="badge pool">{pool.length} pool</span>
         {/if}
+        {#if hasV2}
+          <span class="badge v2" data-testid="v2-badge">v2</span>
+        {/if}
       </span>
     </button>
 
     {#if expanded}
       <div class="sections">
+        {#if hasV2}
+          <section class="v2" data-testid="v2-section">
+            <h4>🆕 v2 engine trace</h4>
+            {#if turn.motorTrace !== undefined}
+              <p class="v2-note" data-testid="v2-coexist-note">
+                v2 engine trace available — v1 motorTrace abaixo permanece como fallback.
+              </p>
+            {/if}
+
+            {#if v2StateDiff}
+              <div class="v2-state-diff" data-testid="v2-state-diff">
+                <strong>state diff:</strong>
+                <span class="badges">
+                  {#if v2StateDiff.trust_delta !== undefined && v2StateDiff.trust_delta !== 0}
+                    <span class="badge" data-testid="v2-trust-delta"
+                      >Δtrust={fmtDelta(v2StateDiff.trust_delta)}</span
+                    >
+                  {/if}
+                  {#if v2StateDiff.budget_delta !== undefined && v2StateDiff.budget_delta !== 0}
+                    <span class="badge" data-testid="v2-budget-delta"
+                      >Δbudget={fmtDelta(v2StateDiff.budget_delta)}</span
+                    >
+                  {/if}
+                  {#if v2StateDiff.journey_stage_transition}
+                    <span class="badge journey" data-testid="v2-journey-transition">
+                      journey: {v2StateDiff.journey_stage_transition.from} →
+                      {v2StateDiff.journey_stage_transition.to}
+                    </span>
+                  {/if}
+                  {#if v2StateDiff.helix_advance}
+                    <span class="badge helix" data-testid="v2-helix-advance">
+                      helix
+                      {#if v2StateDiff.helix_advance.dimension_changed}·dim{/if}
+                      {#if v2StateDiff.helix_advance.level_changed}·lvl{/if}
+                      {#if v2StateDiff.helix_advance.cycle_completed}·cycle{/if}
+                    </span>
+                  {/if}
+                  {#if v2StateDiff.session_phase_transition}
+                    <span class="badge phase" data-testid="v2-phase-transition">
+                      phase: {v2StateDiff.session_phase_transition.from} →
+                      {v2StateDiff.session_phase_transition.to}
+                    </span>
+                  {/if}
+                  {#if v2StateDiff.subject_knowledge_added_count !== undefined && v2StateDiff.subject_knowledge_added_count > 0}
+                    <span class="badge sk" data-testid="v2-sk-added"
+                      >+{v2StateDiff.subject_knowledge_added_count} sk</span
+                    >
+                  {/if}
+                </span>
+              </div>
+            {/if}
+
+            {#if v2Components.unified_assessor}
+              {@const a = v2Components.unified_assessor}
+              <details class="v2-comp" data-testid="v2-comp-assessor">
+                <summary>🧪 assessor</summary>
+                <div class="v2-comp-body">
+                  {#if a.outputs?.mood !== undefined}
+                    <p><strong>mood:</strong> <code>{a.outputs.mood.toFixed(2)}</code></p>
+                  {/if}
+                  {#if a.mood_method}
+                    <p><strong>method:</strong> <code>{a.mood_method}</code></p>
+                  {/if}
+                  {#if a.outputs?.engagement}
+                    <p><strong>engagement:</strong> <code>{a.outputs.engagement}</code></p>
+                  {/if}
+                  <p><strong>signals:</strong> {joinSignals(a.outputs?.signals)}</p>
+                  {#if a.duration_ms !== undefined}
+                    <p class="muted-row"><code>{fmtMs(a.duration_ms)}</code></p>
+                  {/if}
+                </div>
+              </details>
+            {/if}
+
+            {#if v2Components.planejador}
+              {@const p = v2Components.planejador}
+              <details class="v2-comp" data-testid="v2-comp-planejador">
+                <summary>🧠 planejador</summary>
+                <div class="v2-comp-body">
+                  {#if p.outputs?.strategicRationale}
+                    <p><strong>rationale:</strong> {p.outputs.strategicRationale}</p>
+                  {/if}
+                  {#if p.outputs?.candidateSetEntropy !== undefined}
+                    <p>
+                      <strong>entropy:</strong>
+                      <code>{p.outputs.candidateSetEntropy.toFixed(3)}</code>
+                    </p>
+                  {/if}
+                  {#if p.triageDecision}
+                    <p>
+                      <strong>triage:</strong>
+                      <code>{p.triageDecision.route ?? "?"}</code>
+                      — {p.triageDecision.reason ?? ""}
+                    </p>
+                  {/if}
+                  {#if p.duration_ms !== undefined}
+                    <p class="muted-row"><code>{fmtMs(p.duration_ms)}</code></p>
+                  {/if}
+                </div>
+              </details>
+            {/if}
+
+            {#if v2Components.strategist}
+              {@const s = v2Components.strategist}
+              <details class="v2-comp" data-testid="v2-comp-strategist">
+                <summary>🎯 strategist</summary>
+                <div class="v2-comp-body">
+                  {#if s.inputs?.journey_stage}
+                    <p>
+                      <strong>journey_stage:</strong>
+                      <code>{s.inputs.journey_stage}</code>
+                    </p>
+                  {/if}
+                  <p>
+                    <strong>target_demos:</strong>
+                    {(s.outputs?.target_demonstrations ?? []).length}
+                  </p>
+                  {#if s.composition_method}
+                    <p>
+                      <strong>method:</strong>
+                      <code>{s.composition_method}</code>
+                    </p>
+                  {/if}
+                  {#if s.duration_ms !== undefined}
+                    <p class="muted-row"><code>{fmtMs(s.duration_ms)}</code></p>
+                  {/if}
+                </div>
+              </details>
+            {/if}
+
+            {#if v2Components.pragmatic_selector}
+              {@const sel = v2Components.pragmatic_selector}
+              <details class="v2-comp" data-testid="v2-comp-selector">
+                <summary>🎲 pragmatic_selector</summary>
+                <div class="v2-comp-body">
+                  {#if sel.outputs?.selected_id}
+                    <p>
+                      <strong>selected:</strong>
+                      <code>{sel.outputs.selected_id}</code>
+                    </p>
+                  {/if}
+                  {#if sel.filters_applied && sel.filters_applied.length > 0}
+                    <p><strong>filters_applied:</strong></p>
+                    <ul class="v2-filters">
+                      {#each sel.filters_applied as f}
+                        <li>
+                          <code>{f.name}</code>
+                          {#if f.items_removed && f.items_removed.length > 0}
+                            — removed {f.items_removed.length}
+                          {/if}
+                          {#if f.reason}<span class="muted-row"> ({f.reason})</span>{/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                  {#if sel.duration_ms !== undefined}
+                    <p class="muted-row"><code>{fmtMs(sel.duration_ms)}</code></p>
+                  {/if}
+                </div>
+              </details>
+            {/if}
+
+            {#if v2Components.constrained_materializer}
+              {@const m = v2Components.constrained_materializer}
+              <details class="v2-comp" data-testid="v2-comp-materializer">
+                <summary>✍️ constrained_materializer</summary>
+                <div class="v2-comp-body">
+                  {#if m.inputs?.selected_item_id}
+                    <p>
+                      <strong>item_id:</strong>
+                      <code>{m.inputs.selected_item_id}</code>
+                    </p>
+                  {/if}
+                  {#if m.stable_prefix_hash}
+                    <p>
+                      <strong>stable_prefix_hash:</strong>
+                      <code class="hash">{m.stable_prefix_hash}</code>
+                    </p>
+                  {/if}
+                  {#if m.llm_call_ref}
+                    <p>
+                      <strong>llm_call_ref:</strong>
+                      <code>{m.llm_call_ref}</code>
+                    </p>
+                  {/if}
+                  {#if m.duration_ms !== undefined}
+                    <p class="muted-row"><code>{fmtMs(m.duration_ms)}</code></p>
+                  {/if}
+                </div>
+              </details>
+            {/if}
+
+            {#if v2SkWrites.length > 0}
+              <div class="v2-sk-writes" data-testid="v2-sk-writes">
+                <h5>🔍 Subject Knowledge writes ({v2SkWrites.length})</h5>
+                <ul>
+                  {#each v2SkWrites as w}
+                    <li>
+                      <span
+                        class="badge"
+                        style="background: {eventBadge(w.type)}; color: white"
+                        >{w.type}</span
+                      >
+                      {#if w.writer}
+                        <span class="muted-row">writer=<code>{w.writer}</code></span>
+                      {/if}
+                      {#if w.triggered_by}
+                        <span class="muted-row"
+                          >triggered_by=<code>{w.triggered_by}</code></span
+                        >
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+
+            {#if v2Warnings.length > 0}
+              <div class="v2-warnings" data-testid="v2-warnings">
+                <h5>⚠️ warnings ({v2Warnings.length})</h5>
+                <ul>
+                  {#each v2Warnings as w}
+                    <li>
+                      <span class="badge warn">{w.component}</span>
+                      <span class="warn-msg">{w.message}</span>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+          </section>
+        {/if}
+
         {#if plan.strategicRationale || plan.instruction_addition || plan.candidateSetEntropy !== undefined}
           <section class="plan">
             <h4>🧠 Plan</h4>
@@ -368,5 +625,103 @@
   .card-skip {
     color: #b00020;
     font-size: 0.75rem;
+  }
+  /* ── v2 engine trace (TV2-6) ──────────────────────────────────────── */
+  .badge.v2 {
+    background: rgba(0, 121, 107, 0.25);
+    color: #00695c;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge.journey { background: rgba(123, 31, 162, 0.22); }
+  .badge.helix { background: rgba(245, 124, 0, 0.22); }
+  .badge.phase { background: rgba(46, 125, 50, 0.22); }
+  .badge.warn {
+    background: rgba(183, 28, 28, 0.18);
+    color: #b71c1c;
+    font-weight: 600;
+  }
+  .v2 .v2-note {
+    font-style: italic;
+    opacity: 0.75;
+    font-size: 0.72rem;
+    margin: 0 0 0.3rem 0;
+  }
+  .v2-state-diff {
+    margin: 0.2rem 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .v2-state-diff .badges {
+    margin-left: 0;
+  }
+  .v2-comp {
+    margin: 0.2rem 0;
+    padding: 0.15rem 0;
+  }
+  .v2-comp > summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    opacity: 0.85;
+  }
+  .v2-comp-body {
+    padding: 0.2rem 0 0.2rem 1rem;
+  }
+  .v2-comp-body p {
+    margin: 0.1rem 0;
+    font-size: 0.78rem;
+  }
+  .v2-filters {
+    list-style: none;
+    margin: 0.15rem 0;
+    padding: 0 0 0 1rem;
+    font-size: 0.75rem;
+  }
+  .v2-filters li {
+    padding: 0.1rem 0;
+  }
+  .muted-row {
+    opacity: 0.6;
+    font-size: 0.7rem;
+  }
+  .hash {
+    font-size: 0.7rem;
+    word-break: break-all;
+  }
+  .v2-sk-writes,
+  .v2-warnings {
+    margin-top: 0.5rem;
+  }
+  .v2-sk-writes h5,
+  .v2-warnings h5 {
+    margin: 0 0 0.3rem 0;
+    font-size: 0.78rem;
+  }
+  .v2-sk-writes ul,
+  .v2-warnings ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .v2-sk-writes li,
+  .v2-warnings li {
+    padding: 0.15rem 0;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+  }
+  .v2-sk-writes .badge {
+    padding: 0.05rem 0.4rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .warn-msg {
+    color: #b71c1c;
   }
 </style>
