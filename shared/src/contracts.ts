@@ -105,6 +105,23 @@ export interface EvaluateAndSelectOutput {
    * Undefined no fluxo antigo (backward compat).
    */
   subjectKnowledgeEvents?: import("./subject-knowledge.js").SubjectKnowledgeEntry[];
+  /**
+   * Fase 8 PR 2: resolved session state (phase + journey_stage + elapsed).
+   * Propagado pro trace pra Console UI Mapa de Jornada (F6) consumir.
+   */
+  sessionState?: {
+    phase: import("./session-phases.js").SessionPhase;
+    journey_stage: import("./session-phases.js").JourneyStage;
+    elapsed_minutes_estimate: number;
+    minutes_until_next_phase: number;
+  };
+  /**
+   * Fase 8 PR 3: StrategyPlan composto pelo Strategist quando
+   * journey_stage = applied_double_helix. Apenas no início da sessão
+   * (turn baixo / challenge_explain); turns subsequentes referenciam o
+   * mesmo plan via session_id.
+   */
+  strategyPlan?: import("./strategy-plan.js").StrategyPlan;
 }
 
 export interface ExecutePlaybookInput {

@@ -33,6 +33,17 @@ export interface DiscoveryWriterInput {
   signals?: string[];
   /** Mood opcional pra calibrar confidence. */
   mood?: number;
+  /**
+   * PR 2 tracer — threshold de confidence ajustável por fase.
+   * Entries com confidence < minConfidence são suprimidas.
+   * Default: 0 (sem filtro — preserva comportamento atual).
+   *
+   * Uso típico:
+   *  - ice_breaker → 0.4 (agressivo, captura sinais frágeis)
+   *  - challenge_execute → 0.6 (normal)
+   *  - follow_up → 0.7 (conservador, só sinais fortes)
+   */
+  minConfidence?: number;
 }
 
 const INTEREST_PATTERNS: Array<{ re: RegExp; intensity: "low" | "mid" | "high" }> = [
@@ -141,6 +152,10 @@ export function extractDiscoveries(
     }
   }
 
+  // PR 2 tracer — filtra por threshold de confidence quando aplicado.
+  if (input.minConfidence !== undefined && input.minConfidence > 0) {
+    return out.filter((e) => e.confidence >= input.minConfidence!);
+  }
   return out;
 }
 

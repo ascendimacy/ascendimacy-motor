@@ -60,7 +60,17 @@ import {
   computeMapPositions,
   listFrameworks,
   type SubjectKnowledgeEntry,
+  type JourneyStage,
 } from "@ascendimacy/shared";
+import {
+  readOrComputeJourneyState,
+  setParentalOverride,
+  clearParentalOverride,
+} from "./journey-state-repo.js";
+import {
+  getStrategyPlan,
+  listStrategyPlansBySubject,
+} from "./strategy-plan-repo.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -595,6 +605,66 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
         entries: skEntries,
         ...(frameworkIds ? { frameworkIds } : {}),
       }),
+    };
+  });
+
+  // ── Journey State endpoints (Fase 8 PR 1) ────────────────────────
+  // GET /subjects/:id/journey-state — recomputa e retorna estado atual
+  fastify.get<{ Params: { id: string } }>(
+    "/subjects/:id/journey-state",
+    async (req) => ({
+      state: readOrComputeJourneyState(opts.db, req.params.id),
+    }),
+  );
+
+  // POST /subjects/:id/journey-state/override — pai força stage específico
+  fastify.post<{
+    Params: { id: string };
+    Body: { stage: JourneyStage; reason: string };
+  }>("/subjects/:id/journey-state/override", async (req, reply) => {
+    const { stage, reason } = req.body ?? ({} as { stage?: JourneyStage; reason?: string });
+    if (
+      stage !== "discovery_only" &&
+      stage !== "mapping_ready" &&
+      stage !== "applied_double_helix"
+    ) {
+      return reply.code(400).send({ error: "stage inválido" });
+    }
+    if (typeof reason !== "string" || reason.trim().length === 0) {
+      return reply.code(400).send({ error: "reason obrigatório" });
+    }
+    return { state: setParentalOverride(opts.db, req.params.id, stage, reason) };
+  });
+
+  // DELETE /subjects/:id/journey-state/override — remove override
+  fastify.delete<{ Params: { id: string } }>(
+    "/subjects/:id/journey-state/override",
+    async (req) => ({
+      state: clearParentalOverride(opts.db, req.params.id),
+    }),
+  );
+
+  // ── StrategyPlan endpoints (Fase 8 PR 3) ─────────────────────────
+  // GET /sessions/:id/strategy-plan — plan composto pra esta sessão
+  fastify.get<{ Params: { id: string } }>(
+    "/sessions/:id/strategy-plan",
+    async (req, reply) => {
+      const plan = getStrategyPlan(opts.db, req.params.id);
+      if (!plan) {
+        return reply.code(404).send({ error: "strategy_plan não encontrado" });
+      }
+      return { plan };
+    },
+  );
+
+  // GET /subjects/:id/strategy-plans — histórico recente
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { limit?: string };
+  }>("/subjects/:id/strategy-plans", async (req) => {
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+    return {
+      plans: listStrategyPlansBySubject(opts.db, req.params.id, limit ?? 20),
     };
   });
 
