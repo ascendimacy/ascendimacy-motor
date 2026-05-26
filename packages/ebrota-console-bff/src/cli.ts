@@ -22,7 +22,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { initDb } from "./db.js";
 import { createBffServer } from "./server.js";
-import { createMockDaemonClient } from "./daemon-client.js";
+import {
+  createMockDaemonClient,
+  createStdioDaemonClient,
+} from "./daemon-client.js";
 import { scanTraces } from "./traces-scanner.js";
 import type { ConsoleMode } from "./types.js";
 
@@ -41,6 +44,12 @@ const initialMode: ConsoleMode =
 const useMockDaemon =
   (process.env["EBROTA_BFF_USE_MOCK_DAEMON"] ?? "true") !== "false";
 
+// Caminho pro binary do daemon (C-MX-07). Pode ser sobrescrito via env var.
+// Default: ../motor-daemon/dist/cli.js relativo ao BFF dist/.
+const daemonBin =
+  process.env["EBROTA_BFF_DAEMON_BIN"] ??
+  resolve(join(__dirname, "../../motor-daemon/dist/cli.js"));
+
 const log = (msg: string): void => {
   process.stderr.write(`[ebrota-console-bff] ${msg}\n`);
 };
@@ -53,20 +62,14 @@ log(`mode: ${initialMode}`);
 if (useMockDaemon) {
   log("⚠️  EBROTA_BFF_USE_MOCK_DAEMON=true — using in-memory mock daemon");
   log("   (set EBROTA_BFF_USE_MOCK_DAEMON=false when C-MX-07 daemon merged)");
+} else {
+  log(`daemon bin: ${daemonBin}`);
 }
 
 const db = initDb({ dbPath });
 const daemon = useMockDaemon
   ? createMockDaemonClient()
-  : (() => {
-      // Production stdio impl vira PR seguinte. Pra V0.1 PR2, sai com
-      // erro explícito se EBROTA_BFF_USE_MOCK_DAEMON=false ainda.
-      throw new Error(
-        "Stdio daemon client não implementado em PR2 — ship em PR seguinte " +
-          "após C-MX-07 mergeado. Use EBROTA_BFF_USE_MOCK_DAEMON=true ou " +
-          "deixe unset (default mock).",
-      );
-    })();
+  : createStdioDaemonClient(daemonBin);
 
 const server = createBffServer({
   daemon,

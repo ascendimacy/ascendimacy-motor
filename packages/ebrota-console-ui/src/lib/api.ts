@@ -347,6 +347,8 @@ export interface ApiClient {
   startCardSession(
     input: StartCardSessionRequest,
   ): Promise<StartCardSessionOutput>;
+  /** Retorna sessionIds de sessões atualmente ativas no BFF (Fix 3). */
+  getActiveSessions(): Promise<{ sessionIds: string[] }>;
   listOptions(
     sessionId: string,
   ): Promise<{ contentPool: ScoredContentItemSummary[] }>;
@@ -501,6 +503,8 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     setMode: (mode) => post<{ mode: ConsoleMode }>("/mode", { mode }),
     startCardSession: (input) =>
       post<StartCardSessionOutput>("/sessions/start-card", input),
+    getActiveSessions: () =>
+      get<{ sessionIds: string[] }>("/sessions/active"),
     listOptions: (sessionId) =>
       get<{ contentPool: ScoredContentItemSummary[] }>(
         `/sessions/${encodeURIComponent(sessionId)}/options`,
