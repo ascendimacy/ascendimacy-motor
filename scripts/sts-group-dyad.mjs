@@ -59,6 +59,9 @@ const ENDPOINT =
   process.env.LLM_LOCAL_ENDPOINT ??
   "http://172.28.160.1:9000/v1/chat/completions";
 const MODEL = process.env.LLM_LOCAL_MODEL ?? "qwen3-30b";
+// Bearer token opcional — necessário para Copilot/GitHub Models (remoto).
+// Deixe unset para Qwen3 local (sem auth).
+const AUTH_BEARER = process.env.LLM_LOCAL_AUTH_BEARER ?? "";
 
 // ─── Personas ────────────────────────────────────────────────────────────
 const PERSONAS = {
@@ -80,12 +83,14 @@ const PERSONAS = {
   },
 };
 
-// ─── Qwen3 call ───────────────────────────────────────────────────────────
+// ─── LLM call (OpenAI-compat — Qwen3 local ou Copilot remoto) ────────────
 async function callQwen3(systemPrompt, userMessage, maxTokens = 300) {
   const t0 = Date.now();
+  const headers = { "Content-Type": "application/json" };
+  if (AUTH_BEARER) headers["Authorization"] = `Bearer ${AUTH_BEARER}`;
   const resp = await fetch(ENDPOINT, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       model: MODEL,
       messages: [

@@ -39,6 +39,9 @@ const ENDPOINT =
   process.env.LLM_LOCAL_ENDPOINT ??
   "http://172.28.160.1:9000/v1/chat/completions";
 const MODEL = process.env.LLM_LOCAL_MODEL ?? "qwen3-30b";
+// Bearer token opcional — necessário para Copilot/GitHub Models (remoto).
+// Deixe unset para Qwen3 local (sem auth).
+const AUTH_BEARER = process.env.LLM_LOCAL_AUTH_BEARER ?? "";
 
 let pass = 0;
 let fail = 0;
@@ -63,9 +66,11 @@ async function callQwen3(systemPrompt, userMessage) {
     max_tokens: 600, // drota output é JSON pequeno (~200-400 tokens)
     temperature: 0.7,
   };
+  const headers = { "Content-Type": "application/json" };
+  if (AUTH_BEARER) headers["Authorization"] = `Bearer ${AUTH_BEARER}`;
   const resp = await fetch(ENDPOINT, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(2_400_000), // 10min — prompt processing + gen pode passar 5min
   });
@@ -83,13 +88,15 @@ async function callQwen3(systemPrompt, userMessage) {
 async function probeQwen3() {
   const probe = ENDPOINT.replace("/chat/completions", "/models");
   console.log(`[smoke] Probing ${probe}...`);
+  const headers = {};
+  if (AUTH_BEARER) headers["Authorization"] = `Bearer ${AUTH_BEARER}`;
   try {
-    const r = await fetch(probe, { signal: AbortSignal.timeout(5000) });
+    const r = await fetch(probe, { headers, signal: AbortSignal.timeout(5000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const j = await r.json();
-    console.log(`  ✓ Qwen3 up (models: ${(j.models ?? j.data ?? []).map((m) => m.name ?? m.id).join(", ")})`);
+    console.log(`  ✓ LLM up (models: ${(j.models ?? j.data ?? []).map((m) => m.name ?? m.id).join(", ")})`);
   } catch (err) {
-    throw new Error(`Qwen3 offline em ${probe}: ${err.message}\nStart llama.cpp SYCL stack first (llama-qwen3-30b.bat no Windows).`);
+    throw new Error(`LLM offline em ${probe}: ${err.message}\nStart llama.cpp SYCL stack first (llama-qwen3-30b.bat no Windows) ou configure LLM_LOCAL_AUTH_BEARER para Copilot.`);
   }
 }
 
