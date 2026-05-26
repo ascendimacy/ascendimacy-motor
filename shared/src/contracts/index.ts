@@ -79,6 +79,12 @@ export {
   type CaselDimensionPair,
 } from "./kids-helix-state.js";
 
+// S1 unified read contract (ops#1150) — LearnerSummary schema + type.
+export {
+  LearnerSummarySchema,
+  type LearnerSummary,
+} from "./learner-summary.js";
+
 // Trio runtime engine (ops#1086) — types puros; lógica em
 // orchestrator/src/trio-runtime.ts. Doctrine §10 + §11 dinamicas-grupo.
 export {
