@@ -12,6 +12,8 @@
   import JourneyPanel from "./components/JourneyPanel.svelte";
   import MapsPanel from "./components/MapsPanel.svelte";
   import DiscoveriesPanel from "./components/DiscoveriesPanel.svelte";
+  import StrategistPanel from "./components/StrategistPanel.svelte";
+  import HelixPanel from "./components/HelixPanel.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -104,6 +106,8 @@
   <JourneyPanel {api} />
   <MapsPanel {api} />
   <DiscoveriesPanel {api} />
+  <StrategistPanel {api} />
+  <HelixPanel {api} />
 
   <footer>
     <p class="muted">

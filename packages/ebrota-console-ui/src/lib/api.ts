@@ -231,6 +231,17 @@ export interface ApiClient {
     subjectId: string,
     frameworkIds?: string[],
   ): Promise<{ maps: SubjectMapLike }>;
+
+  // ─── Strategist (Fase 8 PR 3) ───────────────────────────────────
+  /** Plan composto pra uma sessão. 404 quando não existe. */
+  getSessionStrategyPlan(
+    sessionId: string,
+  ): Promise<{ plan: StrategyPlanLike } | { error: string }>;
+  /** Histórico recente de StrategyPlans do sujeito. */
+  listSubjectStrategyPlans(
+    subjectId: string,
+    opts?: { limit?: number },
+  ): Promise<{ plans: StrategyPlanLike[] }>;
 }
 
 export interface SubjectKnowledgeEntryLike {
@@ -272,6 +283,32 @@ export interface SubjectMapLike {
   subject_id: string;
   computed_at: string;
   positions: Record<string, Record<string, unknown>>;
+}
+
+export interface TargetDemonstrationLike {
+  framework: string;
+  dimension: string;
+  goal: "expose" | "explore" | "challenge" | "consolidate";
+  rationale: string;
+}
+
+export interface PlaybookCompositionStepLike {
+  move_id: string;
+  phase: string;
+  estimated_minutes: number;
+  content_inputs?: string[];
+  success_signal: string;
+}
+
+export interface StrategyPlanLike {
+  session_id: string;
+  subject_id: string;
+  composed_at: string;
+  target_demonstrations: TargetDemonstrationLike[];
+  playbook_composition: PlaybookCompositionStepLike[];
+  overall_success_criteria: string;
+  fallback_strategy?: string;
+  demonstrations_observed?: TargetDemonstrationLike[];
 }
 
 export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
@@ -436,6 +473,28 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       const q = params.toString();
       return get<{ maps: SubjectMapLike }>(
         `/subjects/${encodeURIComponent(subjectId)}/maps${q ? `?${q}` : ""}`,
+      );
+    },
+    getSessionStrategyPlan: async (sessionId) => {
+      const res = await f(
+        `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/strategy-plan`,
+      );
+      if (res.status === 404) {
+        return { error: "strategy_plan não encontrado" };
+      }
+      if (!res.ok) {
+        throw new Error(
+          `BFF GET strategy-plan failed: ${res.status} ${res.statusText}`,
+        );
+      }
+      return (await res.json()) as { plan: StrategyPlanLike };
+    },
+    listSubjectStrategyPlans: (subjectId, opts) => {
+      const params = new URLSearchParams();
+      if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
+      const q = params.toString();
+      return get<{ plans: StrategyPlanLike[] }>(
+        `/subjects/${encodeURIComponent(subjectId)}/strategy-plans${q ? `?${q}` : ""}`,
       );
     },
   };
