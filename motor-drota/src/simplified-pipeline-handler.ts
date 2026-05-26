@@ -17,12 +17,18 @@
 
 import type {
   ContentItem,
+  EngineStateSnapshot,
+  EngineTraceV2,
   EvaluateAndSelectInput,
   EvaluateAndSelectOutput,
   ScoredContentItem,
   SubjectKnowledgeEntry,
+  SubjectKnowledgeWriteTrace,
+  SubjectKnowledgeWriter,
 } from "@ascendimacy/shared";
 import {
+  computeStateDiff,
+  createLlmTraceCollector,
   extractDiscoveries,
   extractBoundaryEvents,
   extractPresentedConcepts,
@@ -33,6 +39,75 @@ import {
   type StrategyPlan,
   type SubjectKnowledgeEntry as SkEntry,
 } from "@ascendimacy/shared";
+
+// ─────────────────────────────────────────────────────────────────────────
+// TV2-4 helpers — state snapshot + SK write annotation
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Mapeia o `type` da SubjectKnowledgeEntry para o `writer` que a emitiu.
+ * Inferência heurística — fonte da verdade são os writers, mas como
+ * extract*() funções não anotam writer, derivamos do tipo.
+ */
+function inferWriter(type: string): SubjectKnowledgeWriter {
+  if (type === "presented_concept") return "concept_ledger";
+  if (type === "boundary_event") return "boundary";
+  if (type === "recall_check_attempt") return "recall_check";
+  if (type === "axis_attempt_outcome") return "axis_attempt_outcome";
+  if (type === "vertical_affinity_signal") return "vertical_affinity";
+  if (type === "interest" || type === "value" || type === "need" || type === "discovery") {
+    return "discovery";
+  }
+  return "other";
+}
+
+/**
+ * Constrói EngineStateSnapshot a partir do input.state + contextHints.
+ * Apenas campos disponíveis no contexto motor-drota; STS forwarder
+ * (TV2-5) pode enriquecer com dados extras (parental_profile etc).
+ */
+function buildStateSnapshot(
+  input: EvaluateAndSelectInput,
+  budgetRemaining: number,
+  journeyStage: JourneyStage,
+  phase?: SessionPhase,
+): EngineStateSnapshot {
+  const snapshot: EngineStateSnapshot = {
+    trust_level: input.state.trustLevel ?? 0.5,
+    budget_remaining: budgetRemaining,
+    journey_state: {
+      stage: journeyStage,
+      discoveries_count: 0,
+      families_covered: [],
+    },
+  };
+  if (phase) snapshot.current_session_phase = phase;
+  const helix = input.state.kidsHelixState;
+  if (helix) {
+    // KidsHelixState não tem activeLevel explícito — derivamos como 1
+    // (Dreyfus level 1 = novice). cycle_progress aproximamos via current_day
+    // / 17 (ciclo 0-17 dias). active_pair[0] como dim primária.
+    const activeDimension = helix.active_pair?.[0] ?? "SA";
+    const cycleDay = helix.current_day ?? 0;
+    snapshot.helix_state = {
+      activeDimension,
+      activeLevel: 1,
+      cycleDay,
+      progress: Math.min(Math.max(cycleDay / 17, 0), 1),
+    };
+  }
+  const proposedHint = input.contextHints?.["subject_proposed"] as
+    | { axes_active: number[] }
+    | undefined;
+  if (proposedHint) {
+    snapshot.subject_proposed = {
+      version: 1,
+      axes_active: proposedHint.axes_active ?? [],
+      ratified_at: null,
+    };
+  }
+  return snapshot;
+}
 
 /** PR 2 tracer — confidence threshold por fase pro DiscoveryWriter. */
 const DISCOVERY_MIN_CONFIDENCE_BY_PHASE: Record<SessionPhase, number> = {
@@ -47,10 +122,21 @@ import { selectAction } from "./pragmatic-selector.js";
 import { materialize } from "./constrained-materializer.js";
 import { resolveInauguralTemplate } from "./inaugural-template.js";
 
+export interface SimplifiedPipelineOpts {
+  /** TV2-4 (spec ops#1136): captura engine trace v2 no output. Default true. */
+  captureTrace?: boolean;
+}
+
 export async function handleSimplifiedPipeline(
   input: EvaluateAndSelectInput,
   ranked: ScoredContentItem[],
+  opts: SimplifiedPipelineOpts = {},
 ): Promise<EvaluateAndSelectOutput> {
+  const captureTrace = opts.captureTrace ?? true;
+  const turnStartedAt = new Date().toISOString();
+  const collector = captureTrace ? createLlmTraceCollector() : undefined;
+  const warnings: EngineTraceV2["warnings"] = [];
+
   // Mensagem do sujeito vem em contextHints.last_user_message; fallback
   // pra instruction_addition se ausente; se ambos vazios, assess opera com
   // string vazia (mood=5 conservador via rule-based).
@@ -64,14 +150,17 @@ export async function handleSimplifiedPipeline(
       | undefined) ?? [];
 
   // 1. Unified Assessor — extrai mood + signals + engagement em 1 chamada.
-  const assessment = await assess({
-    message: lastUserMessage,
-    recentTurns,
-    personaName: input.persona.name,
-    personaAge: input.persona.age,
-    trustLevel: input.state.trustLevel,
-    run_id: input.sessionId,
-  });
+  const assessment = await assess(
+    {
+      message: lastUserMessage,
+      recentTurns,
+      personaName: input.persona.name,
+      personaAge: input.persona.age,
+      trustLevel: input.state.trustLevel,
+      run_id: input.sessionId,
+    },
+    collector ? { collector } : undefined,
+  );
 
   // Assessment snapshot pro EvaluateAndSelectOutput (compat opt-in).
   const assessmentForOutput = {
@@ -160,11 +249,14 @@ export async function handleSimplifiedPipeline(
   );
 
   // 2. Pragmatic Selector — determinístico, zero LLM.
-  const selectionResult = selectAction({
-    candidates: ranked,
-    assessment,
-    state: input.state,
-  });
+  const selectionResult = selectAction(
+    {
+      candidates: ranked,
+      assessment,
+      state: input.state,
+    },
+    captureTrace ? { captureTrace: true } : undefined,
+  );
 
   // Escalação: pool sem viáveis ou budget exausto → fallback conversacional.
   if (!selectionResult.selected || selectionResult.escalate_to !== null) {
@@ -244,21 +336,24 @@ export async function handleSimplifiedPipeline(
     | undefined;
 
   // 3b. Constrained Materializer — texto final com FALLBACK handling.
-  const matResult = await materialize({
-    action: selectionResult.selected,
-    subjectNameForm: input.persona.name,
-    mood: assessment.mood,
-    engagement: assessment.engagement,
-    turnCount: input.state.turn,
-    budgetRemaining: input.state.budgetRemaining,
-    jurisdictionActive:
-      ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
-        "br") as "br" | "jp" | "ch",
-    run_id: input.sessionId,
-    incomingMessage: lastUserMessage,
-    recentTurns,
-    ...(recallCheckCandidate ? { recallCheckCandidate } : {}),
-  });
+  const matResult = await materialize(
+    {
+      action: selectionResult.selected,
+      subjectNameForm: input.persona.name,
+      mood: assessment.mood,
+      engagement: assessment.engagement,
+      turnCount: input.state.turn,
+      budgetRemaining: input.state.budgetRemaining,
+      jurisdictionActive:
+        ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
+          "br") as "br" | "jp" | "ch",
+      run_id: input.sessionId,
+      incomingMessage: lastUserMessage,
+      recentTurns,
+      ...(recallCheckCandidate ? { recallCheckCandidate } : {}),
+    },
+    collector ? { collector } : undefined,
+  );
 
   // ── Fase 3: ConceptLedgerWriter — após materializar o Fact, emite
   // presented_concept (+1pt) se item está taggeado com axis_id/family/
@@ -303,6 +398,50 @@ export async function handleSimplifiedPipeline(
     });
   }
 
+  let engineTrace: EngineTraceV2 | undefined;
+  if (captureTrace) {
+    const preState = buildStateSnapshot(
+      input,
+      input.state.budgetRemaining,
+      journeyStage,
+      sessionState.phase,
+    );
+    const postState = buildStateSnapshot(
+      input,
+      selectionResult.newState.budgetRemaining,
+      journeyStage,
+      sessionState.phase,
+    );
+    const skWrites: SubjectKnowledgeWriteTrace[] = subjectKnowledgeEvents.map(
+      (e) => ({
+        type: e.type,
+        payload: e.payload as unknown as Record<string, unknown>,
+        writer: inferWriter(e.type),
+        triggered_by: e.confirmed_at ?? "motor_inferred",
+      }),
+    );
+    engineTrace = {
+      schema_version: 2,
+      turn_started_at: turnStartedAt,
+      turn_completed_at: new Date().toISOString(),
+      pre_state: preState,
+      post_state: postState,
+      state_diff: computeStateDiff(preState, postState, skWrites.length),
+      components: {
+        ...(assessment._trace ? { unified_assessor: assessment._trace } : {}),
+        ...(selectionResult._trace
+          ? { pragmatic_selector: selectionResult._trace }
+          : {}),
+        ...(matResult._trace
+          ? { constrained_materializer: matResult._trace }
+          : {}),
+      },
+      llm_calls: collector?.drain() ?? [],
+      subject_knowledge_writes: skWrites,
+      warnings,
+    };
+  }
+
   return {
     selectedContent: selectionResult.selected,
     selectionRationale: selectionResult.decision_path,
@@ -314,5 +453,6 @@ export async function handleSimplifiedPipeline(
     ...(matResult.fallback_triggered
       ? { skipReason: "materializer_fallback" }
       : {}),
+    ...(engineTrace ? { engineTrace } : {}),
   };
 }

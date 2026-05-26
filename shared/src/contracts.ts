@@ -141,6 +141,12 @@ export interface EvaluateAndSelectOutput {
    * mesmo plan via session_id.
    */
   strategyPlan?: import("./strategy-plan.js").StrategyPlan;
+  /**
+   * TV2-4 (spec ops#1136): trace v2 completo do turn. Presente quando
+   * handleSimplifiedPipeline cria collector + agrega. STS forwarder
+   * (TV2-5) pega daqui e injeta em turn.engineTrace no trace.json.
+   */
+  engineTrace?: import("./engine-trace-v2.js").EngineTraceV2;
 }
 
 export interface ExecutePlaybookInput {
