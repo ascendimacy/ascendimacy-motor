@@ -44,7 +44,11 @@ import {
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
-import { evaluateAllTransitions, collectRecentSignals } from "./trigger-evaluator.js";
+import {
+  evaluateAllTransitions,
+  collectRecentSignals,
+  collectRecentSignalsPerTurn,
+} from "./trigger-evaluator.js";
 import { personaToChildProfile } from "./child-profile.js";
 import { lookupActionMenu } from "./strategist/menu-lookup.js";
 import {
@@ -795,10 +799,16 @@ export async function planTurn(input: PlanTurnInput): Promise<PlanTurnOutput> {
     data: Record<string, unknown>;
   }>;
   const recentSignals = collectRecentSignals(eventLog, 5);
+  const recentSignalsPerTurn = collectRecentSignalsPerTurn(eventLog, 5);
   const turnsSinceLastTransition = countTurnsSinceLastTransition(eventLog);
   const transitionEvaluations =
     recentSignals.length > 0
-      ? evaluateAllTransitions(profileId, recentSignals, turnsSinceLastTransition)
+      ? evaluateAllTransitions(
+          profileId,
+          recentSignals,
+          turnsSinceLastTransition,
+          recentSignalsPerTurn,
+        )
       : [];
 
   // Fase 8 PR — Strategist context (sub-PR pós tracer bullet):
