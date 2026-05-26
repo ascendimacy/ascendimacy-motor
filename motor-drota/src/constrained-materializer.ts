@@ -69,6 +69,16 @@ export interface MaterializerContext {
    * userMessage (varia por persona, raro hit cross-persona).
    */
   personaProfileBlock?: string;
+  /**
+   * Fase 8 PR — Recall check candidate (spec 2026-05-25 §4.5).
+   * Quando presente, materializer anexa o `suggested_framing` ao final do
+   * texto materializado (Fact + " " + framing). Pipeline registra
+   * recall_check_attempt no ledger no turn seguinte, baseado na resposta.
+   */
+  recallCheckCandidate?: {
+    concept_id: string;
+    suggested_framing: string;
+  };
 }
 
 export interface MaterializationResult {
@@ -84,6 +94,15 @@ export interface MaterializationResult {
   token_count: number;
   /** True se sanitizeMaterialization removeu palavras (defensiva final). */
   sanitization_applied: boolean;
+  /**
+   * Fase 8 PR — quando recallCheckCandidate foi anexado ao texto.
+   * Pipeline usa pra registrar tentativa de checagem; resposta da
+   * persona no turn seguinte resolve em positive/negative/ambiguous.
+   */
+  recall_check_emitted?: {
+    concept_id: string;
+    framing_used: string;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -328,12 +347,45 @@ export async function materialize(
   const sanitized = sanitizeMaterialization(textBeforeSanitize);
   const sanitizationApplied = sanitized !== textBeforeSanitize;
 
+  // Fase 8 PR — Anexa recall check framing quando candidate foi passado.
+  // Skip em fallback_triggered (não polui texto de erro).
+  const recallEmission = fallbackTriggered
+    ? { text: sanitized }
+    : applyRecallCheckFraming(sanitized, ctx.recallCheckCandidate);
+
   return {
-    text: sanitized,
+    text: recallEmission.text,
     model_used: modelUsed,
     fallback_triggered: fallbackTriggered,
     latency_ms: Date.now() - t0,
     token_count: outTokens,
     sanitization_applied: sanitizationApplied,
+    ...(recallEmission.emitted ? { recall_check_emitted: recallEmission.emitted } : {}),
+  };
+}
+
+/**
+ * Função pura: anexa suggested_framing ao final do texto materializado.
+ * Exportada pra testes (e reuso futuro).
+ *
+ * Comportamento:
+ *  - candidate undefined / framing vazio → retorna texto original sem `emitted`
+ *  - texto vazio → retorna vazio sem `emitted` (preserva sinal de erro)
+ *  - separador adapta-se: " " quando texto termina em pontuação, " — " caso contrário
+ */
+export function applyRecallCheckFraming(
+  text: string,
+  candidate?: { concept_id: string; suggested_framing: string },
+): { text: string; emitted?: { concept_id: string; framing_used: string } } {
+  if (!candidate || text.length === 0) return { text };
+  const framing = candidate.suggested_framing.trim();
+  if (framing.length === 0) return { text };
+  const sep = /[.!?…]$/.test(text) ? " " : " — ";
+  return {
+    text: `${text}${sep}${framing}`,
+    emitted: {
+      concept_id: candidate.concept_id,
+      framing_used: framing,
+    },
   };
 }
