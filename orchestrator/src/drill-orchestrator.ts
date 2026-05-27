@@ -9,16 +9,35 @@
  * `proposeDrillItem` é pura (sem DB). Caller carrega `listDue` + banks
  * antes e passa o contexto. Mantém testabilidade + desacoplamento do
  * motor-execucao (orchestrator não importa direto do workspace dele).
+ *
+ * Os helpers de empacotamento (`drillProposalToScoredItem`,
+ * `serialize/deserialize`) moram em `@ascendimacy/shared/drill-proposal`
+ * pra evitar dep cycle planejador → orchestrator. Re-exportados aqui
+ * pra preservar API histórica.
  */
 
-import type { DrillItem, DrillState } from "@ascendimacy/shared";
+import type { DrillItem, DrillProposal, DrillState } from "@ascendimacy/shared";
+import { DEFAULT_DRILL_COST, DRILL_WINDOW_HOOK } from "@ascendimacy/shared";
 
-/** Hook descritor — usado pelo S3 quando aceita a proposta. */
-export const DRILL_WINDOW_HOOK = "drill_window_proposal" as const;
-export type DrillWindowHook = typeof DRILL_WINDOW_HOOK;
-
-/** Custo default por item em sacrifice points (spec default = 2). */
-export const DEFAULT_DRILL_COST = 2;
+// Re-export pure helpers + constants so existing callers that import
+// from `@ascendimacy/orchestrator/drill-orchestrator` keep working.
+export {
+  DEFAULT_DRILL_COST,
+  DRILL_BASE_SCORE,
+  DRILL_MAX_OVERDUE_BONUS,
+  DRILL_OVERDUE_BONUS_PER_DAY,
+  DRILL_WINDOW_HOOK,
+  daysOverdue,
+  deserializeDrillProposal,
+  drillProposalToScoredItem,
+  scoreDrillProposal,
+  serializeDrillProposal,
+} from "@ascendimacy/shared";
+export type {
+  DrillProposal,
+  DrillWindowHook,
+  SerializableDrillProposal,
+} from "@ascendimacy/shared";
 
 export interface DrillProposalContext {
   personaId: string;
@@ -30,13 +49,6 @@ export interface DrillProposalContext {
   budget: number;
   /** Override do custo por item; default `DEFAULT_DRILL_COST`. */
   costPerItem?: number;
-}
-
-export interface DrillProposal {
-  hook: DrillWindowHook;
-  item: DrillItem;
-  state: DrillState;
-  cost: number;
 }
 
 /**

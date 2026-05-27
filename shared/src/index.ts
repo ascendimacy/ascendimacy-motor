@@ -48,3 +48,5 @@ export * from "./gateway-client.js";
 export * from "./contracts/index.js";
 export * from "./parse-repetition-answer.js";
 export * from "./sr-algorithm.js";
+export * from "./drill-proposal.js";
+export * from "./drill-fuzzy-match.js";

@@ -16,6 +16,7 @@ export const CONTENT_ITEM_TYPES = [
   "gtd_task",
   "dynamic",
   "challenge",
+  "drill_vocab",
 ] as const;
 
 export type ContentItemType = (typeof CONTENT_ITEM_TYPES)[number];
@@ -262,6 +263,31 @@ export interface ChallengeItem extends ContentItemBase {
   estimated_minutes: number;
 }
 
+/**
+ * B2 (Drilling) — wrapper de DrillItem como ContentItem pra trafegar pelo
+ * pipeline padrão (plan → score → materialize). O pool-builder não carrega
+ * items deste tipo do seed; eles são injetados turn-a-turn por
+ * `proposeDrillItem` (orchestrator) quando há items SR due. Materializer
+ * gera pergunta determinística (sem LLM) baseada em `prompt`.
+ *
+ * Spec: ascendimacy-ops/docs/specs/2026-05-26-b2-drilling-primer-v0.md
+ */
+export interface DrillVocabItem extends ContentItemBase {
+  type: "drill_vocab";
+  /** FK para DrillItem.id no banco. Source-of-truth da resposta + variantes. */
+  drill_item_id: string;
+  /** Banco de origem (ex: "ja-pt-vocab-n5"). */
+  bank_id: string;
+  /** Prompt apresentado ao sujeito (ex: "りんご"). */
+  prompt: string;
+  /** Resposta canônica (ex: "maçã") — usada por fuzzy-match downstream. */
+  answer: string;
+  /** Dica opcional pré-pergunta. */
+  hint?: string;
+  /** Língua de origem do prompt — orienta materialização ("jp" → "Como se diz X em português?"). */
+  source_language?: string;
+}
+
 export type ContentItem =
   | CuriosityHookItem
   | CulturalDiamondItem
@@ -269,7 +295,8 @@ export type ContentItem =
   | GtdReviewItem
   | GtdTaskItem
   | DynamicItem
-  | ChallengeItem;
+  | ChallengeItem
+  | DrillVocabItem;
 
 /** Score resultante para um item no contexto de um turn. */
 export interface ScoredContentItem {

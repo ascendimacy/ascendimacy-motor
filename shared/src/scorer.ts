@@ -50,6 +50,9 @@ export const DECAY_BY_TYPE: Record<ContentItemType, number> = {
   gtd_task: 3,
   dynamic: 21,
   challenge: 14,
+  // B2: drill items são injetados turn-a-turn — score vem do SR urgency,
+  // não de recência. Decay neutro evita penalidade redundante.
+  drill_vocab: Infinity,
 };
 
 /** Score devolvido para item com pin parental válido — vence qualquer outro fator. */

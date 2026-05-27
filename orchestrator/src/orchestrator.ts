@@ -4,8 +4,18 @@ import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 import type { McpClients } from "./mcp-clients.js";
 import { initTrace, appendTurn, saveTrace } from "./trace-writer.js";
-import type { PersonaDef, AdquirenteDef, PlaybookIndex } from "@ascendimacy/shared";
-import { logDebugEvent } from "@ascendimacy/shared";
+import type {
+  PersonaDef,
+  AdquirenteDef,
+  PlaybookIndex,
+  DrillItem,
+  DrillState,
+} from "@ascendimacy/shared";
+import { logDebugEvent, matchDrillAnswer } from "@ascendimacy/shared";
+import {
+  proposeDrillItem,
+  serializeDrillProposal,
+} from "./drill-orchestrator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, "../../fixtures");
@@ -48,6 +58,56 @@ function parseToolText<T>(result: unknown): T {
   const content = (result as { content: Array<{ type: string; text: string }> }).content;
   const text = content.find(c => c.type === "text")?.text ?? "{}";
   return JSON.parse(text) as T;
+}
+
+/**
+ * B2 — extrai bank ids declarados em persona.profile.
+ * v0: opt-in via `persona.profile.drill_bank_ids: string[]`. Sem field
+ * = persona não participa do drilling (zero footprint pro pipeline).
+ */
+function extractDrillBankIds(persona: PersonaDef): string[] {
+  const profile = (persona.profile ?? {}) as Record<string, unknown>;
+  const raw = profile["drill_bank_ids"];
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");
+  if (typeof raw === "string") return [raw];
+  return [];
+}
+
+interface PendingDrill {
+  drillItemId: string;
+  bankId: string;
+  emittedAt: string;
+  turnEmitted: number;
+}
+
+/**
+ * Procura no eventLog o último `drill_emitted` que ainda não foi resolvido
+ * por um `drill_attempt_recorded` subsequente. Quando presente, o `message`
+ * deste turno é a tentativa do sujeito.
+ */
+function findPendingDrill(
+  eventLog: ReadonlyArray<import("@ascendimacy/shared").EventEntry>,
+): PendingDrill | null {
+  for (let i = eventLog.length - 1; i >= 0; i--) {
+    const ev = eventLog[i]!;
+    if (ev.type === "drill_attempt_recorded") return null;
+    if (ev.type === "drill_emitted") {
+      const data = ev.data as {
+        drill_item_id?: string;
+        bank_id?: string;
+        turn_number?: number;
+      };
+      if (typeof data.drill_item_id === "string" && typeof data.bank_id === "string") {
+        return {
+          drillItemId: data.drill_item_id,
+          bankId: data.bank_id,
+          emittedAt: ev.timestamp,
+          turnEmitted: typeof data.turn_number === "number" ? data.turn_number : 0,
+        };
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -290,6 +350,149 @@ export async function runTurn(
   }
   void (Date.now() - tSig); // keep latency hint local — debug log captura via debug-mode
 
+  // B2 (Drilling) — pre-turn workflow.
+  //
+  //   (1) Se prior turn emitiu drill_emitted (sem drill_attempt_recorded),
+  //       este `message` é a resposta. Match + recordAttempt + log events.
+  //   (2) Pra este turn, propose drill (drill_list_due + drill_load_bank +
+  //       proposeDrillItem). Se proposal válida → injeta em planContextHints.
+  //
+  // Spec: ascendimacy-ops/docs/specs/2026-05-26-b2-drilling-primer-v0.md
+  const bankIds = extractDrillBankIds(persona);
+  const drillEnabled = bankIds.length > 0;
+  let drillItemsById = new Map<string, DrillItem>();
+  if (drillEnabled) {
+    // Lazy load banks pra esta turn (cache fica no servidor MCP filesystem,
+    // mas no orchestrator não persistimos entre turns — barato pra v0).
+    for (const bankId of bankIds) {
+      try {
+        const bankRes = await clients.motorExecucao.callTool({
+          name: "drill_load_bank",
+          arguments: { bankId },
+        });
+        const parsed = parseToolText<{ items?: DrillItem[]; error?: string }>(bankRes);
+        if (parsed.items) {
+          for (const it of parsed.items) drillItemsById.set(it.id, it);
+        }
+      } catch {
+        // Bank load fail — segue sem drill pra este turn (fail-soft).
+      }
+    }
+  }
+
+  // (1) Resolve drill response do turno anterior se houver pending.
+  const pending = drillEnabled
+    ? findPendingDrill(state.eventLog ?? [])
+    : null;
+  if (pending) {
+    const item = drillItemsById.get(pending.drillItemId);
+    if (item) {
+      const emittedMs = new Date(pending.emittedAt).getTime();
+      const latencyMs = Math.max(0, Date.now() - emittedMs);
+      const match = matchDrillAnswer(item, message, latencyMs);
+      try {
+        const attemptRes = await clients.motorExecucao.callTool({
+          name: "drill_record_attempt",
+          arguments: {
+            personaId: persona.id,
+            itemId: item.id,
+            response: match.response_type,
+            latencyMs,
+          },
+        });
+        const attempt = parseToolText<{
+          state: import("@ascendimacy/shared").DrillState;
+          masteryReached: boolean;
+        }>(attemptRes);
+        await clients.motorExecucao.callTool({
+          name: "log_event",
+          arguments: {
+            sessionId,
+            type: "drill_attempt_recorded",
+            data: {
+              drill_item_id: item.id,
+              bank_id: item.bank_id,
+              response: match.response_type,
+              correct: match.correct,
+              latency_ms: latencyMs,
+              user_response: message.slice(0, 200),
+              next_due_at: attempt.state.next_due_at,
+              mastery_reached: attempt.masteryReached,
+            },
+          },
+        });
+        if (attempt.masteryReached) {
+          await clients.motorExecucao.callTool({
+            name: "log_event",
+            arguments: {
+              sessionId,
+              type: "drill_item_mastered",
+              data: {
+                drill_item_id: item.id,
+                bank_id: item.bank_id,
+                mastered_at: attempt.state.mastery_reached_at,
+              },
+            },
+          });
+        }
+        // Re-fetch state pra refletir eventos novos no plan_turn deste turn.
+        const refreshedState = parseToolText<import("@ascendimacy/shared").SessionState>(
+          await clients.motorExecucao.callTool({
+            name: "get_state",
+            arguments: { sessionId },
+          }),
+        );
+        if (refreshedState.eventLog) state.eventLog = refreshedState.eventLog;
+      } catch {
+        // Fail-soft — drill miss não trava turn.
+      }
+    }
+  }
+
+  // (2) Propose drill pra este turn.
+  let serializedDrillProposal:
+    | ReturnType<typeof serializeDrillProposal>
+    | null = null;
+  if (drillEnabled && drillItemsById.size > 0) {
+    try {
+      const dueRes = await clients.motorExecucao.callTool({
+        name: "drill_list_due",
+        arguments: { personaId: persona.id },
+      });
+      const due = parseToolText<{ states: DrillState[] }>(dueRes);
+      // v0: persona "cold start" — se não há states (presented_count 0
+      // pra todos), considera todos items elegíveis like "due now".
+      // Isso destrava o primeiro drill turn antes de qualquer attempt.
+      let dueStates: DrillState[] = due.states ?? [];
+      if (dueStates.length === 0) {
+        const nowIso = new Date().toISOString();
+        dueStates = Array.from(drillItemsById.keys()).map((itemId) => ({
+          persona_id: persona.id,
+          item_id: itemId,
+          presented_count: 0,
+          correct_count: 0,
+          last_seen_at: nowIso,
+          next_due_at: nowIso,
+          current_interval_days: 0,
+          current_easiness: 2.5,
+          mastery_reached_at: null,
+          last_5_attempts: [],
+        }));
+      }
+      const proposal = proposeDrillItem({
+        personaId: persona.id,
+        dueStates,
+        itemsById: drillItemsById,
+        budget: state.budgetRemaining,
+      });
+      if (proposal) {
+        serializedDrillProposal = serializeDrillProposal(proposal);
+      }
+    } catch {
+      // Fail-soft
+    }
+  }
+
   const t1 = Date.now();
   // BUG-PL-01 Sprint 5: passa extracted_signals em contextHints pro planejador
   // injetar SINAIS DETECTADOS NO TURNO + bloco DEFLECTION ATIVO no system prompt
@@ -299,6 +502,9 @@ export async function runTurn(
   if (extractedSignals.length > 0) {
     planContextHints["extracted_signals"] = extractedSignals;
     planContextHints["last_user_message"] = message;
+  }
+  if (serializedDrillProposal) {
+    planContextHints["drill_proposal"] = serializedDrillProposal;
   }
   const planResult = await clients.planejador.callTool({
     name: "plan_turn",
@@ -549,6 +755,39 @@ export async function runTurn(
       newTurnNumber: exec.newState?.turn ?? state.turn + 1,
     },
   });
+
+  // B2 — post-turn: se selectedContent é drill_vocab, marca como pending
+  // pro próximo turn parsear a resposta. Inclui drill_item_id + bank_id
+  // pra resolver lookup sem depender do bank carregado em memória.
+  const selectedRaw = drota.selectedContent?.item as
+    | {
+        type?: string;
+        drill_item_id?: string;
+        bank_id?: string;
+      }
+    | undefined;
+  if (
+    selectedRaw?.type === "drill_vocab" &&
+    typeof selectedRaw.drill_item_id === "string" &&
+    typeof selectedRaw.bank_id === "string"
+  ) {
+    try {
+      await clients.motorExecucao.callTool({
+        name: "log_event",
+        arguments: {
+          sessionId,
+          type: "drill_emitted",
+          data: {
+            drill_item_id: selectedRaw.drill_item_id,
+            bank_id: selectedRaw.bank_id,
+            turn_number: state.turn,
+          },
+        },
+      });
+    } catch {
+      // Fail-soft
+    }
+  }
 
   // v0.3: enriquece o turn com snapshots e resumos.
   const selectedItem = drota.selectedContent?.item;

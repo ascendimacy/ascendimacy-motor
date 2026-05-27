@@ -18,9 +18,11 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { Database as DatabaseType } from "better-sqlite3";
 import type { DrillResponse, DrillState } from "@ascendimacy/shared";
 import {
+  listAttempts,
   loadBank,
   listDue,
   listMastered,
+  type DrillAttemptRow,
 } from "@ascendimacy/motor-execucao/drill-repo";
 
 export interface B2RoutesOptions {
@@ -135,6 +137,35 @@ const b2RoutesPlugin: FastifyPluginAsync<B2RoutesOptions> = async (
     "/personas/:id/drill-mastered",
     async (req) => {
       return { states: listMastered(opts.db, req.params.id) };
+    },
+  );
+
+  /**
+   * GET /personas/:id/drill-attempts?limit=N
+   *
+   * Última tentativas (drill_attempts), ordenadas DESC por attempted_at.
+   * Usado pelo B2 panel pra "last attempts" block.
+   * Limit default 20, máximo 200.
+   *
+   * Spec: ascendimacy-ops/docs/specs/2026-05-26-b2-drilling-primer-v0.md
+   */
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { limit?: string };
+  }>(
+    "/personas/:id/drill-attempts",
+    async (req) => {
+      const rawLimit = req.query?.limit;
+      let limit = 20;
+      if (rawLimit !== undefined) {
+        const parsed = Number.parseInt(rawLimit, 10);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          limit = Math.min(parsed, 200);
+        }
+      }
+      const all = listAttempts(opts.db, req.params.id);
+      const attempts: DrillAttemptRow[] = all.slice().reverse().slice(0, limit);
+      return { attempts };
     },
   );
 };

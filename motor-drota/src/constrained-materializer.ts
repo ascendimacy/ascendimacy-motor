@@ -291,11 +291,65 @@ function adaptiveMaxTokens(
  *
  * Em caso de erro do LLM: retorna texto fallback hardcoded conservador.
  */
+/**
+ * B2 (Drilling) — short-circuit determinístico para items `drill_vocab`.
+ *
+ * Spec: ascendimacy-ops/docs/specs/2026-05-26-b2-drilling-primer-v0.md §5.
+ *
+ * Drill é pedagogia atômica — LLM não inventa pergunta, só varia. v0
+ * usa template fixo por language tag; v1 abre pra prompt template via
+ * voice_profile.
+ */
+export function materializeDrillVocab(item: {
+  prompt: string;
+  hint?: string;
+  source_language?: string;
+}): string {
+  const promptForm = item.prompt.trim();
+  const hint = item.hint?.trim();
+  const hintSuffix = hint && hint.length > 0 ? ` (dica: ${hint})` : "";
+  // Source japonês: usa partícula clássica "em português"; outros: mantém
+  // pt-br como destino, agnóstico ao source.
+  const lang = item.source_language ?? "unknown";
+  if (lang === "jp") {
+    return `Como se diz **${promptForm}** em português?${hintSuffix}`;
+  }
+  return `O que significa **${promptForm}**?${hintSuffix}`;
+}
+
 export async function materialize(
   ctx: MaterializerContext,
   opts?: MaterializeOpts,
 ): Promise<MaterializationResult> {
   const t0 = Date.now();
+
+  // B2 short-circuit: drill_vocab nunca chama LLM — pergunta determinística.
+  // Sanitizer continua aplicado (defesa em profundidade), mas sem fallback.
+  const selectedItem = ctx.action.item as {
+    type?: string;
+    prompt?: string;
+    hint?: string;
+    source_language?: string;
+  };
+  if (selectedItem.type === "drill_vocab" && typeof selectedItem.prompt === "string") {
+    const drillText = materializeDrillVocab({
+      prompt: selectedItem.prompt,
+      ...(selectedItem.hint !== undefined ? { hint: selectedItem.hint } : {}),
+      ...(selectedItem.source_language !== undefined
+        ? { source_language: selectedItem.source_language }
+        : {}),
+    });
+    const sanitized = sanitizeMaterialization(drillText);
+    return {
+      text: sanitized,
+      model_used: "drill_template_v0",
+      fallback_triggered: false,
+      latency_ms: Date.now() - t0,
+      token_count: 0,
+      sanitization_applied: sanitized !== drillText,
+    };
+  }
+
   const userMessage = buildUserMessage(ctx);
   const collector = opts?.collector;
   if (process.env["ASC_DEBUG_MATERIALIZER"] === "true") {

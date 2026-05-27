@@ -52,6 +52,10 @@ export interface PlanTurnOpts {
 }
 import { loadSeedPool, buildPool, slicePoolForDrota } from "./pool-builder.js";
 import {
+  deserializeDrillProposal,
+  drillProposalToScoredItem,
+} from "@ascendimacy/shared";
+import {
   evaluateAllTransitions,
   collectRecentSignals,
   collectRecentSignalsPerTurn,
@@ -399,6 +403,29 @@ export async function planTurn(
       sacrifice_cost_by_id: sacrificeCostById,
     });
     topK = scored.slice(0, TOP_K_POOL);
+  }
+
+  // B2 — Drilling integration (spec 2026-05-26-b2-drilling-primer-v0.md).
+  //
+  // Orchestrator pre-load (drill_list_due + drill_load_bank + proposeDrillItem)
+  // serializa proposal em `contextHints.drill_proposal`. Aqui só consumimos:
+  // se proposal válida → inject como ScoredContentItem no topo do pool, com
+  // score baseado em SR urgency (overdue dias).
+  //
+  // S3 ainda decide via score se cabe — drill compete no mesmo ranking, mas
+  // overdue alto + DRILL_BASE_SCORE garante seleção quando o motor não tem
+  // candidato mais relevante.
+  const drillProposalRaw = input.contextHints?.["drill_proposal"];
+  const drillProposal = drillProposalRaw
+    ? deserializeDrillProposal(drillProposalRaw)
+    : null;
+  if (drillProposal) {
+    const drillScored = drillProposalToScoredItem(
+      drillProposal,
+      input.persona.age,
+      new Date().toISOString(),
+    );
+    topK = [drillScored, ...topK];
   }
 
   // 2. Triagem parental (Bloco 4 #17, paper §6 camada 2).

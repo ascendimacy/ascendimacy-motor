@@ -5,6 +5,13 @@ import { loadInventory } from "./loader.js";
 import { getState, logEvent, getDbInstance } from "./state-manager.js";
 import { applyStatusTransition } from "./tree-nodes.js";
 import { executePlaybook } from "./executor.js";
+import {
+  listAttempts as listDrillAttempts,
+  listDue as listDrillDue,
+  listMastered as listDrillMastered,
+  loadBank as loadDrillBank,
+  recordAttempt as recordDrillAttempt,
+} from "./drill-repo.js";
 import { createProdActionMenuDeps } from "./action-menu-deps.js";
 import type { OnboardingTriggerDeps } from "./onboarding-trigger.js";
 import {
@@ -334,6 +341,106 @@ server.registerTool("log_event", {
   const event = { timestamp: getNow(), type, data: data ?? {} };
   logEvent(sessionId, event);
   return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true, event }) }] };
+});
+
+// ─── B2 Drilling (spec 2026-05-26-b2-drilling-primer-v0.md) ────────────
+// Orchestrator chama essas tools turn-a-turn: pre-turn pra propor item due,
+// post-turn pra registrar tentativa após o sujeito responder.
+
+server.registerTool("drill_list_due", {
+  description:
+    "Lista DrillStates due now para a persona (ordenados por next_due_at). " +
+    "Vazio quando não há items due ou persona nunca foi drilada.",
+  inputSchema: {
+    personaId: z.string(),
+    nowIso: z.string().optional(),
+  } as any,
+}, async ({ personaId, nowIso }: { personaId: string; nowIso?: string }) => {
+  const states = listDrillDue(getDbInstance(), personaId, nowIso);
+  return { content: [{ type: "text" as const, text: JSON.stringify({ states }) }] };
+});
+
+server.registerTool("drill_load_bank", {
+  description:
+    "Carrega bank YAML (ja-pt-vocab-n5 etc) e retorna {bank, items}. " +
+    "items incluem `bank_id` denormalizado.",
+  inputSchema: {
+    bankId: z.string(),
+    root: z.string().optional(),
+  } as any,
+}, async ({ bankId, root }: { bankId: string; root?: string }) => {
+  try {
+    const result = loadDrillBank(bankId, root ? { root } : {});
+    return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+  } catch (err) {
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({
+          error: "bank_load_failed",
+          bankId,
+          cause: err instanceof Error ? err.message : String(err),
+        }),
+      }],
+    };
+  }
+});
+
+server.registerTool("drill_record_attempt", {
+  description:
+    "Registra uma tentativa de drill (correct/incorrect/timeout/slow_correct). " +
+    "Atualiza drill_states via SM-2, insere drill_attempts (audit log), retorna " +
+    "novo state. `masteryReached=true` quando esta tentativa cruzou mastery.",
+  inputSchema: {
+    personaId: z.string(),
+    itemId: z.string(),
+    response: z.enum(["correct", "incorrect", "timeout", "slow_correct"]),
+    latencyMs: z.number().optional(),
+    nowIso: z.string().optional(),
+  } as any,
+}, async ({ personaId, itemId, response, latencyMs, nowIso }: {
+  personaId: string;
+  itemId: string;
+  response: "correct" | "incorrect" | "timeout" | "slow_correct";
+  latencyMs?: number;
+  nowIso?: string;
+}) => {
+  const db = getDbInstance();
+  // Captura mastery anterior pra detectar transição (only-on-cross).
+  const priorMastered = (db
+    .prepare("SELECT mastery_reached_at FROM drill_states WHERE persona_id = ? AND item_id = ?")
+    .get(personaId, itemId) as { mastery_reached_at?: string | null } | undefined)
+    ?.mastery_reached_at ?? null;
+  const state = recordDrillAttempt(db, {
+    personaId,
+    itemId,
+    response,
+    ...(latencyMs !== undefined ? { latencyMs } : {}),
+    ...(nowIso !== undefined ? { nowIso } : {}),
+  });
+  const masteryReached = !priorMastered && !!state.mastery_reached_at;
+  return {
+    content: [{
+      type: "text" as const,
+      text: JSON.stringify({ state, masteryReached }),
+    }],
+  };
+});
+
+server.registerTool("drill_list_attempts", {
+  description:
+    "Lista tentativas (drill_attempts) recentes da persona, ordenadas por " +
+    "attempted_at DESC. `limit` default 20.",
+  inputSchema: {
+    personaId: z.string(),
+    limit: z.number().optional(),
+  } as any,
+}, async ({ personaId, limit }: { personaId: string; limit?: number }) => {
+  const all = listDrillAttempts(getDbInstance(), personaId);
+  // listAttempts retorna ASC; aqui invertemos pra DESC + limit.
+  const cap = typeof limit === "number" && limit > 0 ? limit : 20;
+  const attempts = all.slice().reverse().slice(0, cap);
+  return { content: [{ type: "text" as const, text: JSON.stringify({ attempts }) }] };
 });
 
 /**

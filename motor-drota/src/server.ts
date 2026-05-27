@@ -13,6 +13,7 @@ import { callLlm, callLlmMock } from "./llm-client.js";
 import { parseDrotaOutput } from "./parse-output.js";
 // Sprint 5 #8: feature flag USE_SIMPLIFIED_PIPELINE — side-by-side
 import { handleSimplifiedPipeline } from "./simplified-pipeline-handler.js";
+import { materializeDrillVocab } from "./constrained-materializer.js";
 import { extractSignals } from "./signal-extractor.js";
 import { applyPostProcessors } from "./post-processor.js";
 import { buildInaugural } from "./inaugural.js";
@@ -358,6 +359,33 @@ server.registerTool(
     // motor#36: select agora deduz budget; newState não propagado pra
     // EvaluateAndSelectOutput (compat — caller pega budget de outras camadas).
     const { selected } = selectFromPool(ranked, input.state);
+
+    // B2 — Drilling short-circuit (spec 2026-05-26-b2-drilling-primer-v0.md §5).
+    // Drill item nunca chama LLM — pergunta determinística via template.
+    // Path legado precisa do mesmo bypass que simplified pipeline.
+    const drillSel = selected.item as {
+      type?: string;
+      prompt?: string;
+      hint?: string;
+      source_language?: string;
+    };
+    if (drillSel.type === "drill_vocab" && typeof drillSel.prompt === "string") {
+      const drillText = materializeDrillVocab({
+        prompt: drillSel.prompt,
+        ...(drillSel.hint !== undefined ? { hint: drillSel.hint } : {}),
+        ...(drillSel.source_language !== undefined
+          ? { source_language: drillSel.source_language }
+          : {}),
+      });
+      const drillOutput: EvaluateAndSelectOutput = {
+        selectedContent: selected,
+        selectionRationale: "drill_window_proposal (B2)",
+        linguisticMaterialization: sanitizeMaterialization(drillText),
+      };
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(drillOutput) }],
+      };
+    }
 
     // S-T-10-09 (ops#1070): skip drota composition path. Quando feature flag
     // ASC_SKIP_DROTA_COMPOSITION=true + item veio do action_menu + content
