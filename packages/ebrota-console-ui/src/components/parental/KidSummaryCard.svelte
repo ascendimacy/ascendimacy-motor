@@ -4,6 +4,8 @@
   export let kid: KidSummary;
   export let active: boolean = false;
   export let onClick: (() => void) | undefined = undefined;
+  /** Mostra badge "MC1 pendente" enquanto MC1 ainda não foi entregue. */
+  export let mc1Pending: boolean = false;
 
   function initials(name: string): string {
     return name.slice(0, 1).toUpperCase();
@@ -42,6 +44,16 @@
       <span class="name">{kid.name}</span>
       <span class="age">{kid.age} anos</span>
     </div>
+    {#if mc1Pending}
+      <div
+        class="mc1-badge"
+        data-testid="mc1-pending-badge"
+        data-child-id={kid.childId}
+        title="Primeira mensagem do Brota aguardando a próxima janela temporal"
+      >
+        MC1 pendente
+      </div>
+    {/if}
     <div class="row status">
       {#if kid.engagedToday}
         <span class="dot" style="background:{moodColor(kid.moodToday)}"></span>
@@ -141,5 +153,19 @@
   }
   .small {
     font-size: 0.75rem;
+  }
+  .mc1-badge {
+    display: inline-block;
+    align-self: flex-start;
+    padding: 0.1rem 0.5rem;
+    background: rgba(255, 183, 77, 0.18);
+    color: #ffb74d;
+    border: 1px solid rgba(255, 183, 77, 0.45);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin-top: 0.15rem;
   }
 </style>

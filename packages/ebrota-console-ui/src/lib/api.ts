@@ -698,6 +698,21 @@ export interface ApiClient {
     childId: string,
     payload: { reason: string; pauseUntilIso?: string; immediate?: boolean },
   ): Promise<{ paused: boolean; immediate: boolean; notifiedJun: boolean }>;
+
+  // ─── MC1 scheduling (US-PO-10 follow-through) ───────────────────
+  /**
+   * Status MC1 da criança. `not_scheduled` se nunca foi agendada;
+   * `pending`/`delivered`/`cancelled` conforme repo.
+   */
+  getMc1Status(childId: string): Promise<{
+    childId: string;
+    status: "pending" | "delivered" | "cancelled" | "not_scheduled";
+    deliveredAt: string | null;
+    scheduledAt: string | null;
+    targetWindowName?: string;
+  }>;
+  /** Cancela MC1 pending da criança. Idempotente: cancelled=0 se nada pra cancelar. */
+  cancelMc1(childId: string): Promise<{ childId: string; cancelled: number }>;
 }
 
 // ─── S1 wiring — Declared Objectives + Narrative Threads + SK summary ──
@@ -1241,6 +1256,21 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       post<{ paused: boolean; immediate: boolean; notifiedJun: boolean }>(
         `/parental/children/${encodeURIComponent(childId)}/pause`,
         payload,
+      ),
+
+    // ── MC1 scheduling ───────────────────────────────────────────
+    getMc1Status: (childId) =>
+      get<{
+        childId: string;
+        status: "pending" | "delivered" | "cancelled" | "not_scheduled";
+        deliveredAt: string | null;
+        scheduledAt: string | null;
+        targetWindowName?: string;
+      }>(`/parental/mc1/status?childId=${encodeURIComponent(childId)}`),
+    cancelMc1: (childId) =>
+      post<{ childId: string; cancelled: number }>(
+        `/parental/mc1/cancel?childId=${encodeURIComponent(childId)}`,
+        {},
       ),
   };
 }
