@@ -5,10 +5,12 @@
     consoleMode,
     debugPanelOpen,
     discoveriesPanelOpen,
+    helixPanelOpen,
     journeyPanelOpen,
     libraryOpen,
     llmXrayPanelOpen,
     mapsPanelOpen,
+    strategistPanelOpen,
   } from "../lib/stores.js";
   import type { ApiClient } from "../lib/api.js";
   import type { ConsoleMode } from "../lib/types.js";
@@ -126,6 +128,28 @@
     title="Descobertas + boundaries"
   >
     🔍 Descobertas
+  </button>
+
+  <button
+    type="button"
+    class="tracer-toggle"
+    class:active={$strategistPanelOpen}
+    on:click={() => strategistPanelOpen.update((o) => !o)}
+    data-testid="strategist-toggle"
+    title="Strategist — plans compostos pelas sessões"
+  >
+    🎯 Strategist
+  </button>
+
+  <button
+    type="button"
+    class="tracer-toggle"
+    class:active={$helixPanelOpen}
+    on:click={() => helixPanelOpen.update((o) => !o)}
+    data-testid="helix-toggle"
+    title="Double helix — knowledge × values entrelaçados"
+  >
+    🧬 Helix
   </button>
 
   <button
