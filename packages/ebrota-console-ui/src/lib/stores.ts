@@ -69,6 +69,8 @@ export const debugLlmEvents = writable<DebugLlmCallEvent[]>([]);
 export const journeyPanelOpen = writable<boolean>(false);
 export const mapsPanelOpen = writable<boolean>(false);
 export const discoveriesPanelOpen = writable<boolean>(false);
+export const strategistPanelOpen = writable<boolean>(false);
+export const helixPanelOpen = writable<boolean>(false);
 
 /** Subject ID corrente nos painéis tracer. Default ryo-ochiai. */
 export const tracerSubjectId = writable<string>("ryo-ochiai");
