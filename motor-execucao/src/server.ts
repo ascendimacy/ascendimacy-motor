@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { loadInventory } from "./loader.js";
 import { getState, logEvent, getDbInstance } from "./state-manager.js";
+import { applyStatusTransition } from "./tree-nodes.js";
 import { executePlaybook } from "./executor.js";
 import { createProdActionMenuDeps } from "./action-menu-deps.js";
 import type { OnboardingTriggerDeps } from "./onboarding-trigger.js";
@@ -333,6 +334,51 @@ server.registerTool("log_event", {
   const event = { timestamp: getNow(), type, data: data ?? {} };
   logEvent(sessionId, event);
   return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true, event }) }] };
+});
+
+/**
+ * Closed-loop v1 (ARCHITECTURE.md §S5): aplica transição de status numa
+ * dimensão da statusMatrix. `source` distingue origem (audit + override
+ * semantics).
+ *
+ * Invariante brejo↔baia↔pasto é aplicada por `applyStatusTransition` em
+ * tree-nodes.ts (pure `transition()` rejeita brejo↔pasto direto → força baia).
+ *
+ * Side-effect: também loga evento `status_matrix_updated_by_trigger` no
+ * event_log da sessão (audit trail equivalente ao recall_check_attempt).
+ */
+server.registerTool("apply_status_transition", {
+  description: "Aplica transicao de status numa dimensao (closed-loop v1) + loga audit event",
+  inputSchema: {
+    sessionId: z.string(),
+    dimension: z.string(),
+    target: z.enum(["brejo", "baia", "pasto"]),
+    source: z.enum(["manual", "trigger_evaluator"]),
+    transitionName: z.string().optional(),
+  } as any,
+}, async ({ sessionId, dimension, target, source, transitionName }: {
+  sessionId: string;
+  dimension: string;
+  target: StatusValue;
+  source: "manual" | "trigger_evaluator";
+  transitionName?: string;
+}) => {
+  const db = getDbInstance();
+  const result = applyStatusTransition(db, sessionId, dimension, target);
+  logEvent(sessionId, {
+    timestamp: getNow(),
+    type: "status_matrix_updated_by_trigger",
+    data: {
+      source,
+      ...(transitionName !== undefined ? { transition_name: transitionName } : {}),
+      dimension: result.dimension,
+      target_zone: result.target,
+      applied_zone: result.applied,
+      accepted: result.accepted,
+      reason: result.reason,
+    },
+  });
+  return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true, ...result }) }] };
 });
 
 const transport = new StdioServerTransport();

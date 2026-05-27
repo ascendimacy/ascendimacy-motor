@@ -2,11 +2,19 @@
  * Trigger Evaluator — avalia transitions.yaml contra signals capturados (motor#25).
  *
  * Spec: docs/handoffs/2026-04-26-cc-motor-pre-piloto-strategic-gaps.md §motor#25.
- * ARCHITECTURE.md §14.
+ * ARCHITECTURE.md §14 + §S5 ("promover eixo-status ao patamar do eixo-conceito").
  *
- * Filosofia v0: read-only — emite eventos transition_evaluated mas NÃO move
- * statusMatrix. Movimentação real continua via inject_status (manual).
- * Auto-movimentação fica pra v1 pós-piloto, depois de validar precision.
+ * v0 (read-only, fallback): emite eventos transition_evaluated mas NÃO move
+ *   statusMatrix. Comportamento ativo quando feature flag OFF.
+ * v1 (closed-loop): quando TRIGGER_EVALUATOR_CLOSED_LOOP=true, planejador
+ *   enriquece cada resultado fired com `closed_loop_action` declarativo.
+ *   Orchestrator consome esse campo e chama `apply_status_transition` em
+ *   motor-execucao (que aplica a invariante brejo↔baia↔pasto + loga
+ *   `status_matrix_updated_by_trigger`). Mirror exato do design do
+ *   RecallCheckEvaluator (que já fecha o laço pro eixo-conceito).
+ *
+ * Override manual via `apply_status_transition` source="manual" segue
+ * disponível pra Pedagógico Steward — closed-loop não substitui, complementa.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -142,5 +150,83 @@ export function collectRecentSignalsPerTurn(
     const data = ev.data as { signals?: unknown };
     if (!Array.isArray(data.signals)) return [];
     return data.signals.filter((s): s is string => typeof s === "string");
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// v1 closed-loop (ARCHITECTURE.md §S5) — enrichment puro, sem side-effect.
+//
+// Planejador NÃO chama motor-execucao diretamente — só declara a intenção
+// (`closed_loop_action`) no resultado. Orchestrator é quem aplica via MCP
+// tool `apply_status_transition`. Essa separação mantém planejador puro
+// (testável sem MCP) e respeita a arquitetura motor → orchestrator → cliente.
+// ─────────────────────────────────────────────────────────────────────────
+
+import type { StatusValue } from "@ascendimacy/shared";
+
+/**
+ * Feature flag — decide se o closed-loop está ativo no processo atual.
+ *
+ * Precedência:
+ *   1. `TRIGGER_EVALUATOR_CLOSED_LOOP=true|1` → ON (override explícito)
+ *   2. `TRIGGER_EVALUATOR_CLOSED_LOOP=false|0` → OFF (override explícito)
+ *   3. `NODE_ENV=production` → ON (default prod)
+ *   4. caso contrário → OFF (default dev/test pra preservar comportamento v0)
+ */
+export function isClosedLoopEnabled(): boolean {
+  const explicit = process.env["TRIGGER_EVALUATOR_CLOSED_LOOP"];
+  if (explicit !== undefined) {
+    return explicit === "true" || explicit === "1";
+  }
+  return process.env["NODE_ENV"] === "production";
+}
+
+/**
+ * Extrai a `target_zone` do nome da transição.
+ *
+ * Convenção dos transitions.yaml:
+ *   - `brejo_to_baia` → "baia"
+ *   - `baia_to_pasto` → "pasto"
+ *   - `regression_baia_to_brejo` → "brejo"
+ *   - `regression_pasto_to_baia` → "baia"
+ *
+ * Retorna null se o nome não seguir o padrão (defensivo).
+ */
+export function parseTransitionTargetZone(transitionName: string): StatusValue | null {
+  const match = transitionName.match(/^(?:regression_)?\w+_to_(brejo|baia|pasto)$/);
+  if (!match) return null;
+  return match[1] as StatusValue;
+}
+
+/**
+ * Enriquece resultados fired com `closed_loop_action` quando flag ON.
+ *
+ * Pure function — não muta input, retorna novo array. Quando flag OFF
+ * (default em test/dev), retorna o array original sem mudança (comportamento
+ * v0 preservado).
+ *
+ * @param results saída de `evaluateAllTransitions`
+ * @param focusDimension dimensão alvo (vem de `pickFocusDimension(statusMatrix)`
+ *   no caller — geralmente "emotional" pra perfil kids). Fallback "emotional"
+ *   garante que o closed-loop sempre tem onde aplicar.
+ */
+export function enrichWithClosedLoopActions(
+  results: TransitionEvaluationResult[],
+  focusDimension: string | undefined,
+): TransitionEvaluationResult[] {
+  if (!isClosedLoopEnabled()) return results;
+  const dimension = focusDimension ?? "emotional";
+  return results.map((result) => {
+    if (!result.fired) return result;
+    const targetZone = parseTransitionTargetZone(result.transition_name);
+    if (targetZone === null) return result;
+    return {
+      ...result,
+      closed_loop_action: {
+        dimension,
+        target_zone: targetZone,
+        source: "trigger_evaluator" as const,
+      },
+    };
   });
 }
