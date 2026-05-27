@@ -9,11 +9,25 @@
    * Out of scope (v1): LLM calls raw (entries vazias nos STS traces), Journey
    * snapshots por turn (não capturados — necessitaria estender writers).
    */
-  import type { ReplayTraceTurn, ReplayScoredItemLike } from "../lib/api.js";
+  import type {
+    ReplayTraceTurn,
+    ReplayScoredItemLike,
+    LlmCallLike,
+  } from "../lib/api.js";
+  import { llmXrayCalls, llmXrayPanelOpen } from "../lib/stores.js";
 
   export let turn: ReplayTraceTurn;
 
   let expanded = false;
+
+  function openXray(filterRole?: string): void {
+    const allCalls = (turn.engineTrace?.llm_calls ?? []) as LlmCallLike[];
+    const filtered = filterRole
+      ? allCalls.filter((c) => c.role === filterRole)
+      : allCalls;
+    llmXrayCalls.set(filtered);
+    llmXrayPanelOpen.set(true);
+  }
 
   $: motor = turn.motorTrace ?? {};
   $: plan = motor.plan ?? {};
@@ -37,6 +51,7 @@
   $: v2Components = engineV2?.components ?? {};
   $: v2SkWrites = engineV2?.subject_knowledge_writes ?? [];
   $: v2Warnings = engineV2?.warnings ?? [];
+  $: v2LlmCalls = (engineV2?.llm_calls ?? []) as LlmCallLike[];
 
   $: hasEngineData =
     hasV2 ||
@@ -124,6 +139,26 @@
         {/if}
         {#if hasV2}
           <span class="badge v2" data-testid="v2-badge">v2</span>
+        {/if}
+        {#if v2LlmCalls.length > 0}
+          <span
+            class="badge xray"
+            role="button"
+            tabindex="0"
+            on:click|stopPropagation={() => openXray()}
+            on:keydown|stopPropagation={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openXray();
+              }
+            }}
+            data-testid="xray-open-btn"
+            title="Abrir LLM x-ray (drill em engineTrace.llm_calls[])"
+          >
+            🔬 X-ray ({v2LlmCalls.length} call{v2LlmCalls.length === 1
+              ? ""
+              : "s"})
+          </span>
         {/if}
       </span>
     </button>
@@ -633,6 +668,20 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+  }
+  .badge.xray {
+    background: rgba(123, 31, 162, 0.22);
+    color: #6a1b9a;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+  .badge.xray:hover {
+    background: rgba(123, 31, 162, 0.35);
+  }
+  .badge.xray:focus-visible {
+    outline: 2px solid #6a1b9a;
+    outline-offset: 1px;
   }
   .badge.journey { background: rgba(123, 31, 162, 0.22); }
   .badge.helix { background: rgba(245, 124, 0, 0.22); }
