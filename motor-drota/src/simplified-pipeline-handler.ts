@@ -121,6 +121,9 @@ import { assess } from "./unified-assessor.js";
 import { selectAction } from "./pragmatic-selector.js";
 import { materialize } from "./constrained-materializer.js";
 import { resolveInauguralTemplate } from "./inaugural-template.js";
+import { tactician } from "./tactician.js";
+import { speak } from "./speaker.js";
+import type { TacticDecision } from "@ascendimacy/shared";
 
 export interface SimplifiedPipelineOpts {
   /** TV2-4 (spec ops#1136): captura engine trace v2 no output. Default true. */
@@ -331,36 +334,108 @@ export async function handleSimplifiedPipeline(
   // via contextHints quando RecallCheckEvaluator (BFF/orchestrator)
   // decide testar concept anterior. Materializer anexa framing ao Fact.
   // Integração full com evaluator in-process vem em PR futuro.
+  // Note: recall_check only applies to the legacy materializer path.
   const recallCheckCandidate = input.contextHints?.["recall_check_candidate"] as
     | { concept_id: string; suggested_framing: string }
     | undefined;
 
-  // 3b. Constrained Materializer — texto final com FALLBACK handling.
-  const matResult = await materialize(
-    {
-      action: selectionResult.selected,
-      subjectNameForm: input.persona.name,
-      mood: assessment.mood,
-      engagement: assessment.engagement,
-      turnCount: input.state.turn,
-      budgetRemaining: input.state.budgetRemaining,
-      jurisdictionActive:
-        ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
-          "br") as "br" | "jp" | "ch",
-      run_id: input.sessionId,
-      incomingMessage: lastUserMessage,
-      recentTurns,
-      ...(recallCheckCandidate ? { recallCheckCandidate } : {}),
-    },
-    collector ? { collector } : undefined,
-  );
+  // 3b. Geração de fala — dois caminhos:
+  //   USE_SPLIT_DROTA=true  → S4: Tactician (decide jogada) + Speaker (gera texto)
+  //   USE_SPLIT_DROTA=false → legado: Constrained Materializer direto
+  // Feature flag backward-compatible (default false).
+  const USE_SPLIT_DROTA = process.env.USE_SPLIT_DROTA === "true";
+
+  let tacticDecision: TacticDecision | undefined;
+  let tacticianTrace: import("@ascendimacy/shared").TacticianTrace | undefined;
+  let speakerTrace: import("@ascendimacy/shared").SpeakerTrace | undefined;
+
+  let finalText: string;
+  let fallbackTriggered: boolean;
+  let recallCheckEmitted:
+    | { concept_id: string; framing_used: string }
+    | undefined;
+  let materializerTrace:
+    | import("@ascendimacy/shared").MaterializerTrace
+    | undefined;
+
+  if (USE_SPLIT_DROTA) {
+    // ── S4 path ──────────────────────────────────────────────────────────
+    // Step 1: Tactician decides jogada from content pool + assessor signals.
+    const tacResult = await tactician(
+      {
+        contentPool: ranked.slice(0, 8),
+        contextHints: input.contextHints ?? {},
+        strategicRationale: selectionResult.decision_path,
+        signals: assessment.signals,
+        mood: assessment.mood,
+        engagement: assessment.engagement,
+        run_id: input.sessionId,
+      },
+      collector ? { collector } : undefined,
+    );
+    tacticDecision = tacResult.decision;
+    if (tacResult._trace) tacticianTrace = tacResult._trace;
+
+    // Step 2: Speaker executes TacticDecision in speech.
+    // Resolve the selected item from the ranked pool (Tactician may have
+    // overridden the selector's choice).
+    const speakerAction =
+      ranked.find((c) => c.item.id === tacticDecision!.selected_item_id) ??
+      selectionResult.selected;
+    const spkResult = await speak(
+      {
+        decision: tacticDecision,
+        action: speakerAction,
+        subjectNameForm: input.persona.name,
+        mood: assessment.mood,
+        engagement: assessment.engagement,
+        turnCount: input.state.turn,
+        budgetRemaining: input.state.budgetRemaining,
+        jurisdictionActive:
+          ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
+            "br") as "br" | "jp" | "ch",
+        incomingMessage: lastUserMessage,
+        recentTurns,
+        run_id: input.sessionId,
+      },
+      collector ? { collector } : undefined,
+    );
+    finalText = spkResult.text;
+    fallbackTriggered = spkResult.fallback_triggered;
+    if (spkResult._trace) speakerTrace = spkResult._trace;
+    recallCheckEmitted = undefined; // not supported in split path (yet)
+  } else {
+    // ── Legacy path: Constrained Materializer ────────────────────────────
+    const matResult = await materialize(
+      {
+        action: selectionResult.selected,
+        subjectNameForm: input.persona.name,
+        mood: assessment.mood,
+        engagement: assessment.engagement,
+        turnCount: input.state.turn,
+        budgetRemaining: input.state.budgetRemaining,
+        jurisdictionActive:
+          ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
+            "br") as "br" | "jp" | "ch",
+        run_id: input.sessionId,
+        incomingMessage: lastUserMessage,
+        recentTurns,
+        ...(recallCheckCandidate ? { recallCheckCandidate } : {}),
+      },
+      collector ? { collector } : undefined,
+    );
+    finalText = matResult.text;
+    fallbackTriggered = matResult.fallback_triggered;
+    recallCheckEmitted = matResult.recall_check_emitted;
+    if (matResult._trace) materializerTrace = matResult._trace;
+  }
 
   // ── Fase 3: ConceptLedgerWriter — após materializar o Fact, emite
   // presented_concept (+1pt) se item está taggeado com axis_id/family/
   // lineage_anchor/extracted_keywords. Items legados sem tags simplesmente
   // não geram entry. Fallback (rawText vazio) também não conta.
   // PR 2: sessionPhase gate — ice_breaker NÃO acumula ledger.
-  if (!matResult.fallback_triggered) {
+  if (!fallbackTriggered) {
     subjectKnowledgeEvents.push(
       ...extractPresentedConcepts({
         subjectId: input.persona.id,
@@ -376,9 +451,9 @@ export async function handleSimplifiedPipeline(
   // Resposta é classificada no turn seguinte via classifyRecallResponse
   // (não in-process aqui — caller resolve). points_awarded=0 inicialmente;
   // BFF/orchestrator atualiza pra 5 quando resposta=positive.
-  if (matResult.recall_check_emitted) {
+  if (recallCheckEmitted) {
     subjectKnowledgeEvents.push({
-      id: `sk-rc-${input.persona.id}-${turnRef}-${matResult.recall_check_emitted.concept_id}`,
+      id: `sk-rc-${input.persona.id}-${turnRef}-${recallCheckEmitted.concept_id}`,
       subject_id: input.persona.id,
       type: "recall_check_attempt",
       source: "motor_inferred",
@@ -387,8 +462,8 @@ export async function handleSimplifiedPipeline(
       alignment: "unknown",
       payload: {
         kind: "recall_check_attempt",
-        concept_id_referenced: matResult.recall_check_emitted.concept_id,
-        framing_used: matResult.recall_check_emitted.framing_used,
+        concept_id_referenced: recallCheckEmitted.concept_id,
+        framing_used: recallCheckEmitted.framing_used,
         result: "ambiguous", // pending — classify no turn seguinte
         points_awarded: 0,
       },
@@ -432,27 +507,29 @@ export async function handleSimplifiedPipeline(
         ...(selectionResult._trace
           ? { pragmatic_selector: selectionResult._trace }
           : {}),
-        ...(matResult._trace
-          ? { constrained_materializer: matResult._trace }
+        ...(materializerTrace
+          ? { constrained_materializer: materializerTrace }
           : {}),
+        ...(tacticianTrace ? { tactician: tacticianTrace } : {}),
+        ...(speakerTrace ? { speaker: speakerTrace } : {}),
       },
       llm_calls: collector?.drain() ?? [],
       subject_knowledge_writes: skWrites,
       warnings,
+      ...(tacticDecision ? { tactic_decision: tacticDecision } : {}),
     };
   }
 
   return {
     selectedContent: selectionResult.selected,
     selectionRationale: selectionResult.decision_path,
-    linguisticMaterialization: matResult.text,
+    linguisticMaterialization: finalText,
     assessment: assessmentForOutput,
     subjectKnowledgeEvents,
     sessionState,
     ...(strategyPlan ? { strategyPlan } : {}),
-    ...(matResult.fallback_triggered
-      ? { skipReason: "materializer_fallback" }
-      : {}),
+    ...(fallbackTriggered ? { skipReason: "materializer_fallback" } : {}),
     ...(engineTrace ? { engineTrace } : {}),
+    ...(tacticDecision ? { tactic_decision: tacticDecision } : {}),
   };
 }

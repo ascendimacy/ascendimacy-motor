@@ -147,6 +147,13 @@ export interface EvaluateAndSelectOutput {
    * (TV2-5) pega daqui e injeta em turn.engineTrace no trace.json.
    */
   engineTrace?: import("./engine-trace-v2.js").EngineTraceV2;
+  /**
+   * S4 (spec 2026-05-26-s4-separacao-decide-gera-v0): TacticDecision
+   * produzida pelo Tactician quando `USE_SPLIT_DROTA=true`. Permite
+   * credit assignment (tactic_correct ≠ speech_correct) e replay
+   * determinístico do Speaker. Undefined no modo legado.
+   */
+  tactic_decision?: import("./contracts/tactic-decision.js").TacticDecision;
 }
 
 export interface ExecutePlaybookInput {
