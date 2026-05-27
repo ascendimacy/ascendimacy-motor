@@ -120,6 +120,43 @@ export {
   type MilestoneEventType,
 } from "./milestone-event.js";
 
+// B2 — Drilling primer (banco atômico + SR + mastery)
+// spec ascendimacy-ops/docs/specs/2026-05-26-b2-drilling-primer-v0.md
+export {
+  DRILL_ITEM_TYPES,
+  DRILL_REGISTERS,
+  DrillItemTypeSchema,
+  DrillDifficultySchema,
+  DrillRegisterSchema,
+  DrillItemPayloadSchema,
+  DrillItemCulturalMetadataSchema,
+  DrillItemBaseSchema,
+  DrillItemSchema,
+  DrillBankSchema,
+  parseDrillBank,
+  type DrillItem,
+  type DrillItemBase,
+  type DrillItemType,
+  type DrillDifficulty,
+  type DrillRegister,
+  type DrillItemPayload,
+  type DrillItemCulturalMetadata,
+  type DrillBank,
+} from "./drill-item.js";
+
+export {
+  DRILL_RESPONSES,
+  DrillResponseSchema,
+  DrillStateSchema,
+  DEFAULT_EASINESS,
+  MIN_EASINESS,
+  MASTERY_MIN_CORRECT,
+  MASTERY_WINDOW_SIZE,
+  MASTERY_MIN_INTERVAL_DAYS,
+  type DrillResponse,
+  type DrillState,
+} from "./drill-state.js";
+
 // B1 — hooks temporais + continuidade narrativa
 // (spec ascendimacy-ops/docs/specs/2026-05-26-b1-hooks-temporais-v0.md)
 export {
