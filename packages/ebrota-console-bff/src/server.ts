@@ -78,6 +78,7 @@ import {
   saveDraft as saveOnboardingDraft,
   markComplete as markOnboardingComplete,
 } from "./parental-onboarding-store.js";
+import parentalDashboardRoutes from "./routes/parental-dashboard-routes.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import b1RoutesPlugin from "./routes/b1-routes.js";
@@ -147,6 +148,9 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   };
   void fastify.register(b1RoutesPlugin, sharedRouteOpts);
   void fastify.register(b2RoutesPlugin, sharedRouteOpts);
+
+  // Parental Engaged Dashboard (US-PE-01..09) — plugin Fastify isolado.
+  void fastify.register(parentalDashboardRoutes, {});
 
   // In-memory set de sessionIds ativos (iniciados via /sessions/start-card,
   // removidos via /sessions/:id/end). Permite que App.svelte faça polling

@@ -24,6 +24,7 @@
   import B1SocialPanel from "./components/subsystem-panels/B1SocialPanel.svelte";
   import B2DrillingPanel from "./components/subsystem-panels/B2DrillingPanel.svelte";
   import ParentalOnboardingWizard from "./components/ParentalOnboardingWizard.svelte";
+  import ParentalEngagedDashboard from "./components/parental/ParentalEngagedDashboard.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -50,6 +51,9 @@
   // US-PO-01..11 — quando ?onboarding=true na URL, mostra o wizard parental
   // em vez do console operador. Default false.
   let onboardingMode = false;
+  // US-PE-01..09 — quando ?parental=engaged na URL, mostra o engaged dashboard
+  // ("dia dos meus filhos"). Convive com onboarding mode mas exclusivo.
+  let parentalRole: "engaged" | null = null;
 
   async function refreshStatus(): Promise<void> {
     try {
@@ -100,6 +104,10 @@
       onboardingMode = true;
       return;
     }
+    if (params.get("parental") === "engaged") {
+      parentalRole = "engaged";
+      return;
+    }
     if (r !== null) {
       replaySessionId.set(r);
       libraryOpen.set(false);
@@ -110,7 +118,7 @@
 
   onMount(() => {
     applyUrlParams();
-    if (onboardingMode) return;
+    if (onboardingMode || parentalRole !== null) return;
     void refreshStatus();
     void checkActiveSessions();
     pollTimer = setInterval(() => {
@@ -137,6 +145,13 @@
     </header>
     <main class="onboarding-main">
       <ParentalOnboardingWizard />
+    </main>
+  {:else if parentalRole === "engaged"}
+    <header class="status-bar simple">
+      <h1>eBrota Console — Parental Engaged</h1>
+    </header>
+    <main class="onboarding-main" data-testid="parental-engaged-main">
+      <ParentalEngagedDashboard />
     </main>
   {:else}
     <Status {api} />

@@ -658,6 +658,46 @@ export interface ApiClient {
   listDrillMastered(
     personaId: string,
   ): Promise<{ states: DrillStateLike[] }>;
+
+  // ─── Parental Engaged Dashboard (US-PE-01..09) ──────────────────
+  getParentalDashboard(
+    acquirerId: string,
+  ): Promise<ParentalDashboardLike>;
+  getParentalToday(
+    childId: string,
+  ): Promise<ParentalTodayLike>;
+  getParentalWeek(
+    childId: string,
+  ): Promise<ParentalWeekLike>;
+  getParentalCards(
+    childId: string,
+  ): Promise<{ childId: string; cards: ParentalPhysCardLike[] }>;
+  getParentalConversations(
+    childId: string,
+    limit?: number,
+  ): Promise<{ childId: string; sessions: ParentalConversationLike[] }>;
+  getParentalAlerts(
+    childId: string,
+  ): Promise<{ childId: string; alerts: ParentalAlertLike[] }>;
+  getParentalPulsoEvents(
+    childId: string,
+    opts?: { type?: string; limit?: number },
+  ): Promise<{ childId: string; events: ParentalPulsoEventLike[] }>;
+  listPendingQuestions(): Promise<{ questions: ParentalPendingQuestionLike[] }>;
+  answerPendingQuestion(
+    questionId: string,
+    payload: { answerText?: string; instructionToBrota?: string },
+  ): Promise<{ status: string; scheduledForNextSession: boolean }>;
+  reportProblem(payload: {
+    childId: string;
+    type: "tom" | "repeticao" | "off-topic" | "outro";
+    text: string;
+    sessionRef?: string;
+  }): Promise<{ reportId: string; status: string; notifiedJun: boolean }>;
+  pauseChild(
+    childId: string,
+    payload: { reason: string; pauseUntilIso?: string; immediate?: boolean },
+  ): Promise<{ paused: boolean; immediate: boolean; notifiedJun: boolean }>;
 }
 
 // ─── S1 wiring — Declared Objectives + Narrative Threads + SK summary ──
@@ -701,6 +741,106 @@ export interface SubjectKnowledgeSummary {
   recallPositiveRate: number | null;
   recallTotal: number;
   topConcepts: TopConceptEntry[];
+}
+
+// ─── Parental dashboard duck-types ────────────────────────────────
+export interface ParentalKidSummaryLike {
+  childId: string;
+  name: string;
+  age: number;
+  primaryLanguage: string;
+  avatarColor: string;
+  engagedToday: boolean;
+  lastSeenAt: string | null;
+  moodToday: number | null;
+  durationMinutesToday: number;
+  oneLineSummary: string;
+  developmentStub?: boolean;
+}
+export interface ParentalDashboardLike {
+  acquirerId: string;
+  acquirerName: string;
+  generatedAt: string;
+  pendingQuestionsCount: number;
+  unreadAlertsCount: number;
+  children: ParentalKidSummaryLike[];
+}
+export interface ParentalTodayLike {
+  childId: string;
+  date: string;
+  engaged: boolean;
+  moodAverage: number | null;
+  durationMinutes: number;
+  topicsDiscussed: string[];
+  lastMessagePreview: string | null;
+  lastSeenAt: string | null;
+  cardsEmittedToday: number;
+  developmentStub?: boolean;
+}
+export interface ParentalWeekLike {
+  childId: string;
+  weekStartIso: string;
+  weekEndIso: string;
+  moodTimeline: Array<{ date: string; mood: number | null }>;
+  moodAverage: number | null;
+  cardsCount: number;
+  cardThumbnails: Array<{ cardId: string; title: string; rarity: string }>;
+  sacrificeBudgetTotal: number;
+  sacrificeBudgetUsed: number;
+  offScreenRatio: number;
+  topThemes: string[];
+  qualitativeSummary: string;
+  developmentStub?: boolean;
+}
+export interface ParentalPhysCardLike {
+  cardId: string;
+  title: string;
+  rarity: "common" | "rare" | "epic" | "legendary";
+  emittedAt: string;
+  thumbnailUrl: string;
+  qrCodePayload: string;
+  cheatCode: string;
+  pdfUrl: string;
+  used: boolean;
+}
+export interface ParentalConversationLike {
+  sessionId: string;
+  startedAt: string;
+  endedAt: string | null;
+  turnCount: number;
+  durationMinutes: number;
+  topicSummary: string;
+  preview: Array<{ from: "kid" | "brota"; text: string; at: string }>;
+  developmentStub?: boolean;
+}
+export interface ParentalAlertLike {
+  alertId: string;
+  type: "distress" | "drift" | "negative_sequence" | "other";
+  severity: "info" | "warn" | "critical";
+  raisedAt: string;
+  context: string;
+  excerpt: string;
+  sessionRefs: string[];
+  proposedAction: "pause_brota" | "contact_jun" | "wait" | "review";
+  status: "open" | "ack" | "resolved";
+}
+export interface ParentalPulsoEventLike {
+  eventId: string;
+  type: "omikuji" | "mini_historia" | "lembrete_cultural" | "outro";
+  firedAt: string;
+  windowLabel: string;
+  culturalContext: string;
+  payloadPreview: string;
+  kidReaction: "engaged" | "ignored" | "positive" | "negative" | "unknown";
+}
+export interface ParentalPendingQuestionLike {
+  questionId: string;
+  childId: string;
+  raisedAt: string;
+  brotaContextTurns: Array<{ from: "kid" | "brota"; text: string }>;
+  rawQuestion: string;
+  escalationReason: string;
+  status: "open" | "answered";
 }
 
 export interface SubjectKnowledgeEntryLike {
@@ -1045,6 +1185,62 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     listDrillMastered: (personaId) =>
       get<{ states: DrillStateLike[] }>(
         `/personas/${encodeURIComponent(personaId)}/drill-mastered`,
+      ),
+
+    // ── Parental Engaged Dashboard (US-PE-01..09) ──────────────────
+    getParentalDashboard: (acquirerId) =>
+      get<ParentalDashboardLike>(
+        `/parental/dashboard/${encodeURIComponent(acquirerId)}`,
+      ),
+    getParentalToday: (childId) =>
+      get<ParentalTodayLike>(
+        `/parental/children/${encodeURIComponent(childId)}/today`,
+      ),
+    getParentalWeek: (childId) =>
+      get<ParentalWeekLike>(
+        `/parental/children/${encodeURIComponent(childId)}/week`,
+      ),
+    getParentalCards: (childId) =>
+      get<{ childId: string; cards: ParentalPhysCardLike[] }>(
+        `/parental/children/${encodeURIComponent(childId)}/cards`,
+      ),
+    getParentalConversations: (childId, limit) =>
+      get<{ childId: string; sessions: ParentalConversationLike[] }>(
+        `/parental/children/${encodeURIComponent(childId)}/conversations${
+          limit !== undefined ? `?limit=${limit}` : ""
+        }`,
+      ),
+    getParentalAlerts: (childId) =>
+      get<{ childId: string; alerts: ParentalAlertLike[] }>(
+        `/parental/children/${encodeURIComponent(childId)}/alerts`,
+      ),
+    getParentalPulsoEvents: (childId, opts) => {
+      const params = new URLSearchParams();
+      if (opts?.type !== undefined) params.set("type", opts.type);
+      if (opts?.limit !== undefined) params.set("limit", String(opts.limit));
+      const q = params.toString();
+      return get<{ childId: string; events: ParentalPulsoEventLike[] }>(
+        `/parental/children/${encodeURIComponent(childId)}/pulso-events${q ? `?${q}` : ""}`,
+      );
+    },
+    listPendingQuestions: () =>
+      get<{ questions: ParentalPendingQuestionLike[] }>(
+        "/parental/escalation/pending-questions",
+      ),
+    answerPendingQuestion: (questionId, payload) =>
+      post<{ status: string; scheduledForNextSession: boolean }>(
+        `/parental/escalation/pending-questions/${encodeURIComponent(questionId)}/answer`,
+        payload,
+      ),
+    reportProblem: (payload) =>
+      post<{ reportId: string; status: string; notifiedJun: boolean }>(
+        "/parental/escalation/report",
+        payload,
+      ),
+    pauseChild: (childId, payload) =>
+      post<{ paused: boolean; immediate: boolean; notifiedJun: boolean }>(
+        `/parental/children/${encodeURIComponent(childId)}/pause`,
+        payload,
       ),
   };
 }
