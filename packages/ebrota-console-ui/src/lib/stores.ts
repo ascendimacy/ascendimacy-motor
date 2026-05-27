@@ -79,3 +79,12 @@ export const llmXrayPanelOpen = writable<boolean>(false);
 /** Calls passados pelo parent (turno selecionado em engineTrace.llm_calls).
  *  Vazio = mostrar empty state. */
 export const llmXrayCalls = writable<LlmCallLike[]>([]);
+
+/** Console redesign Fase 1 (spec 2026-05-26-console-ebrota-7-subsistemas-redesign-v0):
+ *  feature flag para habilitar landing em grid 4×2 de cards por subsistema.
+ *  Default true; quando false, layout legacy (MotorView + ChatFeed grid). */
+export const subsystemLayoutEnabled = writable<boolean>(true);
+
+/** Subsistema atualmente expandido a partir do grid landing. Null = grid
+ *  visível. Valores: "S1" | "S2" | "S3" | "S4" | "S5" | "B1" | "B2". */
+export const expandedSubsystem = writable<string | null>(null);

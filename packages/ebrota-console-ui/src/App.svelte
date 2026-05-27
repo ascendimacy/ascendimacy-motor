@@ -13,14 +13,24 @@
   import MapsPanel from "./components/MapsPanel.svelte";
   import DiscoveriesPanel from "./components/DiscoveriesPanel.svelte";
   import LlmXrayPanel from "./components/LlmXrayPanel.svelte";
+  import SubsystemGrid from "./components/SubsystemGrid.svelte";
+  import S1AprendizPanel from "./components/subsystem-panels/S1AprendizPanel.svelte";
+  import S2DoutrinaPanel from "./components/subsystem-panels/S2DoutrinaPanel.svelte";
+  import S3DecisaoTurnPanel from "./components/subsystem-panels/S3DecisaoTurnPanel.svelte";
+  import S4ExpressaoTurnPanel from "./components/subsystem-panels/S4ExpressaoTurnPanel.svelte";
+  import S5AvaliacaoPanel from "./components/subsystem-panels/S5AvaliacaoPanel.svelte";
+  import B1SocialPanel from "./components/subsystem-panels/B1SocialPanel.svelte";
+  import B2DrillingPanel from "./components/subsystem-panels/B2DrillingPanel.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
     consoleMode,
     currentSessionId,
+    expandedSubsystem,
     globalError,
     libraryOpen,
     replaySessionId,
+    subsystemLayoutEnabled,
   } from "./lib/stores.js";
   import {
     startTurnStateStream,
@@ -119,10 +129,45 @@
 
   <ApprovalGate {api} />
 
-  <main class="main-grid">
-    <ChatFeed />
-    <MotorView {api} />
-  </main>
+  {#if $subsystemLayoutEnabled}
+    <main
+      class="main-subsystem"
+      class:expanded={$expandedSubsystem !== null}
+      data-testid="main-subsystem"
+    >
+      <div class="left">
+        {#if $expandedSubsystem === null}
+          <SubsystemGrid />
+        {:else if $expandedSubsystem === "S1"}
+          <S1AprendizPanel />
+        {:else if $expandedSubsystem === "S2"}
+          <S2DoutrinaPanel />
+        {:else if $expandedSubsystem === "S3"}
+          <S3DecisaoTurnPanel />
+        {:else if $expandedSubsystem === "S4"}
+          <S4ExpressaoTurnPanel />
+        {:else if $expandedSubsystem === "S5"}
+          <S5AvaliacaoPanel />
+        {:else if $expandedSubsystem === "B1"}
+          <B1SocialPanel />
+        {:else if $expandedSubsystem === "B2"}
+          <B2DrillingPanel />
+        {/if}
+      </div>
+      <aside class="right">
+        <ChatFeed />
+      </aside>
+    </main>
+    <details class="motor-view-fold">
+      <summary>MotorView (debug — trace v2 expandido)</summary>
+      <MotorView {api} />
+    </details>
+  {:else}
+    <main class="main-grid" data-testid="main-grid-legacy">
+      <ChatFeed />
+      <MotorView {api} />
+    </main>
+  {/if}
 
   <SessionStart {api} />
 
@@ -176,6 +221,36 @@
       grid-template-columns: 1fr;
       grid-template-rows: 1fr 1fr;
     }
+  }
+
+  .main-subsystem {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 1px;
+    background: rgba(127, 127, 127, 0.2);
+    flex: 1;
+    min-height: 0;
+  }
+  .main-subsystem > .left,
+  .main-subsystem > .right {
+    background: var(--color-bg, transparent);
+    overflow: auto;
+    min-height: 0;
+  }
+  @media (max-width: 768px) {
+    .main-subsystem {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto;
+    }
+  }
+  .motor-view-fold {
+    border-top: 1px solid rgba(127, 127, 127, 0.3);
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  .motor-view-fold > summary {
+    cursor: pointer;
+    opacity: 0.75;
   }
 
   .muted {
