@@ -9,7 +9,7 @@
  *  - D-P41-02: cache em memória (in-process Map)
  */
 
-import type { LearnerSummary } from "@ascendimacy/shared";
+import type { DeclaredObjective, LearnerSummary } from "@ascendimacy/shared";
 
 export const S1_CACHE_TTL_MS = 60_000;
 
@@ -29,6 +29,9 @@ export interface S1DataSources {
   getTreeZones(persona: string): Promise<string[]>;
   getHelixPosition(persona: string): Promise<string | null>;
   getLastSession(persona: string): Promise<string | null>;
+  // S1 declared objectives (ops spec 2026-05-26-s1-objetivos-declarados-v0).
+  // Opcional pra preservar compat com callers anteriores.
+  getDeclaredObjectives?(persona: string): Promise<DeclaredObjective[]>;
 }
 
 const defaultSources: S1DataSources = {
@@ -49,12 +52,15 @@ export const S1 = {
       return cached.data;
     }
 
-    const [casel_levels, tree_zones, helix_position, last_session] =
+    const [casel_levels, tree_zones, helix_position, last_session, declared_objectives] =
       await Promise.all([
         sources.getCaselLevels(persona),
         sources.getTreeZones(persona),
         sources.getHelixPosition(persona),
         sources.getLastSession(persona),
+        sources.getDeclaredObjectives !== undefined
+          ? sources.getDeclaredObjectives(persona)
+          : Promise.resolve(undefined),
       ]);
 
     const summary: LearnerSummary = {
@@ -64,6 +70,7 @@ export const S1 = {
       helix_position,
       last_session,
       cached_at: now,
+      ...(declared_objectives !== undefined ? { declared_objectives } : {}),
     };
 
     _cache.set(persona, { data: summary, cachedAt: now });

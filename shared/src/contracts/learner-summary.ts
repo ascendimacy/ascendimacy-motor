@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { DeclaredObjectiveSchema } from "./declared-objective.js";
 
 export const LearnerSummarySchema = z.object({
   persona: z.string().min(1),
@@ -18,6 +19,9 @@ export const LearnerSummarySchema = z.object({
   helix_position: z.string().nullable(),
   last_session: z.string().nullable(),
   cached_at: z.number(),
+  // S1 declared objectives (ops spec 2026-05-26-s1-objetivos-declarados-v0).
+  // Opcional pra preservar compat com S1.read sem source injetado.
+  declared_objectives: z.array(DeclaredObjectiveSchema).optional(),
 });
 
 export type LearnerSummary = z.infer<typeof LearnerSummarySchema>;
