@@ -492,6 +492,108 @@ export interface DyadConfigLike {
   source: string;
 }
 
+// ─── S5 Avaliação duck-types (guardrail/STS/longitudinal) ──────────
+
+export interface GuardrailCheckEntryLike {
+  id: string;
+  turn_ref: string;
+  session_id: string;
+  created_at: string;
+  topic_category: string;
+  label: string;
+  intensity: number | null;
+  passed: boolean;
+}
+
+export interface RecallCheckEntryLike {
+  id: string;
+  turn_ref: string;
+  session_id: string;
+  created_at: string;
+  concept_id: string;
+  lineage_anchor: string;
+  outcome: string;
+  intensity: number | null;
+}
+
+export interface TriggerEventEntryLike {
+  id: string;
+  turn_ref: string;
+  session_id: string;
+  fired_at: string;
+  transition: string;
+}
+
+export interface MoodTrajectoryPointLike {
+  session_id: string;
+  started_at: string;
+  mood: number | null;
+}
+
+export interface CaselDeltaLike {
+  month: string;
+  axis: string;
+  delta: number;
+}
+
+export interface KpiLongitudinalLike {
+  persona_id: string;
+  mood_trajectory: MoodTrajectoryPointLike[];
+  casel_deltas: CaselDeltaLike[];
+  concept_retention: {
+    total_attempts: number;
+    positive_rate: number | null;
+    positive_rate_by_week: Array<{
+      week_start: string;
+      rate: number | null;
+      total: number;
+    }>;
+  };
+  trigger_summary: Array<{ transition: string; count: number }>;
+  recall_summary: {
+    items_checked: number;
+    positive_rate: number | null;
+  };
+  source: "real" | "partial_stub_v0" | "stub_v0";
+}
+
+export interface StsScenarioLike {
+  id: string;
+  label: string;
+  description: string;
+  recommended_turns: number;
+  duration_label: string;
+}
+
+export interface StsPersonaLike {
+  id: string;
+  display_name: string;
+  archetype: string;
+  age: number | null;
+  language: string;
+}
+
+export interface StsRunSummaryLike {
+  run_id: string;
+  persona_id: string;
+  scenario_id: string;
+  started_at: string;
+  ended_at: string | null;
+  turn_count: number;
+  score: string | null;
+  trace_path: string | null;
+}
+
+export interface StsRunStartResultLike {
+  run_id: string;
+  status: "dispatched_stub_v0";
+  persona_id: string;
+  scenario_id: string;
+  turns: number;
+  dispatched_at: string;
+  note: string;
+}
+
 export interface DrillBankSummaryLike {
   bank_id: string;
   title: string;
@@ -640,6 +742,39 @@ export interface ApiClient {
   ): Promise<{ cards: EmittedCardLike[] }>;
   /** Configuração de dyad ativo (V0: stub null). */
   getDyad(personaId: string): Promise<DyadConfigLike>;
+
+  // ─── S5 Motor de Avaliação (guardrail / STS / longitudinal) ────
+  getGuardrailHistory(
+    personaId: string,
+    limit?: number,
+  ): Promise<{
+    checks: GuardrailCheckEntryLike[];
+    passed_count: number;
+    failed_count: number;
+    source: "real" | "stub_v0";
+  }>;
+  getRecallCheckHistory(
+    personaId: string,
+    limit?: number,
+  ): Promise<{
+    events: RecallCheckEntryLike[];
+    source: "real" | "stub_v0";
+  }>;
+  getTriggerEvents(
+    personaId: string,
+    limit?: number,
+  ): Promise<{
+    events: TriggerEventEntryLike[];
+    transitions: Array<{ transition: string; count: number }>;
+    source: "real" | "stub_v0";
+  }>;
+  getKpiLongitudinal(personaId: string): Promise<KpiLongitudinalLike>;
+  listStsScenarios(): Promise<{ scenarios: StsScenarioLike[] }>;
+  listStsPersonas(): Promise<{ personas: StsPersonaLike[] }>;
+  listStsRuns(limit?: number): Promise<{ runs: StsRunSummaryLike[] }>;
+  startStsRun(
+    input: { persona_id: string; scenario_id: string; turns?: number },
+  ): Promise<StsRunStartResultLike>;
 
   // ─── B2 Drilling ────────────────────────────────────────────────
   /** Lista banks disponíveis em fixtures/banks/. */
@@ -1169,6 +1304,49 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       get<DyadConfigLike>(
         `/personas/${encodeURIComponent(personaId)}/dyad`,
       ),
+
+    // ─── S5 Motor de Avaliação ──────────────────────────────────────
+    getGuardrailHistory: (personaId, limit) =>
+      get<{
+        checks: GuardrailCheckEntryLike[];
+        passed_count: number;
+        failed_count: number;
+        source: "real" | "stub_v0";
+      }>(
+        `/personas/${encodeURIComponent(personaId)}/guardrail-history${
+          limit !== undefined ? `?limit=${limit}` : ""
+        }`,
+      ),
+    getRecallCheckHistory: (personaId, limit) =>
+      get<{ events: RecallCheckEntryLike[]; source: "real" | "stub_v0" }>(
+        `/personas/${encodeURIComponent(personaId)}/recall-check-history${
+          limit !== undefined ? `?limit=${limit}` : ""
+        }`,
+      ),
+    getTriggerEvents: (personaId, limit) =>
+      get<{
+        events: TriggerEventEntryLike[];
+        transitions: Array<{ transition: string; count: number }>;
+        source: "real" | "stub_v0";
+      }>(
+        `/personas/${encodeURIComponent(personaId)}/trigger-events${
+          limit !== undefined ? `?limit=${limit}` : ""
+        }`,
+      ),
+    getKpiLongitudinal: (personaId) =>
+      get<KpiLongitudinalLike>(
+        `/personas/${encodeURIComponent(personaId)}/kpi-longitudinal`,
+      ),
+    listStsScenarios: () =>
+      get<{ scenarios: StsScenarioLike[] }>("/sts/scenarios"),
+    listStsPersonas: () =>
+      get<{ personas: StsPersonaLike[] }>("/sts/personas"),
+    listStsRuns: (limit) =>
+      get<{ runs: StsRunSummaryLike[] }>(
+        limit !== undefined ? `/sts/runs?limit=${limit}` : "/sts/runs",
+      ),
+    startStsRun: (input) =>
+      post<StsRunStartResultLike>("/sts/runs/start", input),
 
     // ─── B2 ─────────────────────────────────────────────────────────
     listBanks: () => get<{ banks: DrillBankSummaryLike[] }>("/banks"),

@@ -137,6 +137,7 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
 
   initParentalOnboardingSchema(opts.db);
   void fastify.register(async (instance) => (await import("./routes/s1-routes.js")).default(instance, { db: opts.db }));
+  void fastify.register(async (instance) => (await import("./routes/s5-routes.js")).default(instance, { db: opts.db }));
 
   // B1/B2 wiring — Camada Social + Drilling. Fastify enfileira o register
   // até .listen()/.ready() resolverem; ok chamar síncrono dentro do factory.
