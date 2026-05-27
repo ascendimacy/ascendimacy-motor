@@ -72,6 +72,14 @@ import {
   getStrategyPlan,
   listStrategyPlansBySubject,
 } from "./strategy-plan-repo.js";
+import {
+  initParentalOnboardingSchema,
+  readLatest as readLatestOnboarding,
+  saveDraft as saveOnboardingDraft,
+  markComplete as markOnboardingComplete,
+} from "./parental-onboarding-store.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -96,6 +104,12 @@ export interface CreateBffServerOptions {
    * Default: undefined → endpoint retorna 503, sem watcher.
    */
   tracesDir?: string;
+  /**
+   * Diretório de fixtures pra escrita do parental-profile.yaml ao
+   * finalizar onboarding (US-PO-11). Quando omitido, endpoint completa
+   * o draft no SQLite mas não escreve YAML em disco.
+   */
+  fixturesDir?: string;
 }
 
 export interface BffServer {
@@ -117,6 +131,8 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   const uiBaseUrl = opts.uiBaseUrl ?? "http://localhost:5173";
   const debugEvents = createDebugEventsStore();
   let mode: ConsoleMode = opts.initialMode ?? "auto";
+
+  initParentalOnboardingSchema(opts.db);
 
   // In-memory set de sessionIds ativos (iniciados via /sessions/start-card,
   // removidos via /sessions/:id/end). Permite que App.svelte faça polling
@@ -685,6 +701,159 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     };
   });
 
+  // ── Parental Onboarding Wizard (US-PO-01..11) ────────────────────
+  // MC10 material — bullets + frases JP. V0 hardcoded a partir do spec
+  // 2026-05-19-mc10-onboarding-yuji.md §3. Versionamento via spec ID
+  // futura quando MC10 final ratificado.
+  fastify.get("/parental/mc10-material", async () => ({
+    beforeBullets: [
+      "Decida em qual cenário vai apresentar — ambos juntos ou um de cada vez (recomendação: um de cada vez).",
+    ],
+    duringBullets: [
+      "Diga o que você quiser sobre quem construiu — mas não minta. Se a criança perguntar, Brota confirma que é IA.",
+      'Diga que Brota vai mandar mensagem espontânea: "em breve, o Brota vai mandar mensagem pra você. Você não precisa responder se não quiser."',
+    ],
+    afterBullets: [
+      "Não pergunte sobre as conversas dele com o Brota. Deixe a criança contar por iniciativa.",
+      "Se reclamar do Brota, repassa pro Jun ANTES de mudar comportamento.",
+    ],
+    jpPhrases: [
+      {
+        pt: "Em breve, o Brota vai mandar mensagem. Você não precisa responder se não quiser.",
+        jp: "もうすぐ、ブロータからメッセージが来るよ。返事したくなかったらしなくていいよ。",
+      },
+    ],
+    escalationPath:
+      "Kid reclama do tom, JP soa estranho, loop ou tema difícil → escala pro Jun. Yuji não precisa virar professor do Brota.",
+  }));
+
+  // POST /parental/onboarding/draft — salva estado idempotente.
+  fastify.post<{ Body: Record<string, unknown> }>(
+    "/parental/onboarding/draft",
+    async (req, reply) => {
+      const state = req.body;
+      if (state === undefined || state === null || typeof state !== "object") {
+        return reply.code(400).send({ error: "body deve ser objeto WizardState" });
+      }
+      const record = saveOnboardingDraft(opts.db, state);
+      return {
+        acquirerId: record.acquirerId,
+        step: record.step,
+        status: record.status,
+        updatedAt: record.updatedAt,
+      };
+    },
+  );
+
+  // GET /parental/onboarding/status — retorna current step (retomada).
+  fastify.get("/parental/onboarding/status", async () => {
+    const record = readLatestOnboarding(opts.db);
+    if (!record) return { status: "not_started" };
+    return {
+      acquirerId: record.acquirerId,
+      step: record.step,
+      status: record.status,
+      updatedAt: record.updatedAt,
+      completedAt: record.completedAt,
+    };
+  });
+
+  // POST /parental/onboarding/complete — finaliza, escreve YAML +
+  // dispara evento persona_ready_for_pilot.
+  fastify.post<{ Body: Record<string, unknown> }>(
+    "/parental/onboarding/complete",
+    async (req, reply) => {
+      const state = req.body;
+      if (state === undefined || state === null || typeof state !== "object") {
+        return reply.code(400).send({ error: "body deve ser objeto WizardState" });
+      }
+      // Validação mínima: precisa de pelo menos 1 criança + telos.
+      const family = (state.family ?? {}) as Record<string, unknown>;
+      const children = (family.children ?? []) as unknown[];
+      if (!Array.isArray(children) || children.length === 0) {
+        return reply
+          .code(400)
+          .send({ error: "ao menos 1 criança obrigatória em family.children" });
+      }
+      const record = markOnboardingComplete(opts.db, state);
+
+      // YAML write — só se fixturesDir configurado.
+      let yamlPath: string | null = null;
+      if (opts.fixturesDir) {
+        yamlPath = `${opts.fixturesDir}/parental-profile-${record.acquirerId}.yaml`;
+        try {
+          mkdirSync(dirname(yamlPath), { recursive: true });
+          writeFileSync(yamlPath, serializeToYaml(state), "utf8");
+        } catch (err) {
+          return reply.code(500).send({
+            error: `falha ao escrever YAML: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      }
+
+      // Evento persona_ready_for_pilot — V0 só loga em debug_actions.
+      // Próximo PR pode wire pro orchestrator daemon notificar Jun.
+      try {
+        opts.db
+          .prepare(
+            `INSERT INTO debug_actions (session_id, action, rationale, recorded_at)
+             VALUES (?, 'persona_ready_for_pilot', ?, ?)`,
+          )
+          .run(
+            record.acquirerId,
+            `Family ${record.acquirerId} ready for pilot (${children.length} children)`,
+            new Date().toISOString(),
+          );
+      } catch {
+        // best-effort
+      }
+
+      return {
+        acquirerId: record.acquirerId,
+        status: "complete",
+        completedAt: record.completedAt,
+        yamlPath,
+        event: "persona_ready_for_pilot",
+      };
+    },
+  );
+
+  // POST /parental/mc1/preview — gera primeira mensagem customizada.
+  // V0 retorna template stub. Futuramente chama orchestrator daemon ou
+  // LLM gateway com persona context.
+  fastify.post<{
+    Body: {
+      personaId?: string;
+      childName?: string;
+      age?: number;
+      language?: string;
+      telos?: { text?: string; tags?: string[] };
+      virtues?: Array<{ axis: number; note?: string }>;
+    };
+  }>("/parental/mc1/preview", async (req, reply) => {
+    const body = req.body ?? {};
+    if (typeof body.childName !== "string" || body.childName.length === 0) {
+      return reply.code(400).send({ error: "childName obrigatório" });
+    }
+    const name = body.childName;
+    const lang = body.language ?? "pt";
+    const tags = body.telos?.tags ?? [];
+    const tagsStr = tags.length > 0 ? tags.slice(0, 2).join(" e ") : "curiosidade";
+
+    const ptText = `Oi, ${name}! Eu sou o Brota — uma plantinha que conversa. Estou aprendendo sobre ${tagsStr} e queria saber: o que você acha mais legal de explorar hoje? Você não precisa responder se não quiser.`;
+
+    const jpText =
+      lang === "jp"
+        ? `\n\n${name}くんへ\nぼくはブロータ。話せる小さな植物です。今日、何が一番おもしろいか教えてくれる？返事したくなかったらしなくていいよ。`
+        : "";
+
+    return {
+      personaId: body.personaId ?? "",
+      text: ptText + jpText,
+      generatedAt: new Date().toISOString(),
+    };
+  });
+
   // POST /rescan — re-indexa o tracesDir (manual trigger).
   // Útil quando STS roda em outro processo e deposita novos traces;
   // o BFF normalmente só scaneia no startup.
@@ -725,7 +894,7 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
     fastify,
     getMode: () => mode,
     debugEvents,
-    async listen(port, host = "127.0.0.1") {
+    async listen(port: number, host = "127.0.0.1") {
       await fastify.listen({ port, host });
     },
     async close() {
@@ -742,4 +911,100 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
       opts.db.close();
     },
   };
+}
+
+/**
+ * Mini-YAML serializer pra parental-profile fixture. Não usa lib (yaml
+ * não está em deps). Cobre só os shapes do WizardState — strings, números,
+ * booleans, arrays e objetos aninhados. Strings com caracteres especiais
+ * são quotadas; chaves sempre nuas.
+ */
+function serializeToYaml(state: unknown): string {
+  const lines: string[] = ["# Parental Profile — gerado por Onboarding Wizard"];
+  lines.push(`# Gerado em ${new Date().toISOString()}`);
+  lines.push("");
+  emitNode(lines, "profile", state, 0);
+  return lines.join("\n") + "\n";
+}
+
+function emitNode(
+  lines: string[],
+  key: string | null,
+  value: unknown,
+  indent: number,
+): void {
+  const pad = "  ".repeat(indent);
+  if (value === null || value === undefined) {
+    if (key !== null) lines.push(`${pad}${key}: null`);
+    return;
+  }
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    const serialized = serializeScalar(value);
+    if (key !== null) lines.push(`${pad}${key}: ${serialized}`);
+    else lines.push(`${pad}${serialized}`);
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (key !== null) lines.push(`${pad}${key}:`);
+    if (value.length === 0) {
+      lines[lines.length - 1] = `${pad}${key !== null ? `${key}: ` : ""}[]`;
+      return;
+    }
+    for (const item of value) {
+      if (
+        item !== null &&
+        typeof item === "object" &&
+        !Array.isArray(item)
+      ) {
+        const entries = Object.entries(item as Record<string, unknown>);
+        if (entries.length === 0) {
+          lines.push(`${pad}- {}`);
+          continue;
+        }
+        lines.push(`${pad}-`);
+        for (const [k, v] of entries) {
+          emitNode(lines, k, v, indent + 1);
+        }
+      } else {
+        const scalar = serializeScalar(
+          item as string | number | boolean | null | undefined,
+        );
+        lines.push(`${pad}- ${scalar}`);
+      }
+    }
+    return;
+  }
+  if (typeof value === "object") {
+    if (key !== null) lines.push(`${pad}${key}:`);
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) {
+      lines[lines.length - 1] = `${pad}${key !== null ? `${key}: ` : ""}{}`;
+      return;
+    }
+    for (const [k, v] of entries) {
+      emitNode(lines, k, v, key !== null ? indent + 1 : indent);
+    }
+  }
+}
+
+function serializeScalar(
+  value: string | number | boolean | null | undefined,
+): string {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return String(value);
+  const s = value;
+  if (
+    s.length === 0 ||
+    /[:#\-?&*!|>'"%@`]|^\s|\s$|^(true|false|null|yes|no)$/i.test(s) ||
+    /\n/.test(s) ||
+    /^-?\d/.test(s)
+  ) {
+    return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  }
+  return s;
 }

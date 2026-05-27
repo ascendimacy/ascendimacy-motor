@@ -13,6 +13,7 @@
   import MapsPanel from "./components/MapsPanel.svelte";
   import DiscoveriesPanel from "./components/DiscoveriesPanel.svelte";
   import LlmXrayPanel from "./components/LlmXrayPanel.svelte";
+  import ParentalOnboardingWizard from "./components/ParentalOnboardingWizard.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -34,6 +35,9 @@
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let activeSessionsPollTimer: ReturnType<typeof setInterval> | undefined;
   let streamManager: TurnStateStreamManager | undefined;
+  // US-PO-01..11 — quando ?onboarding=true na URL, mostra o wizard parental
+  // em vez do console operador. Default false.
+  let onboardingMode = false;
 
   async function refreshStatus(): Promise<void> {
     try {
@@ -79,6 +83,11 @@
     const { replaySessionId: r, liveSessionId: l } = parseUrlParams(
       window.location.search,
     );
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("onboarding") === "true") {
+      onboardingMode = true;
+      return;
+    }
     if (r !== null) {
       replaySessionId.set(r);
       libraryOpen.set(false);
@@ -89,6 +98,7 @@
 
   onMount(() => {
     applyUrlParams();
+    if (onboardingMode) return;
     void refreshStatus();
     void checkActiveSessions();
     pollTimer = setInterval(() => {
@@ -109,31 +119,40 @@
 </script>
 
 <div class="app">
-  <Status {api} />
+  {#if onboardingMode}
+    <header class="status-bar simple">
+      <h1>eBrota Console — Onboarding Parental</h1>
+    </header>
+    <main class="onboarding-main">
+      <ParentalOnboardingWizard />
+    </main>
+  {:else}
+    <Status {api} />
 
-  {#if $globalError !== null}
-    <div class="error-banner" data-testid="error-banner">
-      {$globalError}
-    </div>
+    {#if $globalError !== null}
+      <div class="error-banner" data-testid="error-banner">
+        {$globalError}
+      </div>
+    {/if}
+
+    <ApprovalGate {api} />
+
+    <main class="main-grid">
+      <ChatFeed />
+      <MotorView {api} />
+    </main>
+
+    <SessionStart {api} />
+
+    <SessionLibrary {api} />
+    <Replay {api} />
+    <DebugPanel {api} />
+    <Analytics {api} />
+    <JourneyPanel {api} />
+    <MapsPanel {api} />
+    <DiscoveriesPanel {api} />
+    <LlmXrayPanel />
   {/if}
-
-  <ApprovalGate {api} />
-
-  <main class="main-grid">
-    <ChatFeed />
-    <MotorView {api} />
-  </main>
-
-  <SessionStart {api} />
-
-  <SessionLibrary {api} />
-  <Replay {api} />
-  <DebugPanel {api} />
-  <Analytics {api} />
-  <JourneyPanel {api} />
-  <MapsPanel {api} />
-  <DiscoveriesPanel {api} />
-  <LlmXrayPanel />
 
   <footer>
     <p class="muted">
@@ -156,6 +175,23 @@
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
     border-bottom: 1px solid rgba(176, 0, 32, 0.3);
+  }
+
+  .status-bar.simple {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+    background: rgba(127, 127, 127, 0.05);
+  }
+  .status-bar.simple h1 {
+    font-size: 1.1rem;
+    margin: 0;
+  }
+  .onboarding-main {
+    flex: 1;
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
   }
 
   .main-grid {
