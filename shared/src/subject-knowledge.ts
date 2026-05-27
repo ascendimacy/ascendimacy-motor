@@ -27,7 +27,8 @@ export type SubjectKnowledgeType =
   | "boundary_event"
   | "presented_concept"
   | "recall_check_attempt"
-  | "vertical_affinity_signal";
+  | "vertical_affinity_signal"
+  | "axis_attempt_outcome";
 
 export type SubjectKnowledgeSource =
   | "self_declared"
@@ -64,7 +65,8 @@ export type SubjectKnowledgePayload =
   | BoundaryEventPayload
   | PresentedConceptPayload
   | RecallCheckAttemptPayload
-  | VerticalAffinitySignalPayload;
+  | VerticalAffinitySignalPayload
+  | AxisAttemptOutcomePayload;
 
 export interface InterestPayload {
   kind: "interest";
@@ -134,6 +136,28 @@ export interface VerticalAffinitySignalPayload {
   vertical_kind: "axis" | "lineage";
   vertical_id: string;
   score_affinity: number;
+}
+
+/**
+ * Scorer Objective-Driven sub-fase 5.1 — outcome de tentativa por (item, axis).
+ *
+ * Spec ops#1133 §3.2. DiscoveryWriter (sub-fase 5.5) detecta engagement do
+ * turn N+1 sobre item apresentado no turn N e grava este payload. Scorer
+ * (sub-fase 5.6) consulta histórico pra computar `surpriseEfetivo` — surprise
+ * estática decresce por (item, sujeito) quando engagement falhou.
+ *
+ * `signal_basis`: lista signals que levaram à classificação (e.g.,
+ * `["frame_rejection","mood_drift_down"]` → deflected; `["positive_mood"]` →
+ * engaged). `penalty_applied`: pontos a descontar do surprise quando o item
+ * voltar a ser scored (cumulativo cross-session).
+ */
+export interface AxisAttemptOutcomePayload {
+  kind: "axis_attempt_outcome";
+  item_id: string;
+  axis_id: number;
+  outcome: "engaged" | "deflected" | "neutral";
+  signal_basis: string[];
+  penalty_applied: number;
 }
 
 /**

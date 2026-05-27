@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS subject_knowledge (
   type          TEXT NOT NULL CHECK(type IN (
     'interest', 'value', 'need', 'discovery',
     'boundary_event', 'presented_concept',
-    'recall_check_attempt', 'vertical_affinity_signal'
+    'recall_check_attempt', 'vertical_affinity_signal',
+    'axis_attempt_outcome'
   )),
   source        TEXT NOT NULL CHECK(source IN (
     'self_declared', 'parent_claimed', 'motor_inferred'
