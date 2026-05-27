@@ -238,7 +238,7 @@ export function createOrchestratorMcpServer(
         rationale?: string;
       };
     }) => {
-      const result = opts.daemon.approveOrEdit(
+      const result = await opts.daemon.approveOrEdit(
         input.sessionId,
         input.decision,
       );

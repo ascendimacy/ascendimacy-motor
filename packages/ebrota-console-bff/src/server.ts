@@ -187,12 +187,22 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
         .code(400)
         .send({ error: "campos obrigatórios: cardId, conversationId, from, pkg" });
     }
-    const result = await opts.daemon.startCardSession({
-      ...body,
-      semiAutoTimeoutMs: mode === "semi-auto" ? 60_000 : 0,
-    });
-    activeSessions.add(result.sessionId);
-    return result;
+    // Pré-registra sessionId antes do await — em semi-auto mode o daemon
+    // bloqueia até o gate resolver, então activeSessions.add pós-await
+    // tornaria o polling de /sessions/active inútil enquanto gate está ativo.
+    const earlySessionId = `${body.personaId ?? body.from}__${body.conversationId}`;
+    activeSessions.add(earlySessionId);
+    try {
+      const result = await opts.daemon.startCardSession({
+        ...body,
+        semiAutoTimeoutMs: mode === "semi-auto" ? 60_000 : 0,
+      });
+      activeSessions.add(result.sessionId);
+      return result;
+    } catch (err) {
+      activeSessions.delete(earlySessionId);
+      throw err;
+    }
   });
 
   // POST /sessions/start-sts — lança STS CLI como subprocess (ops#1156 v0).
