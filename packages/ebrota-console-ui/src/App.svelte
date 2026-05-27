@@ -23,6 +23,7 @@
   import S5AvaliacaoPanel from "./components/subsystem-panels/S5AvaliacaoPanel.svelte";
   import B1SocialPanel from "./components/subsystem-panels/B1SocialPanel.svelte";
   import B2DrillingPanel from "./components/subsystem-panels/B2DrillingPanel.svelte";
+  import ParentalOnboardingWizard from "./components/ParentalOnboardingWizard.svelte";
   import { createApiClient } from "./lib/api.js";
   import {
     bffStatus,
@@ -46,6 +47,9 @@
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let activeSessionsPollTimer: ReturnType<typeof setInterval> | undefined;
   let streamManager: TurnStateStreamManager | undefined;
+  // US-PO-01..11 — quando ?onboarding=true na URL, mostra o wizard parental
+  // em vez do console operador. Default false.
+  let onboardingMode = false;
 
   async function refreshStatus(): Promise<void> {
     try {
@@ -91,6 +95,11 @@
     const { replaySessionId: r, liveSessionId: l } = parseUrlParams(
       window.location.search,
     );
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("onboarding") === "true") {
+      onboardingMode = true;
+      return;
+    }
     if (r !== null) {
       replaySessionId.set(r);
       libraryOpen.set(false);
@@ -101,6 +110,7 @@
 
   onMount(() => {
     applyUrlParams();
+    if (onboardingMode) return;
     void refreshStatus();
     void checkActiveSessions();
     pollTimer = setInterval(() => {
@@ -121,68 +131,77 @@
 </script>
 
 <div class="app">
-  <Status {api} />
-
-  {#if $globalError !== null}
-    <div class="error-banner" data-testid="error-banner">
-      {$globalError}
-    </div>
-  {/if}
-
-  <ApprovalGate {api} />
-
-  {#if $subsystemLayoutEnabled}
-    <main
-      class="main-subsystem"
-      class:expanded={$expandedSubsystem !== null}
-      data-testid="main-subsystem"
-    >
-      <div class="left">
-        {#if $expandedSubsystem === null}
-          <SubsystemGrid />
-        {:else if $expandedSubsystem === "S1"}
-          <S1AprendizPanel />
-        {:else if $expandedSubsystem === "S2"}
-          <S2DoutrinaPanel />
-        {:else if $expandedSubsystem === "S3"}
-          <S3DecisaoTurnPanel />
-        {:else if $expandedSubsystem === "S4"}
-          <S4ExpressaoTurnPanel />
-        {:else if $expandedSubsystem === "S5"}
-          <S5AvaliacaoPanel />
-        {:else if $expandedSubsystem === "B1"}
-          <B1SocialPanel />
-        {:else if $expandedSubsystem === "B2"}
-          <B2DrillingPanel />
-        {/if}
-      </div>
-      <aside class="right">
-        <ChatFeed />
-      </aside>
+  {#if onboardingMode}
+    <header class="status-bar simple">
+      <h1>eBrota Console — Onboarding Parental</h1>
+    </header>
+    <main class="onboarding-main">
+      <ParentalOnboardingWizard />
     </main>
-    <details class="motor-view-fold">
-      <summary>MotorView (debug — trace v2 expandido)</summary>
-      <MotorView {api} />
-    </details>
   {:else}
-    <main class="main-grid" data-testid="main-grid-legacy">
-      <ChatFeed />
-      <MotorView {api} />
-    </main>
+    <Status {api} />
+
+    {#if $globalError !== null}
+      <div class="error-banner" data-testid="error-banner">
+        {$globalError}
+      </div>
+    {/if}
+
+    <ApprovalGate {api} />
+
+    {#if $subsystemLayoutEnabled}
+      <main
+        class="main-subsystem"
+        class:expanded={$expandedSubsystem !== null}
+        data-testid="main-subsystem"
+      >
+        <div class="left">
+          {#if $expandedSubsystem === null}
+            <SubsystemGrid />
+          {:else if $expandedSubsystem === "S1"}
+            <S1AprendizPanel />
+          {:else if $expandedSubsystem === "S2"}
+            <S2DoutrinaPanel />
+          {:else if $expandedSubsystem === "S3"}
+            <S3DecisaoTurnPanel />
+          {:else if $expandedSubsystem === "S4"}
+            <S4ExpressaoTurnPanel />
+          {:else if $expandedSubsystem === "S5"}
+            <S5AvaliacaoPanel />
+          {:else if $expandedSubsystem === "B1"}
+            <B1SocialPanel />
+          {:else if $expandedSubsystem === "B2"}
+            <B2DrillingPanel />
+          {/if}
+        </div>
+        <aside class="right">
+          <ChatFeed />
+        </aside>
+      </main>
+      <details class="motor-view-fold">
+        <summary>MotorView (debug — trace v2 expandido)</summary>
+        <MotorView {api} />
+      </details>
+    {:else}
+      <main class="main-grid" data-testid="main-grid-legacy">
+        <ChatFeed />
+        <MotorView {api} />
+      </main>
+    {/if}
+
+    <SessionStart {api} />
+
+    <SessionLibrary {api} />
+    <Replay {api} />
+    <DebugPanel {api} />
+    <Analytics {api} />
+    <JourneyPanel {api} />
+    <MapsPanel {api} />
+    <DiscoveriesPanel {api} />
+    <StrategistPanel {api} />
+    <HelixPanel {api} />
+    <LlmXrayPanel />
   {/if}
-
-  <SessionStart {api} />
-
-  <SessionLibrary {api} />
-  <Replay {api} />
-  <DebugPanel {api} />
-  <Analytics {api} />
-  <JourneyPanel {api} />
-  <MapsPanel {api} />
-  <DiscoveriesPanel {api} />
-  <StrategistPanel {api} />
-  <HelixPanel {api} />
-  <LlmXrayPanel />
 
   <footer>
     <p class="muted">
@@ -205,6 +224,23 @@
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
     border-bottom: 1px solid rgba(176, 0, 32, 0.3);
+  }
+
+  .status-bar.simple {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+    background: rgba(127, 127, 127, 0.05);
+  }
+  .status-bar.simple h1 {
+    font-size: 1.1rem;
+    margin: 0;
+  }
+  .onboarding-main {
+    flex: 1;
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
   }
 
   .main-grid {
