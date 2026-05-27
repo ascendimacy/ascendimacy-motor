@@ -59,6 +59,7 @@ import {
   evaluateAllTransitions,
   collectRecentSignals,
   collectRecentSignalsPerTurn,
+  enrichWithClosedLoopActions,
 } from "./trigger-evaluator.js";
 import { detectCritical } from "./critical-detector.js";
 import { personaToChildProfile } from "./child-profile.js";
@@ -836,8 +837,11 @@ export async function planTurn(
   }
 
   // motor#25 (handoff #25 B4): Trigger Evaluator — avalia transitions.yaml
-  // contra signals capturados nos últimos 5 turns. Read-only — orchestrator
-  // loga events transition_evaluated, statusMatrix NÃO move automático.
+  // contra signals capturados nos últimos 5 turns.
+  // v0 (flag OFF): orchestrator só loga events transition_evaluated.
+  // v1 (flag ON, ARCHITECTURE.md §S5): resultados fired ganham
+  //   `closed_loop_action` declarativo; orchestrator chama
+  //   `apply_status_transition` em motor-execucao pra mover statusMatrix.
   const profileId = inferProfileId(input.persona);
   const eventLog = (input.state.eventLog ?? []) as Array<{
     type: string;
@@ -846,7 +850,7 @@ export async function planTurn(
   const recentSignals = collectRecentSignals(eventLog, 5);
   const recentSignalsPerTurn = collectRecentSignalsPerTurn(eventLog, 5);
   const turnsSinceLastTransition = countTurnsSinceLastTransition(eventLog);
-  const transitionEvaluations =
+  const rawTransitionEvaluations =
     recentSignals.length > 0
       ? evaluateAllTransitions(
           profileId,
@@ -855,6 +859,10 @@ export async function planTurn(
           recentSignalsPerTurn,
         )
       : [];
+  const transitionEvaluations = enrichWithClosedLoopActions(
+    rawTransitionEvaluations,
+    focusDim,
+  );
   const criticalDetection = detectCritical(recentSignals);
 
   // Fase 8 PR — Strategist context (sub-PR pós tracer bullet):

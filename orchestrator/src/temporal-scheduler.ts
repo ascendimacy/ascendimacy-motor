@@ -30,6 +30,8 @@ import type {
 } from "@ascendimacy/shared";
 import type { PulsoContent, PulsoAgeGroup } from "./pulso-emitter.js";
 import { emitPulso } from "./pulso-emitter.js";
+import type { Mc1SchedulerDeps, Mc1DeliveryEvent } from "./mc1-scheduler.js";
+import { checkAndDeliverMC1 } from "./mc1-scheduler.js";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Constantes (spec §gates)
@@ -45,6 +47,7 @@ export const MIN_SACRIFICE_BUDGET = 20;
 // ─────────────────────────────────────────────────────────────────────────
 
 export type HookTrigger =
+  | "mc1_first_message"
   | "objective_due"
   | "thread_open"
   | "card_uncelebrated"
@@ -62,6 +65,7 @@ export interface ProactiveHook {
     objective_id?: string;
     card_id?: string;
     pulso?: PulsoContent;
+    mc1?: Mc1DeliveryEvent;
   };
 }
 
@@ -103,6 +107,9 @@ export interface SchedulerDeps {
   emitHook(hook: ProactiveHook): void;
   /** Estado persistente (last_hook_emitted_at + hooks/dia). */
   state: SchedulerStateStore;
+  /** MC1 deps opcionais — quando presente, MC1 vira trigger #1 absoluto.
+   *  Omitir = comportamento legado pré-MC1 (4 triggers regulares). */
+  mc1?: Mc1SchedulerDeps;
 }
 
 export interface TickReport {
@@ -243,6 +250,33 @@ export function tickScheduler(deps: SchedulerDeps): TickReport[] {
         suppressed: "no_parental_consent",
       });
       continue;
+    }
+
+    // MC1 prioridade absoluta: passa janela + parental, ignora cooldown /
+    // max_hooks / sacrifice budget. MC1 é evento único por persona; specs
+    // §9 marca como hard-coded canonical first message. Spec
+    // 2026-05-19-mc1-primeira-mensagem-brota-jp.md §1 Q1.
+    if (deps.mc1) {
+      const mc1Result = checkAndDeliverMC1(deps.mc1, tw.persona_id);
+      if (mc1Result.delivered && mc1Result.event) {
+        const hook: ProactiveHook = {
+          kind: "hook:proactive_message",
+          persona_id: tw.persona_id,
+          window_name: openEntry.name,
+          emitted_at: nowIso,
+          trigger: "mc1_first_message",
+          payload: { mc1: mc1Result.event },
+        };
+        deps.emitHook(hook);
+        deps.state.setLastEmittedAt(tw.persona_id, nowIso);
+        deps.state.incrementHooksToday(tw.persona_id, local.localDay);
+        reports.push({
+          persona_id: tw.persona_id,
+          emitted: hook,
+          trigger: "mc1_first_message",
+        });
+        continue;
+      }
     }
 
     // Cooldown gate (6h)
