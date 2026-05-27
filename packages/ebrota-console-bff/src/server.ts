@@ -133,6 +133,7 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   let mode: ConsoleMode = opts.initialMode ?? "auto";
 
   initParentalOnboardingSchema(opts.db);
+  void fastify.register(async (instance) => (await import("./routes/s1-routes.js")).default(instance, { db: opts.db }));
 
   // In-memory set de sessionIds ativos (iniciados via /sessions/start-card,
   // removidos via /sessions/:id/end). Permite que App.svelte faça polling

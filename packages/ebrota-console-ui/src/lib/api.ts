@@ -407,6 +407,21 @@ export interface ApiClient {
     frameworkIds?: string[],
   ): Promise<{ maps: SubjectMapLike }>;
 
+  // ─── S1 wiring — Declared Objectives + Threads + SK summary ─────
+  getDeclaredObjectives(
+    personaId: string,
+  ): Promise<{ objectives: DeclaredObjectiveLike[] }>;
+  getObjectiveHistory(
+    personaId: string,
+    objectiveId: string,
+  ): Promise<{ trail: DeclaredObjectiveLike[] }>;
+  getNarrativeThreads(
+    personaId: string,
+  ): Promise<{ threads: NarrativeThreadLike[] }>;
+  getSubjectKnowledge(
+    personaId: string,
+  ): Promise<SubjectKnowledgeSummary>;
+
   // ─── Strategist (Fase 8 PR 3) ───────────────────────────────────
   /** Plan composto pra uma sessão. 404 quando não existe. */
   getSessionStrategyPlan(
@@ -417,6 +432,49 @@ export interface ApiClient {
     subjectId: string,
     opts?: { limit?: number },
   ): Promise<{ plans: StrategyPlanLike[] }>;
+}
+
+// ─── S1 wiring — Declared Objectives + Narrative Threads + SK summary ──
+
+export interface DeclaredObjectiveLike {
+  id: string;
+  persona_id: string;
+  declared_at: string;
+  declared_in_session: string;
+  target_date: string;
+  statement: string;
+  axis?: string;
+  status: "active" | "achieved" | "abandoned" | "drift_flagged" | "revised";
+  parent_objective_id?: string;
+  evidence_event_ids?: string[];
+  drift_check_due_at?: string;
+}
+
+export interface NarrativeThreadLike {
+  id: string;
+  persona_id: string;
+  opened_in_session: string;
+  opened_at: string;
+  thread_text: string;
+  axis?: string;
+  follow_up_triggered: boolean;
+  closed_at?: string;
+  status: "open" | "resumed" | "closed_natural" | "closed_abandoned" | "stale";
+  stale_after: string;
+}
+
+export interface TopConceptEntry {
+  concept_id: string;
+  lineage_anchor: string;
+  presentedCount: number;
+  lastSeenAt: string;
+}
+
+export interface SubjectKnowledgeSummary {
+  conceptsPresentedCount: number;
+  recallPositiveRate: number | null;
+  recallTotal: number;
+  topConcepts: TopConceptEntry[];
 }
 
 export interface SubjectKnowledgeEntryLike {
@@ -672,6 +730,22 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
         `/subjects/${encodeURIComponent(subjectId)}/maps${q ? `?${q}` : ""}`,
       );
     },
+    getDeclaredObjectives: (personaId) =>
+      get<{ objectives: DeclaredObjectiveLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/objectives`,
+      ),
+    getObjectiveHistory: (personaId, objectiveId) =>
+      get<{ trail: DeclaredObjectiveLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/objectives/${encodeURIComponent(objectiveId)}/history`,
+      ),
+    getNarrativeThreads: (personaId) =>
+      get<{ threads: NarrativeThreadLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/narrative-threads`,
+      ),
+    getSubjectKnowledge: (personaId) =>
+      get<SubjectKnowledgeSummary>(
+        `/personas/${encodeURIComponent(personaId)}/subject-knowledge`,
+      ),
     getSessionStrategyPlan: async (sessionId) => {
       const res = await f(
         `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/strategy-plan`,

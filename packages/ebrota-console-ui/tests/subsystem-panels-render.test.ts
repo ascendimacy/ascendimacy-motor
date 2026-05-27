@@ -35,15 +35,14 @@ afterEach(() => {
 });
 
 describe("subsystem panels — smoke render", () => {
-  it("S1AprendizPanel renderiza shell com id correto + placeholder pra objetivos", () => {
+  it("S1AprendizPanel renderiza shell + seções Objetivos/Threads/SK wired", () => {
     render(S1AprendizPanel);
     expect(screen.getByTestId("subsystem-panel-S1")).toBeDefined();
-    // placeholder banner aponta pra spec de objetivos declarados
-    const placeholders = screen.getAllByTestId("placeholder-banner");
-    expect(placeholders.length).toBeGreaterThanOrEqual(2);
-    expect(
-      screen.getByText(/2026-05-26-s1-objetivos-declarados-v0\.md/),
-    ).toBeDefined();
+    // Painel agora consome BFF (PR S1 wiring) — placeholders só aparecem
+    // em error fallback; estado inicial mostra seções com data-testids.
+    expect(screen.getByTestId("s1-objectives")).toBeDefined();
+    expect(screen.getByTestId("s1-threads")).toBeDefined();
+    expect(screen.getByTestId("s1-subject-knowledge")).toBeDefined();
   });
 
   it("S2DoutrinaPanel renderiza shell + 6 jogadas (5 + Recovery)", () => {
