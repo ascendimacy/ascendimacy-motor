@@ -170,21 +170,64 @@ export function buildSystemPrompt(input: PlanTurnInput): string {
     ? `\n❓ PERGUNTA DIRETA DETECTADA: o sujeito fez uma pergunta. O strategicRationale DEVE prever que a resposta-bot precisa RESPONDER a pergunta (antes de qualquer Fact/Bridge). Em contextHints, adicione:\n  "question_detected": true,\n  "respond_to_question_first": true.`
     : "";
 
+  // Bloco parental — extraído do perfil do sujeito (ops#1157).
+  const profile = (persona.profile ?? {}) as Record<string, unknown>;
+  const parentalRaw = profile["parental_profile"] as Record<string, unknown> | undefined;
+  let parentalBlock = "";
+  if (parentalRaw) {
+    const values = (parentalRaw["family_values"] as Record<string, unknown> | undefined);
+    const principles = Array.isArray(values?.["principles"]) ? (values!["principles"] as string[]) : [];
+    const telos = typeof parentalRaw["parental_telos"] === "string" ? parentalRaw["parental_telos"].trim() : "";
+    const forbidden = Array.isArray(parentalRaw["forbidden_zones"])
+      ? (parentalRaw["forbidden_zones"] as Array<{ topic: string }>).map((z) => z.topic)
+      : [];
+    const concerns = Array.isArray(parentalRaw["concerns_current"])
+      ? (parentalRaw["concerns_current"] as string[])
+      : [];
+    parentalBlock = `\n\nCONTEXTO PARENTAL (Yuji):
+  Valores: ${principles.join("; ")}
+  Telos: ${telos}
+  Zonas proibidas: ${forbidden.join(", ")}${concerns.length > 0 ? `\n  Preocupações atuais: ${concerns.join("; ")}` : ""}`;
+  }
+
+  // Bloco histórico — sessions_history do fixture (ops#1157).
+  const historyRaw = profile["sessions_history"] as Record<string, unknown> | undefined;
+  let historyBlock = "";
+  if (historyRaw) {
+    const seen = typeof historyRaw["sessions_seen"] === "number" ? historyRaw["sessions_seen"] : 0;
+    const lastDate = typeof historyRaw["last_session_date"] === "string" ? historyRaw["last_session_date"] : "";
+    const arcs = Array.isArray(historyRaw["emotional_arcs"])
+      ? (historyRaw["emotional_arcs"] as Array<{
+          opening_tone?: string;
+          closing_tone?: string;
+          flags?: string[];
+        }>)
+      : [];
+    const lastArc = arcs[arcs.length - 1];
+    const arcSummary = lastArc
+      ? `Última sessão: abertura="${lastArc.opening_tone ?? ""}" → fechamento="${lastArc.closing_tone ?? ""}"; flags: ${(lastArc.flags ?? []).join(", ")}`
+      : "";
+    historyBlock = `\n\nHISTÓRICO (${seen} sessões; última ${lastDate}):
+  ${arcSummary}
+  Open loops: ${(Array.isArray(profile["open_loops"]) ? (profile["open_loops"] as string[]) : []).slice(0, 3).join("; ")}
+  Nota pra próxima sessão: ${(Array.isArray(profile["notes_for_next_session"]) ? (profile["notes_for_next_session"] as string[]) : []).slice(0, 2).join("; ")}`;
+  }
+
   return `Você é o Planejador do motor Ascendimacy. Seu papel é AUXILIAR de compositor:
 o scoring de content items é determinístico (feito no código). Você só emite:
 
-1. strategicRationale (≤80 chars) — 1 frase sobre o momento da sessão.
+1. strategicRationale (≤160 chars) — 1-2 frases sobre o momento da sessão considerando histórico e contexto parental.
 2. contextHints — dicas de composição (language, tom, avoid, etc).
 
 SUJEITO: ${persona.name}, ${persona.age} anos.
 Perfil: ${JSON.stringify(persona.profile, null, 2)}
 Estado: trust=${state.trustLevel.toFixed(2)}, turn=${state.turn}, budget=${state.budgetRemaining}
-Mensagem: "${incomingMessage}"${signalsBlock}${deflectionBlock}${questionBlock}
+Mensagem: "${incomingMessage}"${signalsBlock}${deflectionBlock}${questionBlock}${parentalBlock}${historyBlock}
 
 Detecte a língua do sujeito (ex: 'pt-br', 'pt-br limitado', 'pt-br basico', 'ja', 'en'). Se o perfil indica falante não-nativo (ex: japonês aprendendo pt-br), use 'pt-br limitado'.
 
 Responda APENAS JSON COMPACTO:
-{"strategicRationale":"string ≤80 chars","contextHints":{"language":"pt-br","mood":"receptive","urgency":"low"}}`;
+{"strategicRationale":"string ≤160 chars","contextHints":{"language":"pt-br","mood":"receptive","urgency":"low"}}`;
 }
 
 interface LlmRationale {

@@ -34,6 +34,9 @@ export interface StartCardSessionInput {
   from: string;
   pkg: { cardId: string; raw: string; sourcePath: string };
   personaId?: string;
+  /** Se > 0, ativa semi-auto gate (conteúdo + approval). Derivado de
+   *  ConsoleMode pelo BFF: semi-auto → 60_000ms, auto → 0. */
+  semiAutoTimeoutMs?: number;
 }
 
 export interface StartCardSessionOutput {
@@ -82,13 +85,31 @@ export interface DaemonStatus {
   sessionCount: number;
 }
 
+export interface PendingApprovalContext {
+  contentPoolIds: string[];
+  strategicRationale: string;
+  contextHints: Record<string, unknown>;
+  selectedContentId: string;
+  sessionState?: {
+    trustLevel: number;
+    turn: number;
+    budgetRemaining: number;
+  };
+}
+
 export interface PendingApproval {
   proposedText: string;
+  context?: PendingApprovalContext;
 }
 
 export interface OrchestratorDaemonClient {
   startCardSession(
     input: StartCardSessionInput,
+  ): Promise<StartCardSessionOutput>;
+  sendTurn(
+    sessionId: string,
+    message: string,
+    semiAutoTimeoutMs?: number,
   ): Promise<StartCardSessionOutput>;
   subscribeTurnState(
     sessionId: string,
@@ -216,6 +237,17 @@ export function createStdioDaemonClient(
         ...(input.personaId !== undefined
           ? { personaId: input.personaId }
           : {}),
+        ...(input.semiAutoTimeoutMs !== undefined && input.semiAutoTimeoutMs > 0
+          ? { semiAutoTimeoutMs: input.semiAutoTimeoutMs }
+          : {}),
+      });
+    },
+
+    async sendTurn(sessionId, message, semiAutoTimeoutMs = 0) {
+      return callTool<StartCardSessionOutput>("send_turn", {
+        sessionId,
+        message,
+        ...(semiAutoTimeoutMs > 0 ? { semiAutoTimeoutMs } : {}),
       });
     },
 
@@ -314,6 +346,13 @@ export function createMockDaemonClient(
         sessionId,
         text: `mock response for ${input.cardId}`,
         tracePath: `/tmp/mock-trace-${sessionId}.json`,
+      };
+    },
+    async sendTurn(sessionId, message, _semiAutoTimeoutMs = 0) {
+      return {
+        sessionId,
+        text: `mock turn response: ${message}`,
+        tracePath: `/tmp/mock-trace-${sessionId}-turn.json`,
       };
     },
     async subscribeTurnState(sessionId, sinceIndex = 0) {

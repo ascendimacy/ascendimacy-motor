@@ -59,6 +59,17 @@ function buildEnv(): Record<string, string> {
     // contra LLM local, em vez de Infomaniak/Anthropic.
     "LLM_LOCAL_ENDPOINT",
     "LLM_LOCAL_MODEL",
+    // GitHub Copilot Individual openai-compat path (motor#238 fix).
+    // Sem esses forwards, planejador subprocess cai em mock mesmo com
+    // LLM_LOCAL_AUTH_BEARER setado no processo pai (BFF/STS CLI).
+    "LLM_LOCAL_AUTH_BEARER",
+    "LOCAL_LLM_BASE_URL",
+    "LOCAL_LLM_MODEL",
+    "LOCAL_LLM_API_KEY",
+    // MOTOR_PATH pra worker processes acharem fixtures/ relativo à raiz.
+    "MOTOR_PATH",
+    // CONTENT_SEED_PATH override em integrações + PoC scripts.
+    "CONTENT_SEED_PATH",
   ];
   for (const k of keys) {
     const v = process.env[k];

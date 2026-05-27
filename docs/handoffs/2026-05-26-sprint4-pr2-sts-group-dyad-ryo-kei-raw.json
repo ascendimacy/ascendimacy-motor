@@ -1,0 +1,73 @@
+{
+  "conversation": [
+    {
+      "speaker": "bot",
+      "item_id": "bench-curio-01",
+      "message": "Sabia que os golfinhos têm 'nomes' próprios? Cada um inventa um assovio único e os outros chamam por ele.",
+      "skip_path": "composition_skipped",
+      "tokens": {
+        "in": 0,
+        "out": 0
+      },
+      "latency_ms": 0
+    },
+    {
+      "speaker": "ryo-ochiai",
+      "name": "Ryo",
+      "message": "Que da hora. (assobia) Se eu tivesse um assovio, seria tipo o do Gohan quando fica sério.",
+      "tokens": {
+        "in": 230,
+        "out": 676
+      },
+      "latency_ms": 5730
+    },
+    {
+      "speaker": "kei-ochiai",
+      "name": "Kei",
+      "message": "Ia ser massa — um assobio assim muda o clima igual quando meu pai fala \"agora sério\" no treino. Tipo trocar o grip: parece só um detalhe, mas a bola (e todo mundo) se comporta diferente.",
+      "tokens": {
+        "in": 262,
+        "out": 442
+      },
+      "latency_ms": 4013
+    },
+    {
+      "speaker": "bot",
+      "item_id": "bench-challenge-01",
+      "message": "Em 1 frase, descreve o que sentiu no último ponto perdido do treino.",
+      "skip_path": "composition_skipped",
+      "tokens": {
+        "in": 0,
+        "out": 0
+      },
+      "latency_ms": 0
+    },
+    {
+      "speaker": "ryo-ochiai",
+      "name": "Ryo",
+      "message": "Fiquei com raiva, congelei e cruzei os braços — tipo o Gohan quando perde a concentração.",
+      "tokens": {
+        "in": 273,
+        "out": 483
+      },
+      "latency_ms": 4380
+    },
+    {
+      "speaker": "kei-ochiai",
+      "name": "Kei",
+      "message": "Fiquei chateado e meu corpo travou: a raquete virou só um peso na mão e meu grip ficou estranho.  \nO pai me olhou daquele jeito que pede pra respirar, e eu cruzei os braços sem perceber, me fechando.  \nQuando fecho o corpo, a minha concentração some igualzinho.",
+      "tokens": {
+        "in": 248,
+        "out": 781
+      },
+      "latency_ms": 8189
+    }
+  ],
+  "stats": {
+    "total": 6,
+    "bot": 2,
+    "ryo": 2,
+    "kei": 2
+  },
+  "n": 2
+}
