@@ -125,6 +125,28 @@ export interface SubmitForApprovalOptions {
   /** Decisão default em caso de timeout. Default `{approved: true}`. Em
    *  modo paranoid pode setar `{approved: false}` pra abortar silenciosamente. */
   defaultDecision?: ApprovalDecision;
+  /** Contexto pedagógico do turn — populado pelo daemon em semi-auto mode
+   *  para enriquecer a ApprovalGate na UI (ops#1158). */
+  context?: PendingApprovalContext;
+}
+
+/** Snapshot do contexto pedagógico do turn — exibido na ApprovalGate
+ *  da eBrota Console para orientar decisão do operador (ops#1158). */
+export interface PendingApprovalContext {
+  /** IDs do contentPool gerado pelo planejador (top-K antes do drota). */
+  contentPoolIds: string[];
+  /** Rationale estratégico gerado pelo planejador LLM. */
+  strategicRationale: string;
+  /** Hints de composição (language, mood, avoid, question_detected, etc). */
+  contextHints: Record<string, unknown>;
+  /** ContentItem selecionado pelo motor-drota. */
+  selectedContentId: string;
+  /** Snapshot leve do estado da sessão no momento do turn. */
+  sessionState?: {
+    trustLevel: number;
+    turn: number;
+    budgetRemaining: number;
+  };
 }
 
 export interface ApproveOrEditResult {
@@ -170,6 +192,7 @@ export class OrchestratorDaemon {
     string,
     {
       proposedText: string;
+      context?: PendingApprovalContext;
       resolve: (decision: ApprovalDecision) => void;
     }
   >();
@@ -264,6 +287,7 @@ export class OrchestratorDaemon {
       }, opts.timeoutMs);
       this.pendingApprovals.set(sessionId, {
         proposedText,
+        context: opts.context,
         resolve: (decision) => {
           clearTimeout(timeoutHandle);
           this.pendingApprovals.delete(sessionId);
@@ -275,14 +299,14 @@ export class OrchestratorDaemon {
 
   /**
    * Snapshot do approval pendente. UI usa pra mostrar o proposedText
-   * antes do operador decidir.
+   * antes do operador decidir. Inclui contexto pedagógico (ops#1158).
    */
   getPendingApproval(
     sessionId: string,
-  ): { proposedText: string } | undefined {
+  ): { proposedText: string; context?: PendingApprovalContext } | undefined {
     const pending = this.pendingApprovals.get(sessionId);
     if (pending === undefined) return undefined;
-    return { proposedText: pending.proposedText };
+    return { proposedText: pending.proposedText, context: pending.context };
   }
 
   /**
@@ -492,11 +516,120 @@ export class OrchestratorDaemon {
       (ev) => this.pushTurnEvent(ev),
       optionsGate,
     );
+
+    // Semi-auto approval gate (ops#1158): após runTurn, submete texto pro
+    // operador revisar/editar antes de retornar. Bloqueia até aprovação ou
+    // timeout (auto-approve fail-safe). Contexto pedagógico vem dos turn events.
+    if (input.semiAutoTimeoutMs && input.semiAutoTimeoutMs > 0) {
+      const approvalContext = this.buildApprovalContext(runtime.sessionId, runtime.state);
+      const decision = await this.submitForApproval(
+        runtime.sessionId,
+        finalResponse,
+        { timeoutMs: input.semiAutoTimeoutMs, context: approvalContext },
+      );
+      const approvedText =
+        decision.approved && decision.editedText !== undefined
+          ? decision.editedText
+          : finalResponse;
+      return { sessionId: runtime.sessionId, text: approvedText, tracePath };
+    }
+
     return {
       sessionId: runtime.sessionId,
       text: finalResponse,
       tracePath,
     };
+  }
+
+  /**
+   * Extrai contexto pedagógico dos turn events recentes para enriquecer
+   * a ApprovalGate (ops#1158). Lê os últimos planning_started e
+   * selection_made emitidos pela sessão.
+   */
+  private buildApprovalContext(
+    sessionId: string,
+    sessionState: SessionRuntime["state"],
+  ): PendingApprovalContext {
+    const bucket = this.turnEvents.get(sessionId);
+    const events = bucket?.events ?? [];
+    // Busca o último planning_started e selection_made (ordem crescente = índice maior).
+    let strategicRationale = "";
+    let contentPoolIds: string[] = [];
+    let contextHints: Record<string, unknown> = {};
+    let selectedContentId = "";
+    for (let i = events.length - 1; i >= 0; i--) {
+      const ev = events[i]!;
+      if (ev.type === "selection_made" && !selectedContentId) {
+        selectedContentId = ev.payload.selectedContentId;
+      }
+      if (ev.type === "planning_started" && !strategicRationale) {
+        strategicRationale = ev.payload.strategicRationale;
+        contentPoolIds = ev.payload.contentPoolIds;
+        contextHints = ev.payload.contextHints;
+      }
+      if (strategicRationale && selectedContentId) break;
+    }
+    return {
+      contentPoolIds,
+      strategicRationale,
+      contextHints,
+      selectedContentId,
+      sessionState: sessionState
+        ? {
+            trustLevel: sessionState.trustLevel,
+            turn: sessionState.turn,
+            budgetRemaining: sessionState.budgetRemaining,
+          }
+        : undefined,
+    };
+  }
+
+  /**
+   * Executa um turn de mensagem livre para sessão existente (eBrota Console).
+   * Requer que a sessão já exista (via runCardTurn anterior). Se
+   * semiAutoTimeoutMs > 0, submete resultado para aprovação antes de retornar.
+   */
+  async sendConsoleTurn(
+    sessionId: string,
+    message: string,
+    semiAutoTimeoutMs = 0,
+  ): Promise<RunCardTurnOutput> {
+    if (!this.started || this.clients === null) {
+      throw new Error(
+        "OrchestratorDaemon.sendConsoleTurn: daemon não iniciado",
+      );
+    }
+    const runtime = this.sessions.get(sessionId);
+    if (runtime === undefined) {
+      throw new Error(
+        `OrchestratorDaemon.sendConsoleTurn: sessão não encontrada: ${sessionId}`,
+      );
+    }
+    const optionsGate = this.buildOptionsGate(sessionId, semiAutoTimeoutMs);
+    const { finalResponse, tracePath } = await runTurn(
+      this.clients,
+      sessionId,
+      runtime.personaId,
+      message,
+      this.tracesDir,
+      undefined,
+      undefined,
+      (ev) => this.pushTurnEvent(ev),
+      optionsGate,
+    );
+    if (semiAutoTimeoutMs > 0) {
+      const approvalContext = this.buildApprovalContext(sessionId, runtime.state);
+      const decision = await this.submitForApproval(sessionId, finalResponse, {
+        timeoutMs: semiAutoTimeoutMs,
+        context: approvalContext,
+      });
+      const approvedText =
+        decision.approved && decision.editedText !== undefined
+          ? decision.editedText
+          : finalResponse;
+      return { sessionId, text: approvedText, tracePath };
+    }
+    return { sessionId, text: finalResponse, tracePath };
   }
 
   /**

@@ -7,7 +7,7 @@
     globalError,
     pendingApproval,
   } from "../lib/stores.js";
-  import type { ApiClient } from "../lib/api.js";
+  import type { ApiClient, PendingApprovalContext } from "../lib/api.js";
 
   export let api: ApiClient;
   /** Polling interval (ms) pra /pending-approval. Default 250ms. */
@@ -18,7 +18,10 @@
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let mode = "auto";
   let sessionId: string | null = null;
-  let pending: { proposedText: string } | null = null;
+  let pending: {
+    proposedText: string;
+    context?: PendingApprovalContext;
+  } | null = null;
 
   // Estado de edição local
   let editedText = "";
@@ -26,11 +29,17 @@
   let editing = false;
   let submitting = false;
 
+  // Colapsáveis de contexto (ops#1158)
+  let rationaleOpen = true;
+  let poolOpen = false;
+  let stateOpen = false;
+
   $: mode = $consoleMode;
   $: sessionId = $currentSessionId;
   $: pending = $pendingApproval;
   $: shouldPoll = mode === "semi-auto" && sessionId !== null;
   $: turn = $currentTurnSnapshot?.turn ?? -1;
+  $: ctx = pending?.context ?? null;
 
   // Quando pending muda, sincroniza editedText
   $: if (pending !== null && !editing) {
@@ -112,6 +121,10 @@
     editing = false;
     if (pending !== null) editedText = pending.proposedText;
   }
+
+  function fmtTrust(v: number): string {
+    return (v * 100).toFixed(0) + "%";
+  }
 </script>
 
 {#if mode === "semi-auto" && pending !== null}
@@ -121,7 +134,56 @@
       {#if turn >= 0}
         <span class="meta">turn #{turn}</span>
       {/if}
+      {#if ctx?.sessionState}
+        <span class="meta">
+          trust {fmtTrust(ctx.sessionState.trustLevel)} · budget {ctx.sessionState.budgetRemaining}
+        </span>
+      {/if}
     </header>
+
+    <!-- Contexto pedagógico colapsável (ops#1158) -->
+    {#if ctx}
+      <div class="context-panels">
+        <!-- Painel: Rationale estratégico -->
+        <details bind:open={rationaleOpen} class="ctx-panel">
+          <summary>Rationale do planejador</summary>
+          <p class="ctx-text">{ctx.strategicRationale || "(vazio)"}</p>
+          {#if ctx.contextHints?.["language"]}
+            <p class="ctx-hint">lang: {ctx.contextHints["language"]} · mood: {ctx.contextHints["mood"] ?? "—"}</p>
+          {/if}
+          {#if ctx.contextHints?.["question_detected"]}
+            <p class="ctx-flag">❓ Pergunta detectada — responder primeiro</p>
+          {/if}
+          {#if ctx.contextHints?.["deflection_thematic"] || ctx.contextHints?.["exit_marker_implicit"]}
+            <p class="ctx-flag">⚠️ Deflection ativo</p>
+          {/if}
+        </details>
+
+        <!-- Painel: Pool de conteúdo -->
+        <details bind:open={poolOpen} class="ctx-panel">
+          <summary>Pool ({ctx.contentPoolIds.length} items)</summary>
+          <ul class="pool-list">
+            {#each ctx.contentPoolIds as id}
+              <li class:selected={id === ctx.selectedContentId}>
+                {id}{id === ctx.selectedContentId ? " ← selecionado" : ""}
+              </li>
+            {/each}
+          </ul>
+        </details>
+
+        <!-- Painel: Estado da sessão -->
+        {#if ctx.sessionState}
+          <details bind:open={stateOpen} class="ctx-panel">
+            <summary>Estado da sessão</summary>
+            <ul class="state-list">
+              <li>trust: {fmtTrust(ctx.sessionState.trustLevel)}</li>
+              <li>turn: {ctx.sessionState.turn}</li>
+              <li>budget: {ctx.sessionState.budgetRemaining}</li>
+            </ul>
+          </details>
+        {/if}
+      </div>
+    {/if}
 
     {#if editing}
       <label class="edit-area">
@@ -219,6 +281,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .badge {
@@ -233,6 +296,67 @@
   .meta {
     font-size: 0.75rem;
     opacity: 0.6;
+  }
+
+  /* Context panels (ops#1158) */
+  .context-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .ctx-panel {
+    border: 1px solid rgba(127, 127, 127, 0.2);
+    border-radius: 4px;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .ctx-panel summary {
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.75;
+    user-select: none;
+  }
+
+  .ctx-text {
+    margin: 0.3rem 0 0;
+    font-style: italic;
+    opacity: 0.85;
+    line-height: 1.35;
+  }
+
+  .ctx-hint {
+    margin: 0.2rem 0 0;
+    opacity: 0.6;
+    font-size: 0.75rem;
+  }
+
+  .ctx-flag {
+    margin: 0.2rem 0 0;
+    font-weight: 600;
+    font-size: 0.78rem;
+  }
+
+  .pool-list {
+    margin: 0.3rem 0 0 1rem;
+    padding: 0;
+    list-style: disc;
+    opacity: 0.8;
+    line-height: 1.5;
+  }
+
+  .pool-list li.selected {
+    font-weight: 700;
+    opacity: 1;
+  }
+
+  .state-list {
+    margin: 0.3rem 0 0 1rem;
+    padding: 0;
+    list-style: none;
+    opacity: 0.8;
+    line-height: 1.5;
   }
 
   .proposed {

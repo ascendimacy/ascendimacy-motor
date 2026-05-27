@@ -1,0 +1,148 @@
+# Ryo Ochiai — Kids persona fixture v1
+# Derivado de fixtures/profiles/ryo-ochiai.pre-phase2.json (3 sessões STS Sprint 0)
+# Schema: shared/src/types.ts PersonaDef (id, name, age, profile)
+# Nature: perfil real de piloto — Yuji family Japan
+
+id: ryo-ochiai
+name: Ryo Ochiai
+age: 11
+
+profile:
+  sensitivity: medium
+
+  preferences:
+    interests:
+      - tênis
+      - animes (especialmente Dragon Ball, com foco em Gohan e Cell)
+      - relações fraternas (com Kei)
+      - silêncio como forma de expressão
+      - gestos não verbais e presença física
+      - transformação e força interior (associada a Gohan)
+    aversions:
+      - ser ignorado
+      - não ser visto ou entendido sem falar
+      - pressão para se comparar ao Kei
+      - situações de conflito sem apoio emocional
+      - pensar em responsabilidades futuras
+      - sentir que sua raiva é algo negativo
+    learning_style: >
+      Aprende melhor por meio de metáforas narrativas, comparações com personagens
+      de histórias e reflexão sobre gestos cotidianos, especialmente quando conectados
+      a emoções profundas.
+
+  family_anchors:
+    - name: Kei
+      role: irmão
+      emotional_role: >
+        Fonte de conexão afetiva, mesmo que por meio de humor e ironia;
+        representa um espelho que Ryo tenta se igualar, mas que também o faz
+        questionar sua própria identidade.
+      gestures_observed:
+        - aparecer no banheiro depois do incidente dizendo apenas 'tô aqui'
+        - compartilhar raquete sem pedir
+        - colocar mais arroz no prato sem falar
+        - rir da cara de bosta que Ryo faz no treino
+    - name: papai
+      role: pai
+      emotional_role: >
+        Representa afeto silencioso e presente em pequenos gestos, sem palavras,
+        o que Ryo valoriza profundamente como forma de cuidado.
+      gestures_observed:
+        - deixar a raquete de Ryo no lugar certo após o jogo
+
+  recurring_themes:
+    - desejo de ser visto sem precisar gritar
+    - pressão de se comparar ao irmão (Kei)
+    - valor do silêncio como força
+    - necessidade de reconhecimento emocional
+    - sentimento de invisibilidade em contextos sociais
+    - raiva guardada e transformação interna
+    - afeto expresso por gestos simples, não palavras
+    - transformação sob pressão (Gohan no Cell Saga como modelo)
+
+  open_loops:
+    - desejo de ser entendido sem falar
+    - como o silêncio pode ser uma forma de força no tênis e na vida
+    - usar a raiva como força, não como destruição
+    - busca por palavras para nomear o que sente
+
+  notes_for_next_session:
+    - Perguntar como foi assistir ao episódio do Gohan no Cell Saga.
+    - Explorar o que significa ser 'igual' ou 'diferente' em relação ao Kei.
+    - Sugerir atividade criativa onde Ryo escolhe dividir algo com Kei como ato de confiança.
+
+  repetition_inquiry:
+    default_on_skip: b
+
+  # Perfil parental — extraído de fixtures/parent-yuji.yaml (ops#1157).
+  # Consumido por extractParentalProfile() → triageForParents() em plan.ts
+  # e pelo bloco parental no buildSystemPrompt (planejador).
+  parental_profile:
+    id: yuji-ochiai
+    role: primary
+    decision_profile: consultative_risk_averse
+    family_values:
+      principles:
+        - "respeito por anciãos e professores é inegociável"
+        - "vergonha pública é evitada a todo custo"
+        - "esforço importa mais que resultado"
+        - "curiosidade é celebrada, tédio não é julgado"
+      cultural_axis: japanese_brazilian
+      religious_tradition: secular
+    forbidden_zones:
+      - topic: political_content
+        reason: "não queremos expor a criança a temas divisivos ainda"
+      - topic: religious_proselytizing
+        reason: "respeitamos a escolha futura da criança"
+      - topic: screen_gaming_promotion
+        reason: "já limitamos games suficiente"
+    budget_constraints:
+      materials_monthly_ceiling_jpy: 3000
+      screen_time_daily_max_minutes: 90
+    parental_telos: >
+      Reconectar com o prazer de aprender; encontrar 1 atividade que ele
+      escolha voluntariamente nos próximos 3 meses.
+    concerns_current:
+      - "Ryo não quer ir à escola — 2 semanas de recusa"
+      - "passa tempo demais no celular"
+
+  # Histórico de sessões — derivado de fixtures/profiles/ryo-ochiai.pre-phase2.json
+  # Sprint 0 (3 sessões 2026-05-07). Consumido pelo bloco de histórico no
+  # buildSystemPrompt para contextualizar arcos emocionais ao planejador.
+  sessions_history:
+    sessions_seen: 3
+    last_session_date: "2026-05-07"
+    emotional_arcs:
+      - session_id: 5e8a7505-d055-4ee9-9286-fd50fff72ae0
+        opening_tone: "distraído, com desinteresse e cansaço"
+        closing_tone: "aberto e vulnerável, com desejo claro de ser compreendido"
+        key_disclosures:
+          - "ficou no banheiro da escola após conflito; foi procurado apenas pelo Kei"
+          - "sente que está presente mesmo sem falar, mas quer que alguém entenda"
+          - "o silêncio é uma forma de tentar achar o jeito certo de ser"
+        flags:
+          - sentimento persistente de invisibilidade
+          - isolamento emocional após conflitos
+          - necessidade de validação não verbal
+      - session_id: 0ac76202-6ae6-41ca-82d7-a54ad19110e7
+        opening_tone: "distraído, passivo, com foco na espera"
+        closing_tone: "entediado com um fio de vulnerabilidade"
+        key_disclosures:
+          - "desejo de ser visto pelo Kei, como Gohan é visto no Cell"
+          - "sente que carrega tudo sozinho"
+          - "raiva como força que pode se tornar incontrolável"
+        flags:
+          - desejo intenso de reconhecimento não atendido
+          - sentimento de invisibilidade dentro da família
+          - pressão emocional acumulada expressa por silêncio e metáforas de explosão
+      - session_id: a610ac08-4e31-44ea-aa72-d545953a3b32
+        opening_tone: "distraído, foco no fim da aula de tênis e no episódio pendente"
+        closing_tone: "refletivo e vulnerável, com consciência de emoções e identidade"
+        key_disclosures:
+          - "não lembra da última vez que fez alguém rir"
+          - "não é igual ao irmão Kei, mesmo quando Kei diz que são iguais"
+          - "raiva explosiva, mas pode ser usada por algo que vale a pena"
+        flags:
+          - sentimento de inadequação em relação ao irmão
+          - dificuldade em expressar afeto ou criar conexões emocionais positivas
+          - pressão interna sobre raiva como força negativa e potencial de transformação

@@ -1,0 +1,124 @@
+# Kei Ochiai — Kids persona fixture v1
+# Derivado de fixtures/profiles/kei-ochiai.pre-phase2.json (2 sessões STS Sprint 0)
+# Schema: shared/src/types.ts PersonaDef (id, name, age, profile)
+# Nature: perfil real de piloto — Yuji family Japan
+
+id: kei-ochiai
+name: Kei Ochiai
+age: 9
+
+profile:
+  sensitivity: medium
+
+  preferences:
+    interests:
+      - tênis e movimentos corporais / técnicas de jogo
+      - comunicação não verbal (olhares, gestos)
+      - relação com o pai durante treinos
+      - mecânica (especialmente desmontar componentes de máquina)
+      - ajustes precisos em ações físicas
+      - entender como o corpo e o alinhamento afetam resultados
+    aversions:
+      - conversas abstratas sem conexão com experiências concretas
+      - perguntas que parecem vagas ou sem contexto claro
+      - pressão para expressar emoções imediatamente
+      - mudanças bruscas de tema sem transição
+      - atividades que parecem sem propósito ou sem resultado visível
+    learning_style: >
+      Aprende melhor por meio de ações concretas, experimentação prática e ajustes
+      físicos, com foco em resultados tangíveis e processos mensuráveis.
+      Rejeita abordagens teóricas ou metafóricas sem ligação direta com o que está fazendo.
+
+  family_anchors:
+    - name: pai
+      role: pai
+      emotional_role: >
+        Figura de autoridade prática, fonte de conhecimento concreto e orientação
+        técnica, representando sabedoria aplicada em ações do dia a dia.
+      gestures_observed:
+        - olhar após um ponto
+        - treinar com o filho sem falar
+        - mudar o grip da raquete
+        - sorrir apenas quando o filho acerta o backhand
+        - ensinar sobre ângulo do lançamento no tênis
+        - ensinar sobre equilíbrio e alinhamento no corpo
+
+  recurring_themes:
+    - comunicação não verbal
+    - relação silenciosa com o pai
+    - mudanças sutis que só são percebidas depois
+    - emoções não ditas (raiva, frustração, orgulho)
+    - conexão por meio do movimento e do olhar no tênis
+    - ajuste físico e alinhamento para obter resultados corretos
+    - necessidade de clareza e propósito em qualquer atividade
+    - desconfiança de abordagens sem objetividade ou resultado visível
+
+  open_loops:
+    - encontrar palavras diferentes para o que sente em contextos além do tênis
+    - como o silêncio no treino afeta sua autoconsciência emocional
+    - a ideia de decisões sustentáveis no longo prazo (rejeitada, pendente revisão)
+
+  notes_for_next_session:
+    - Começar com ação concreta e clara (ex: ajustar algo no tênis ou em objeto físico).
+    - Evitar mudanças bruscas de tema; manter foco no que foi iniciado.
+    - Perguntar como foi o treino do Ryo e se ele riu de novo.
+
+  repetition_inquiry: {}
+
+  # Perfil parental — extraído de fixtures/parent-yuji.yaml (ops#1157).
+  parental_profile:
+    id: yuji-ochiai
+    role: primary
+    decision_profile: consultative_risk_averse
+    family_values:
+      principles:
+        - "respeito por anciãos e professores é inegociável"
+        - "vergonha pública é evitada a todo custo"
+        - "esforço importa mais que resultado"
+        - "curiosidade é celebrada, tédio não é julgado"
+      cultural_axis: japanese_brazilian
+      religious_tradition: secular
+    forbidden_zones:
+      - topic: political_content
+        reason: "não queremos expor a criança a temas divisivos ainda"
+      - topic: religious_proselytizing
+        reason: "respeitamos a escolha futura da criança"
+      - topic: screen_gaming_promotion
+        reason: "já limitamos games suficiente"
+    budget_constraints:
+      materials_monthly_ceiling_jpy: 3000
+      screen_time_daily_max_minutes: 90
+    parental_telos: >
+      Reconectar com o prazer de aprender; encontrar 1 atividade que ele
+      escolha voluntariamente nos próximos 3 meses.
+    concerns_current:
+      - "passa tempo demais no celular"
+
+  # Histórico de sessões — derivado de fixtures/profiles/kei-ochiai.pre-phase2.json
+  # Sprint 0 (2 sessões 2026-05-07).
+  sessions_history:
+    sessions_seen: 2
+    last_session_date: "2026-05-07"
+    emotional_arcs:
+      - session_id: 6a1e9b3d-04aa-4a6d-8670-8ebdecb4e359
+        opening_tone: "impaciente"
+        closing_tone: "distraído"
+        key_disclosures:
+          - "o silêncio entre ele e o pai no treino é carregado de significado"
+          - "sente emoções (raiva, frustração) mas não tem palavras para nomeá-las"
+          - "o que sente está 'perdido no vazio entre os termos'"
+        flags:
+          - dificuldade em nomear emoções
+          - dependência de contextos físicos (tênis) para expressar conexão
+          - relação emocional com o pai baseada em silêncio, não afeto verbal
+      - session_id: 4e7ccb82-783e-4fff-9ca7-2b3bb28def24
+        opening_tone: "curioso mas cauteloso, com desconfiança em relação à falta de clareza"
+        closing_tone: "entediado e frustrado, com sinal de desinteresse por mudanças de foco"
+        key_disclosures:
+          - "o pai ensina sobre ângulo e equilíbrio no tênis e em mecânica"
+          - "o Ryo riu de verdade quando caiu no treino — momento de imprevisibilidade"
+          - "perguntas sem ponto claro não levam a lugar algum"
+        flags:
+          - dificuldade em manter foco quando tema muda sem transição
+          - pressão por clareza e objetividade extrema
+          - sinal de sobrecarga ou priorização de atividades reais

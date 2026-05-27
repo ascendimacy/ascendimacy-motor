@@ -44,9 +44,16 @@ export const globalError = writable<string | null>(null);
 
 /** Pending approval — populated by polling /pending-approval em
  *  semi-auto mode. Null = sem pendência. */
-export const pendingApproval = writable<{ proposedText: string } | null>(
-  null,
-);
+export const pendingApproval = writable<{
+  proposedText: string;
+  context?: {
+    contentPoolIds: string[];
+    strategicRationale: string;
+    contextHints: Record<string, unknown>;
+    selectedContentId: string;
+    sessionState?: { trustLevel: number; turn: number; budgetRemaining: number };
+  };
+} | null>(null);
 
 /** Sidebar Histórico aberto? */
 export const libraryOpen = writable<boolean>(false);

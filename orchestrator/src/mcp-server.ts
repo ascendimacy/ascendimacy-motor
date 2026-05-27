@@ -68,6 +68,9 @@ export function createOrchestratorMcpServer(
         }),
         // personaId pode vir do BFF (resolução from→persona) ou default = from.
         personaId: z.string().optional(),
+        // Semi-auto mode: > 0 pausa o turn aguardando listOptions/overrideSelection
+        // até este timeout (ms); então auto-aprova. 0 = auto mode (sem pausa).
+        semiAutoTimeoutMs: z.number().optional(),
       } as any,
     },
     async (input: {
@@ -76,6 +79,7 @@ export function createOrchestratorMcpServer(
       from: string;
       pkg: { cardId: string; raw: string; sourcePath: string };
       personaId?: string;
+      semiAutoTimeoutMs?: number;
     }) => {
       const result = await opts.daemon.runCardTurn(input);
       return {
@@ -234,7 +238,7 @@ export function createOrchestratorMcpServer(
         rationale?: string;
       };
     }) => {
-      const result = opts.daemon.approveOrEdit(
+      const result = await opts.daemon.approveOrEdit(
         input.sessionId,
         input.decision,
       );
@@ -247,12 +251,44 @@ export function createOrchestratorMcpServer(
   );
 
   server.registerTool(
+    "send_turn",
+    {
+      description:
+        "Executa um turn de mensagem livre em sessão existente (eBrota Console). " +
+        "Requer sessionId de sessão já iniciada via startCardSession. " +
+        "Se semiAutoTimeoutMs > 0, submete resultado para aprovação (approval " +
+        "gate) antes de retornar — caller deve polling get_pending_approval " +
+        "e chamar approve_or_edit para desbloquear. " +
+        "Retorna { sessionId, text, tracePath }.",
+      inputSchema: {
+        sessionId: z.string(),
+        message: z.string(),
+        semiAutoTimeoutMs: z.number().int().nonnegative().optional(),
+      } as any,
+    },
+    async (input: {
+      sessionId: string;
+      message: string;
+      semiAutoTimeoutMs?: number;
+    }) => {
+      const result = await opts.daemon.sendConsoleTurn(
+        input.sessionId,
+        input.message,
+        input.semiAutoTimeoutMs ?? 0,
+      );
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result) }],
+      };
+    },
+  );
+
+  server.registerTool(
     "get_pending_approval",
     {
       description:
-        "Snapshot do approval pendente (proposedText) sem resolver o gate. " +
-        "UI usa pra renderizar texto antes do operador decidir. Retorna " +
-        "null se sessão não tem approval pendente.",
+        "Snapshot do approval pendente (proposedText + contexto pedagógico) " +
+        "sem resolver o gate. UI usa pra renderizar texto e contexto antes do " +
+        "operador decidir (ops#1158). Retorna null se sessão não tem approval pendente.",
       inputSchema: {
         sessionId: z.string(),
       } as any,

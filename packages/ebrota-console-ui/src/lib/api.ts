@@ -65,6 +65,20 @@ export interface ApprovalDecisionRequest {
   originalText?: string;
 }
 
+/** Contexto pedagógico do turn — retornado junto com proposedText na
+ *  ApprovalGate pra orientar decisão do operador (ops#1158). */
+export interface PendingApprovalContext {
+  contentPoolIds: string[];
+  strategicRationale: string;
+  contextHints: Record<string, unknown>;
+  selectedContentId: string;
+  sessionState?: {
+    trustLevel: number;
+    turn: number;
+    budgetRemaining: number;
+  };
+}
+
 export interface OverrideRequest {
   contentItemId: string;
   /** Pra Edit Learner v0 (BFF persistência). */
@@ -347,6 +361,12 @@ export interface ApiClient {
   startCardSession(
     input: StartCardSessionRequest,
   ): Promise<StartCardSessionOutput>;
+  /** Inicia sessão STS como subprocess (ops#1156 v0). */
+  startStsSession(input: {
+    personaId: string;
+    cardId?: string;
+    turns?: number;
+  }): Promise<{ sessionId: string; pid: number | null }>;
   /** Retorna sessionIds de sessões atualmente ativas no BFF (Fix 3). */
   getActiveSessions(): Promise<{ sessionIds: string[] }>;
   listOptions(
@@ -363,7 +383,7 @@ export interface ApiClient {
   ): Promise<{ decisions: JunDecisionEntry[] }>;
   getPendingApproval(
     sessionId: string,
-  ): Promise<{ proposedText: string } | null>;
+  ): Promise<{ proposedText: string; context?: PendingApprovalContext } | null>;
   approveOrEdit(
     sessionId: string,
     decision: ApprovalDecisionRequest,
@@ -503,6 +523,8 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     setMode: (mode) => post<{ mode: ConsoleMode }>("/mode", { mode }),
     startCardSession: (input) =>
       post<StartCardSessionOutput>("/sessions/start-card", input),
+    startStsSession: (input) =>
+      post<{ sessionId: string; pid: number | null }>("/sessions/start-sts", input),
     getActiveSessions: () =>
       get<{ sessionIds: string[] }>("/sessions/active"),
     listOptions: (sessionId) =>

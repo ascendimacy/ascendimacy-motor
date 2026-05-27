@@ -34,6 +34,9 @@ export interface StartCardSessionInput {
   from: string;
   pkg: { cardId: string; raw: string; sourcePath: string };
   personaId?: string;
+  /** Se > 0, ativa semi-auto gate (conteúdo + approval). Derivado de
+   *  ConsoleMode pelo BFF: semi-auto → 60_000ms, auto → 0. */
+  semiAutoTimeoutMs?: number;
 }
 
 export interface StartCardSessionOutput {
@@ -82,13 +85,31 @@ export interface DaemonStatus {
   sessionCount: number;
 }
 
+export interface PendingApprovalContext {
+  contentPoolIds: string[];
+  strategicRationale: string;
+  contextHints: Record<string, unknown>;
+  selectedContentId: string;
+  sessionState?: {
+    trustLevel: number;
+    turn: number;
+    budgetRemaining: number;
+  };
+}
+
 export interface PendingApproval {
   proposedText: string;
+  context?: PendingApprovalContext;
 }
 
 export interface OrchestratorDaemonClient {
   startCardSession(
     input: StartCardSessionInput,
+  ): Promise<StartCardSessionOutput>;
+  sendTurn(
+    sessionId: string,
+    message: string,
+    semiAutoTimeoutMs?: number,
   ): Promise<StartCardSessionOutput>;
   subscribeTurnState(
     sessionId: string,
@@ -189,9 +210,15 @@ export function createStdioDaemonClient(
   const callTool = async <T>(
     toolName: string,
     args: Record<string, unknown>,
+    timeoutMs?: number,
   ): Promise<T> => {
     await ensureConnected();
-    const result = await client.callTool({ name: toolName, arguments: args });
+    const options = timeoutMs !== undefined ? { timeout: timeoutMs } : undefined;
+    const result = await client.callTool(
+      { name: toolName, arguments: args },
+      undefined,
+      options,
+    );
     // MCP tools retornam content array; extraímos o primeiro item de texto
     const content = result.content;
     if (!Array.isArray(content) || content.length === 0) {
@@ -203,20 +230,48 @@ export function createStdioDaemonClient(
         `Tool ${toolName} retornou content inesperado: ${JSON.stringify(first)}`,
       );
     }
+    if (result.isError === true) {
+      throw new Error(`Tool ${toolName} retornou erro: ${first.text}`);
+    }
     return JSON.parse(first.text) as T;
   };
 
   return {
     async startCardSession(input) {
-      return callTool<StartCardSessionOutput>("startCardSession", {
-        cardId: input.cardId,
-        conversationId: input.conversationId,
-        from: input.from,
-        pkg: input.pkg,
-        ...(input.personaId !== undefined
-          ? { personaId: input.personaId }
-          : {}),
-      });
+      const semi = input.semiAutoTimeoutMs ?? 0;
+      // MCP SDK default é 60s — insuficiente quando motor turn (~20s) +
+      // gate semi-auto (até semiAutoTimeoutMs) ultrapassam o limite.
+      // Buffer de 45s cobre motor turn + overhead MCP.
+      const timeoutMs = semi > 0 ? semi + 45_000 : undefined;
+      return callTool<StartCardSessionOutput>(
+        "startCardSession",
+        {
+          cardId: input.cardId,
+          conversationId: input.conversationId,
+          from: input.from,
+          pkg: input.pkg,
+          ...(input.personaId !== undefined
+            ? { personaId: input.personaId }
+            : {}),
+          ...(semi > 0 ? { semiAutoTimeoutMs: semi } : {}),
+        },
+        timeoutMs,
+      );
+    },
+
+    async sendTurn(sessionId, message, semiAutoTimeoutMs = 0) {
+      const timeoutMs = semiAutoTimeoutMs > 0
+        ? semiAutoTimeoutMs + 45_000
+        : undefined;
+      return callTool<StartCardSessionOutput>(
+        "send_turn",
+        {
+          sessionId,
+          message,
+          ...(semiAutoTimeoutMs > 0 ? { semiAutoTimeoutMs } : {}),
+        },
+        timeoutMs,
+      );
     },
 
     async subscribeTurnState(sessionId, sinceIndex = 0) {
@@ -243,13 +298,7 @@ export function createStdioDaemonClient(
     async approveOrEdit(sessionId, decision) {
       return callTool<ApproveOrEditResult>("approve_or_edit", {
         sessionId,
-        approved: decision.approved,
-        ...(decision.editedText !== undefined
-          ? { editedText: decision.editedText }
-          : {}),
-        ...(decision.rationale !== undefined
-          ? { rationale: decision.rationale }
-          : {}),
+        decision,
       });
     },
 
@@ -314,6 +363,13 @@ export function createMockDaemonClient(
         sessionId,
         text: `mock response for ${input.cardId}`,
         tracePath: `/tmp/mock-trace-${sessionId}.json`,
+      };
+    },
+    async sendTurn(sessionId, message, _semiAutoTimeoutMs = 0) {
+      return {
+        sessionId,
+        text: `mock turn response: ${message}`,
+        tracePath: `/tmp/mock-trace-${sessionId}-turn.json`,
       };
     },
     async subscribeTurnState(sessionId, sinceIndex = 0) {

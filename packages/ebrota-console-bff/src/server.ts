@@ -42,6 +42,8 @@ import {
   type SessionLibraryFilters,
 } from "./traces-scanner.js";
 import { existsSync, watch as fsWatch, type FSWatcher } from "node:fs";
+import { spawn } from "node:child_process";
+import { join as pathJoin } from "node:path";
 import {
   createDebugEventsStore,
   recordDebugAction,
@@ -96,6 +98,12 @@ export interface CreateBffServerOptions {
    * Default: undefined → endpoint retorna 503, sem watcher.
    */
   tracesDir?: string;
+  /**
+   * Diretório raiz do repo ascendimacy-sts — habilita
+   * POST /sessions/start-sts (spawn STS subprocess, ops#1156).
+   * Default: undefined → endpoint retorna 503.
+   */
+  stsRootDir?: string;
 }
 
 export interface BffServer {
@@ -179,16 +187,122 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
         .code(400)
         .send({ error: "campos obrigatórios: cardId, conversationId, from, pkg" });
     }
-    const result = await opts.daemon.startCardSession(body);
-    activeSessions.add(result.sessionId);
-    return result;
+    // Pré-registra sessionId antes do await — em semi-auto mode o daemon
+    // bloqueia até o gate resolver, então activeSessions.add pós-await
+    // tornaria o polling de /sessions/active inútil enquanto gate está ativo.
+    const earlySessionId = `${body.personaId ?? body.from}__${body.conversationId}`;
+    activeSessions.add(earlySessionId);
+    try {
+      const result = await opts.daemon.startCardSession({
+        ...body,
+        semiAutoTimeoutMs: mode === "semi-auto" ? 60_000 : 0,
+      });
+      activeSessions.add(result.sessionId);
+      return result;
+    } catch (err) {
+      activeSessions.delete(earlySessionId);
+      throw err;
+    }
   });
 
-  // GET /sessions/active — lista sessionIds ativos (iniciados, não encerrados).
+  // POST /sessions/start-sts — lança STS CLI como subprocess (ops#1156 v0).
+  //
+  // V0: spawn autônomo — subprocess roda completo sem gate por turn.
+  // Gate integration per-turn é follow-up (requer IPC entre STS e BFF).
+  //
+  // Requer EBROTA_BFF_STS_ROOT → stsRootDir (repo ascendimacy-sts).
+  // Propaga env vars de LLM do processo BFF para o subprocess.
+  fastify.post<{
+    Body: { personaId: string; cardId?: string; turns?: number };
+  }>("/sessions/start-sts", async (req, reply) => {
+    if (!opts.stsRootDir) {
+      return reply.code(503).send({
+        error:
+          "STS root não configurado — definir EBROTA_BFF_STS_ROOT pra habilitar",
+      });
+    }
+    const body = req.body ?? {};
+    const { personaId, turns = 6 } = body;
+    if (typeof personaId !== "string" || personaId.length === 0) {
+      return reply.code(400).send({ error: "personaId (string) obrigatório" });
+    }
+
+    const stsCliPath = pathJoin(opts.stsRootDir, "orchestrator/dist/cli.js");
+    if (!existsSync(stsCliPath)) {
+      return reply.code(503).send({
+        error: `STS CLI não encontrado em ${stsCliPath} — rode 'npm run build' em ascendimacy-sts/orchestrator`,
+      });
+    }
+
+    const sessionId = `sts-${personaId}-${Date.now()}`;
+    const llmEnvKeys = [
+      "LLM_PROVIDER",
+      "LOCAL_LLM_BASE_URL",
+      "LOCAL_LLM_MODEL",
+      "LOCAL_LLM_API_KEY",
+      "LLM_LOCAL_AUTH_BEARER",
+      "LLM_LOCAL_ENDPOINT",
+      "LLM_LOCAL_MODEL",
+      "MOTOR_PATH",
+      "CONTENT_SEED_PATH",
+      "USE_MOCK_LLM",
+      "ANTHROPIC_API_KEY",
+      "INFOMANIAK_API_KEY",
+      "INFOMANIAK_BASE_URL",
+      "ASC_DEBUG_MODE",
+      "NODE_ENV",
+    ];
+    const env: Record<string, string> = {};
+    for (const k of llmEnvKeys) {
+      const v = process.env[k];
+      if (v !== undefined) env[k] = v;
+    }
+
+    const child = spawn(
+      "node",
+      [stsCliPath, "run", "--persona", personaId, "--turns", String(turns)],
+      { cwd: opts.stsRootDir, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] },
+    );
+
+    const prefix = `[STS ${sessionId}] `;
+    child.stdout?.on("data", (d: Buffer) =>
+      process.stderr.write(`${prefix}${String(d)}`),
+    );
+    child.stderr?.on("data", (d: Buffer) =>
+      process.stderr.write(`${prefix}${String(d)}`),
+    );
+    child.on("exit", (code: number | null) => {
+      activeSessions.delete(sessionId);
+      process.stderr.write(`${prefix}exit ${code ?? "null"}\n`);
+    });
+
+    activeSessions.add(sessionId);
+    return { sessionId, pid: child.pid ?? null };
+  });
   // App.svelte faz polling aqui pra auto-conectar ao live stream (Fix 3).
   fastify.get("/sessions/active", async () => ({
     sessionIds: [...activeSessions],
   }));
+
+  // POST /sessions/:id/turn — envia próximo turn em sessão existente.
+  // Em semi-auto mode, submete resposta para ApprovalGate antes de retornar.
+  // Caller deve polling GET /sessions/:id/pending-approval e chamar
+  // POST /sessions/:id/approve para desbloquear (ops#1156 + ops#1158).
+  fastify.post<{
+    Params: { id: string };
+    Body: { message: string };
+  }>("/sessions/:id/turn", async (req, reply) => {
+    const { message } = req.body ?? {};
+    if (typeof message !== "string" || message.trim().length === 0) {
+      return reply.code(400).send({ error: "message (string) obrigatório" });
+    }
+    const result = await opts.daemon.sendTurn(
+      req.params.id,
+      message,
+      mode === "semi-auto" ? 60_000 : 0,
+    );
+    return result;
+  });
 
   // GET /sessions/:id/turn-state — SSE stream polling subscribeTurnState
   fastify.get<{ Params: { id: string } }>(

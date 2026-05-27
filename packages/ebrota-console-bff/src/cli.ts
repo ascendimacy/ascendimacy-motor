@@ -12,6 +12,7 @@
  *   EBROTA_BFF_DB_PATH       (default ./.ebrota-console.db)
  *   EBROTA_BFF_INITIAL_MODE  (default 'auto')
  *   EBROTA_BFF_USE_MOCK_DAEMON (default false; useful pra dev sem daemon)
+ *   EBROTA_BFF_STS_ROOT      (path to ascendimacy-sts repo root; habilita POST /sessions/start-sts)
  *
  * Production: daemon spawn vira PR seguinte (precisa C-MX-07 mergeado
  * em main + binary path resolvable). PR2 ship com mock por default
@@ -37,6 +38,7 @@ const host = process.env["EBROTA_BFF_HOST"] ?? "127.0.0.1";
 const dbPath = process.env["EBROTA_BFF_DB_PATH"] ?? "./.ebrota-console.db";
 const tracesDir =
   process.env["EBROTA_BFF_TRACES_DIR"] ?? DEFAULT_TRACES_DIR;
+const stsRootDir = process.env["EBROTA_BFF_STS_ROOT"];
 const modeEnv = process.env["EBROTA_BFF_INITIAL_MODE"];
 const initialMode: ConsoleMode =
   modeEnv === "semi-auto" ? "semi-auto" : "auto";
@@ -77,6 +79,7 @@ const server = createBffServer({
   initialMode,
   logger: true,
   tracesDir,
+  stsRootDir,
 });
 
 // Scan traces ANTES de listen (idempotente; ok mesmo se dir não existe).
