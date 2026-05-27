@@ -1,11 +1,23 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { S1, S1_CACHE_TTL_MS, type S1DataSources } from "../src/s1-read.js";
+import type { DeclaredObjective } from "@ascendimacy/shared";
 
 const mockSources: S1DataSources = {
   getCaselLevels: async (persona) => (persona === "ryo" ? { SA: 3, SM: 2 } : { SA: 1 }),
   getTreeZones: async () => ["raiz", "tronco"],
   getHelixPosition: async () => "active",
   getLastSession: async () => "2026-05-26T10:00:00.000Z",
+};
+
+const sampleObjective: DeclaredObjective = {
+  id: "obj-1",
+  persona_id: "ryo",
+  declared_at: "2026-05-20T10:00:00.000Z",
+  declared_in_session: "sess-a",
+  target_date: "2026-05-31T23:59:59.000Z",
+  statement: "Aprender frações até fim do mês",
+  axis: "math:fractions",
+  status: "active",
 };
 
 describe("S1.read", () => {
@@ -101,6 +113,33 @@ describe("S1.read", () => {
     const result = await S1.read({ persona: "ryo" }, nullSources);
     expect(result.helix_position).toBeNull();
     expect(result.last_session).toBeNull();
+  });
+
+  it("includes declared_objectives when source fornecido (S1 spec)", async () => {
+    const withObjectives: S1DataSources = {
+      ...mockSources,
+      getDeclaredObjectives: async (persona) =>
+        persona === "ryo" ? [sampleObjective] : [],
+    };
+    const result = await S1.read({ persona: "ryo" }, withObjectives);
+    expect(result.declared_objectives).toHaveLength(1);
+    expect(result.declared_objectives![0]!.statement).toBe(
+      "Aprender frações até fim do mês",
+    );
+  });
+
+  it("omite declared_objectives quando source não fornecido (back-compat)", async () => {
+    const result = await S1.read({ persona: "kei" }, mockSources);
+    expect(result.declared_objectives).toBeUndefined();
+  });
+
+  it("retorna array vazio quando persona sem objetivos", async () => {
+    const withObjectives: S1DataSources = {
+      ...mockSources,
+      getDeclaredObjectives: async () => [],
+    };
+    const result = await S1.read({ persona: "saki" }, withObjectives);
+    expect(result.declared_objectives).toEqual([]);
   });
 
   it("clearCache for specific persona leaves others intact", async () => {

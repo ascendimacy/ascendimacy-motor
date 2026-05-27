@@ -119,3 +119,14 @@ export {
   type MilestoneEvent,
   type MilestoneEventType,
 } from "./milestone-event.js";
+
+// S1 declared objectives (ops spec 2026-05-26-s1-objetivos-declarados-v0)
+export {
+  DECLARED_OBJECTIVE_STATUSES,
+  DeclaredObjectiveSchema,
+  DeclaredObjectiveStatusSchema,
+  DeclaredObjectiveDraftSchema,
+  type DeclaredObjective,
+  type DeclaredObjectiveStatus,
+  type DeclaredObjectiveDraft,
+} from "./declared-objective.js";
