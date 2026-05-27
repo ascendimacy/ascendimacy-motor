@@ -107,18 +107,18 @@ describe("subsystem panels — smoke render", () => {
     expect(screen.getByText(/2026-05-26-s5c-longitudinal-v0\.md/)).toBeDefined();
   });
 
-  it("B1SocialPanel renderiza shell + placeholder com link spec hooks", () => {
+  it("B1SocialPanel renderiza shell + loading inicial (B1/B2 wiring PR #243)", () => {
+    // Render sem api injetado → usa default client; b1-loading aparece antes
+    // do Promise resolver, garantindo que a shell montou.
     render(B1SocialPanel);
     expect(screen.getByTestId("subsystem-panel-B1")).toBeDefined();
-    expect(screen.getByText(/2026-05-26-b1-hooks-temporais-v0\.md/)).toBeDefined();
+    expect(screen.getByTestId("b1-loading")).toBeDefined();
   });
 
-  it("B2DrillingPanel renderiza banner 'ausente como sistema'", () => {
+  it("B2DrillingPanel renderiza shell + loading inicial (B1/B2 wiring PR #244)", () => {
     render(B2DrillingPanel);
     expect(screen.getByTestId("subsystem-panel-B2")).toBeDefined();
-    expect(screen.getByTestId("b2-absent-banner")).toBeDefined();
-    expect(screen.getByText(/B2 ausente como sistema/)).toBeDefined();
-    expect(screen.getByText(/2026-05-26-b2-drilling-primer-v0\.md/)).toBeDefined();
+    expect(screen.getByTestId("b2-loading")).toBeDefined();
   });
 
   it("close button volta ao grid (seta expandedSubsystem=null)", async () => {

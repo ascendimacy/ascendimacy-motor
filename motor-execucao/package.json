@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "main": "./dist/server.js",
+  "exports": {
+    ".": "./dist/server.js",
+    "./cards-repo": "./dist/cards-repo.js",
+    "./drill-repo": "./dist/drill-repo.js",
+    "./narrative-thread-repo": "./dist/narrative-thread-repo.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",

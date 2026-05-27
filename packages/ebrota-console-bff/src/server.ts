@@ -80,6 +80,8 @@ import {
 } from "./parental-onboarding-store.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import b1RoutesPlugin from "./routes/b1-routes.js";
+import b2RoutesPlugin from "./routes/b2-routes.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -134,6 +136,17 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
 
   initParentalOnboardingSchema(opts.db);
   void fastify.register(async (instance) => (await import("./routes/s1-routes.js")).default(instance, { db: opts.db }));
+
+  // B1/B2 wiring — Camada Social + Drilling. Fastify enfileira o register
+  // até .listen()/.ready() resolverem; ok chamar síncrono dentro do factory.
+  const sharedRouteOpts = {
+    db: opts.db,
+    ...(opts.fixturesDir !== undefined
+      ? { fixturesDir: opts.fixturesDir }
+      : {}),
+  };
+  void fastify.register(b1RoutesPlugin, sharedRouteOpts);
+  void fastify.register(b2RoutesPlugin, sharedRouteOpts);
 
   // In-memory set de sessionIds ativos (iniciados via /sessions/start-card,
   // removidos via /sessions/:id/end). Permite que App.svelte faça polling

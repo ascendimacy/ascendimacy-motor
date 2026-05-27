@@ -16,13 +16,17 @@
     "ebrota-console-bff": "./dist/cli.js"
   },
   "dependencies": {
+    "@ascendimacy/motor-execucao": "*",
+    "@ascendimacy/shared": "*",
     "@modelcontextprotocol/sdk": "^1.10.2",
     "better-sqlite3": "^11.0.0",
     "fastify": "^5.0.0",
+    "js-yaml": "^4.1.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "*",
+    "@types/js-yaml": "*",
     "@types/node": "*",
     "tsx": "^4.22.3",
     "typescript": "*",

@@ -340,6 +340,111 @@ export interface DebugLlmCallEvent {
   turn?: number;
 }
 
+// ─── B1/B2 wiring (Camada Social + Drilling) ─────────────────────
+
+export interface TemporalWindowEntryLike {
+  name: string;
+  weekday: string[];
+  start_local: string;
+  end_local: string;
+  max_hooks_per_day: number;
+  requires_parental_ok: boolean;
+}
+
+export interface TemporalWindowLike {
+  persona_id: string;
+  timezone: string;
+  windows: TemporalWindowEntryLike[];
+  sleep_window?: { start_local: string; end_local: string };
+  school_window?: { start_local: string; end_local: string };
+}
+
+export interface PulsoEventLike {
+  emitted_at: string;
+  trigger: string;
+  pulso_kind: string;
+  text: string;
+}
+
+export interface SacrificeBudgetSnapshotLike {
+  persona_id: string;
+  baseline: number;
+  current: number;
+  mood: number;
+  trust: number;
+  modifiers: Array<{ label: string; delta: number; active: boolean }>;
+  source: string;
+}
+
+export interface EmittedCardLike {
+  card_id: string;
+  child_id: string;
+  session_id: string;
+  archetype_id: string;
+  signature: string;
+  emitted_at: string;
+  front: {
+    title?: string;
+    rarity?: string;
+    [k: string]: unknown;
+  };
+  back: {
+    serial_number?: string;
+    cheat_code?: string;
+    qr_payload?: string;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
+
+export interface DyadConfigLike {
+  dyad: {
+    members?: string[];
+    playbook?: string;
+    [k: string]: unknown;
+  } | null;
+  source: string;
+}
+
+export interface DrillBankSummaryLike {
+  bank_id: string;
+  title: string;
+  curator: string;
+  item_count: number;
+  target_personas: string[];
+}
+
+export interface DrillBankDetailLike {
+  bank: {
+    bank_id: string;
+    title: string;
+    curator: string;
+    license?: string;
+    target_personas?: string[];
+  };
+  items: Array<{
+    id: string;
+    bank_id: string;
+    type: string;
+    axis: string;
+    difficulty: number;
+    payload: { prompt: string; answer: string; hint?: string };
+  }>;
+}
+
+export interface DrillStateLike {
+  persona_id: string;
+  item_id: string;
+  presented_count: number;
+  correct_count: number;
+  last_seen_at: string;
+  next_due_at: string;
+  current_interval_days: number;
+  current_easiness: number;
+  mastery_reached_at: string | null;
+  last_5_attempts: string[];
+}
+
 export interface ApiClient {
   getStatus(): Promise<BffStatus>;
   getMode(): Promise<{ mode: ConsoleMode }>;
@@ -432,6 +537,41 @@ export interface ApiClient {
     subjectId: string,
     opts?: { limit?: number },
   ): Promise<{ plans: StrategyPlanLike[] }>;
+
+  // ─── B1 Camada Social ───────────────────────────────────────────
+  /** TemporalWindow YAML parseada. Pode retornar null se 404. */
+  getTemporalWindows(personaId: string): Promise<TemporalWindowLike | null>;
+  /** Pulso events recentes da persona (V0: stub vazio). */
+  listPulsoEvents(personaId: string): Promise<{ events: PulsoEventLike[] }>;
+  /** Sacrifice budget snapshot (V0: derivado de defaults, source=stub_v0). */
+  getSacrificeBudget(
+    personaId: string,
+    opts?: { mood?: number; trust?: number },
+  ): Promise<SacrificeBudgetSnapshotLike>;
+  /** Cards emitidos para a persona. */
+  listEmittedCards(
+    personaId: string,
+  ): Promise<{ cards: EmittedCardLike[] }>;
+  /** Configuração de dyad ativo (V0: stub null). */
+  getDyad(personaId: string): Promise<DyadConfigLike>;
+
+  // ─── B2 Drilling ────────────────────────────────────────────────
+  /** Lista banks disponíveis em fixtures/banks/. */
+  listBanks(): Promise<{ banks: DrillBankSummaryLike[] }>;
+  /** Conteúdo completo de um bank por id. */
+  getBank(bankId: string): Promise<DrillBankDetailLike>;
+  /** Todos os DrillStates da persona. */
+  listDrillStates(
+    personaId: string,
+  ): Promise<{ states: DrillStateLike[] }>;
+  /** DrillStates due agora. */
+  listDrillDue(
+    personaId: string,
+  ): Promise<{ states: DrillStateLike[] }>;
+  /** DrillStates que atingiram mastery. */
+  listDrillMastered(
+    personaId: string,
+  ): Promise<{ states: DrillStateLike[] }>;
 }
 
 // ─── S1 wiring — Declared Objectives + Narrative Threads + SK summary ──
@@ -768,6 +908,58 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
         `/subjects/${encodeURIComponent(subjectId)}/strategy-plans${q ? `?${q}` : ""}`,
       );
     },
+
+    // ─── B1 ─────────────────────────────────────────────────────────
+    getTemporalWindows: async (personaId) => {
+      const res = await f(
+        `${baseUrl}/personas/${encodeURIComponent(personaId)}/temporal-windows`,
+      );
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        throw new Error(
+          `BFF GET temporal-windows failed: ${res.status} ${res.statusText}`,
+        );
+      }
+      return (await res.json()) as TemporalWindowLike;
+    },
+    listPulsoEvents: (personaId) =>
+      get<{ events: PulsoEventLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/pulso-events`,
+      ),
+    getSacrificeBudget: (personaId, opts) => {
+      const params = new URLSearchParams();
+      if (opts?.mood !== undefined) params.set("mood", String(opts.mood));
+      if (opts?.trust !== undefined) params.set("trust", String(opts.trust));
+      const q = params.toString();
+      return get<SacrificeBudgetSnapshotLike>(
+        `/personas/${encodeURIComponent(personaId)}/sacrifice-budget${q ? `?${q}` : ""}`,
+      );
+    },
+    listEmittedCards: (personaId) =>
+      get<{ cards: EmittedCardLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/cards`,
+      ),
+    getDyad: (personaId) =>
+      get<DyadConfigLike>(
+        `/personas/${encodeURIComponent(personaId)}/dyad`,
+      ),
+
+    // ─── B2 ─────────────────────────────────────────────────────────
+    listBanks: () => get<{ banks: DrillBankSummaryLike[] }>("/banks"),
+    getBank: (bankId) =>
+      get<DrillBankDetailLike>(`/banks/${encodeURIComponent(bankId)}`),
+    listDrillStates: (personaId) =>
+      get<{ states: DrillStateLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/drill-state`,
+      ),
+    listDrillDue: (personaId) =>
+      get<{ states: DrillStateLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/drill-due`,
+      ),
+    listDrillMastered: (personaId) =>
+      get<{ states: DrillStateLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/drill-mastered`,
+      ),
   };
 }
 
