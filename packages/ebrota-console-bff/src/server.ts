@@ -78,6 +78,12 @@ import {
   saveDraft as saveOnboardingDraft,
   markComplete as markOnboardingComplete,
 } from "./parental-onboarding-store.js";
+import {
+  initMc1Schema,
+  scheduleMc1,
+  latestByPersona as latestMc1ByPersona,
+  cancelPendingByPersona as cancelMc1ByPersona,
+} from "@ascendimacy/motor-execucao/mc1-repo";
 import parentalDashboardRoutes from "./routes/parental-dashboard-routes.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -136,6 +142,7 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
   let mode: ConsoleMode = opts.initialMode ?? "auto";
 
   initParentalOnboardingSchema(opts.db);
+  initMc1Schema(opts.db);
   void fastify.register(async (instance) => (await import("./routes/s1-routes.js")).default(instance, { db: opts.db }));
 
   // B1/B2 wiring — Camada Social + Drilling. Fastify enfileira o register
@@ -826,12 +833,54 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
         // best-effort
       }
 
+      // Schedule MC1 entries para cada criança com aprovação válida.
+      // Idempotente: cancela pendentes prévias da persona antes (re-run
+      // do wizard rescheduleia). Spec
+      // 2026-05-19-mc1-primeira-mensagem-brota-jp.md §9 cravou MC1 como
+      // canonical first message — entrega na próxima janela aberta.
+      const mc1Approvals = Array.isArray(state.mc1Approvals)
+        ? (state.mc1Approvals as Array<{
+            childId?: unknown;
+            text?: unknown;
+            approved?: unknown;
+          }>)
+        : [];
+      const scheduledMc1 = [];
+      for (const approval of mc1Approvals) {
+        if (
+          typeof approval.childId !== "string" ||
+          typeof approval.text !== "string" ||
+          approval.approved !== true ||
+          approval.text.length === 0
+        ) {
+          continue;
+        }
+        try {
+          cancelMc1ByPersona(opts.db, approval.childId);
+          const scheduled = scheduleMc1(opts.db, {
+            personaId: approval.childId,
+            approvedText: approval.text,
+            // V0 hard-coded — primeira janela kid post-school. Quando
+            // wizard preferir window específica, ler de windowsByChild.
+            targetWindowName: "post-school-jp",
+          });
+          scheduledMc1.push({
+            childId: approval.childId,
+            mc1ScheduledId: scheduled.id,
+            scheduledAt: scheduled.scheduledAt,
+          });
+        } catch {
+          // best-effort; falha em uma criança não bloqueia completion.
+        }
+      }
+
       return {
         acquirerId: record.acquirerId,
         status: "complete",
         completedAt: record.completedAt,
         yamlPath,
         event: "persona_ready_for_pilot",
+        mc1Scheduled: scheduledMc1,
       };
     },
   );
@@ -871,6 +920,49 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
       generatedAt: new Date().toISOString(),
     };
   });
+
+  // GET /parental/mc1/status?childId=X — status MC1 (pending/delivered/
+  // cancelled/not_scheduled) + delivered_at. Usado pelo dashboard pra
+  // badge "MC1 pendente" enquanto status=pending.
+  fastify.get<{ Querystring: { childId?: string } }>(
+    "/parental/mc1/status",
+    async (req, reply) => {
+      const childId = req.query.childId;
+      if (typeof childId !== "string" || childId.length === 0) {
+        return reply.code(400).send({ error: "childId obrigatório" });
+      }
+      const rec = latestMc1ByPersona(opts.db, childId);
+      if (!rec) {
+        return {
+          childId,
+          status: "not_scheduled" as const,
+          deliveredAt: null,
+          scheduledAt: null,
+        };
+      }
+      return {
+        childId,
+        status: rec.status,
+        deliveredAt: rec.deliveredAt,
+        scheduledAt: rec.scheduledAt,
+        targetWindowName: rec.targetWindowName,
+      };
+    },
+  );
+
+  // POST /parental/mc1/cancel?childId=X — cancela MC1 pending. Idempotente:
+  // se nada pending, returns cancelled=0.
+  fastify.post<{ Querystring: { childId?: string } }>(
+    "/parental/mc1/cancel",
+    async (req, reply) => {
+      const childId = req.query.childId;
+      if (typeof childId !== "string" || childId.length === 0) {
+        return reply.code(400).send({ error: "childId obrigatório" });
+      }
+      const cancelled = cancelMc1ByPersona(opts.db, childId);
+      return { childId, cancelled };
+    },
+  );
 
   // POST /rescan — re-indexa o tracesDir (manual trigger).
   // Útil quando STS roda em outro processo e deposita novos traces;

@@ -45,6 +45,13 @@
 
   let pendingQuestions: PendingQuestion[] = [];
   let activeQuestion: PendingQuestion | null = null;
+
+  // MC1 status por childId. "pending" → badge "MC1 pendente" no card.
+  // Outros estados (delivered, cancelled, not_scheduled) sem badge.
+  let mc1Statuses: Record<
+    string,
+    "pending" | "delivered" | "cancelled" | "not_scheduled"
+  > = {};
   let showReportForm = false;
   let showPauseConfirm = false;
   let pauseReason = "";
@@ -66,6 +73,7 @@
         void loadTab(activeTab);
       }
       void loadPendingQuestions();
+      void loadMc1Statuses();
     } catch (err) {
       dashboardError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -83,6 +91,42 @@
     } catch {
       // best-effort
     }
+  }
+
+  async function loadMc1Statuses(): Promise<void> {
+    if (dashboard === null) return;
+    const f = getFetch();
+    const entries = await Promise.all(
+      dashboard.children.map(async (kid) => {
+        try {
+          const res = await f(
+            `${baseUrl}/parental/mc1/status?childId=${encodeURIComponent(kid.childId)}`,
+          );
+          if (!res.ok) return [kid.childId, "not_scheduled"] as const;
+          const data = (await res.json()) as { status: string };
+          return [kid.childId, data.status] as const;
+        } catch {
+          return [kid.childId, "not_scheduled"] as const;
+        }
+      }),
+    );
+    const next: Record<
+      string,
+      "pending" | "delivered" | "cancelled" | "not_scheduled"
+    > = {};
+    for (const [cid, status] of entries) {
+      if (
+        status === "pending" ||
+        status === "delivered" ||
+        status === "cancelled" ||
+        status === "not_scheduled"
+      ) {
+        next[cid] = status;
+      } else {
+        next[cid] = "not_scheduled";
+      }
+    }
+    mc1Statuses = next;
   }
 
   async function loadTab(tab: Tab): Promise<void> {
@@ -272,6 +316,7 @@
         <KidSummaryCard
           {kid}
           active={kid.childId === selectedChildId}
+          mc1Pending={mc1Statuses[kid.childId] === "pending"}
           onClick={() => selectKid(kid.childId)}
         />
       {/each}

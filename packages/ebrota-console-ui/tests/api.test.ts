@@ -117,4 +117,32 @@ describe("createApiClient", () => {
       "https://example.com/bff/sessions/s1/turn-state",
     );
   });
+
+  it("getMc1Status chama GET /parental/mc1/status?childId=X", async () => {
+    const fetchMock = buildFetchMock({
+      "GET /parental/mc1/status?childId=ryo-ochiai": {
+        childId: "ryo-ochiai",
+        status: "pending",
+        deliveredAt: null,
+        scheduledAt: "2026-05-27T10:00:00Z",
+        targetWindowName: "post-school-jp",
+      },
+    });
+    const api = createApiClient({ fetch: fetchMock as never });
+    const result = await api.getMc1Status("ryo-ochiai");
+    expect(result.status).toBe("pending");
+    expect(result.targetWindowName).toBe("post-school-jp");
+  });
+
+  it("cancelMc1 chama POST /parental/mc1/cancel?childId=X", async () => {
+    const fetchMock = buildFetchMock({
+      "POST /parental/mc1/cancel?childId=ryo-ochiai": {
+        childId: "ryo-ochiai",
+        cancelled: 1,
+      },
+    });
+    const api = createApiClient({ fetch: fetchMock as never });
+    const result = await api.cancelMc1("ryo-ochiai");
+    expect(result.cancelled).toBe(1);
+  });
 });

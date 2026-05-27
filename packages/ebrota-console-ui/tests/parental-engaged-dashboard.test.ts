@@ -141,6 +141,31 @@ function buildFetchMock(): {
     if (url.includes("/pulso-events")) {
       return jsonResponse({ childId: "ryo-ochiai", events: [] });
     }
+    if (url.includes("/parental/mc1/status")) {
+      if (url.includes("childId=ryo-ochiai")) {
+        return jsonResponse({
+          childId: "ryo-ochiai",
+          status: "pending",
+          deliveredAt: null,
+          scheduledAt: "2026-05-27T10:00:00Z",
+          targetWindowName: "post-school-jp",
+        });
+      }
+      if (url.includes("childId=kei-ochiai")) {
+        return jsonResponse({
+          childId: "kei-ochiai",
+          status: "delivered",
+          deliveredAt: "2026-05-27T09:00:00Z",
+          scheduledAt: "2026-05-26T10:00:00Z",
+        });
+      }
+      return jsonResponse({
+        childId: "saki-ochiai",
+        status: "not_scheduled",
+        deliveredAt: null,
+        scheduledAt: null,
+      });
+    }
     return jsonResponse({});
   };
   return { fn: fn as typeof globalThis.fetch, calls };
@@ -278,5 +303,24 @@ describe("ParentalEngagedDashboard", () => {
     const trigger = await screen.findByTestId("open-pause");
     await fireEvent.click(trigger);
     await screen.findByTestId("pause-confirm");
+  });
+
+  it("mostra badge MC1 pendente apenas em crianças com status=pending", async () => {
+    const { fn, calls } = buildFetchMock();
+    render(ParentalEngagedDashboard, {
+      props: { fetchImpl: fn, acquirerId: "yuji-ochiai" },
+    });
+
+    await waitFor(() => {
+      expect(
+        calls.some((c) =>
+          c.url.includes("/parental/mc1/status?childId=ryo-ochiai"),
+        ),
+      ).toBe(true);
+    });
+
+    const badges = await screen.findAllByTestId("mc1-pending-badge");
+    expect(badges).toHaveLength(1);
+    expect(badges[0]!.getAttribute("data-child-id")).toBe("ryo-ochiai");
   });
 });
