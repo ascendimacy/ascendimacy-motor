@@ -18,6 +18,7 @@
  */
 
 import { z } from "zod";
+import { TacticDecisionSchema } from "./contracts/tactic-decision.js";
 
 // ─────────────────────────────────────────────────────────────────────────
 // State snapshots — pre/post-turn read-only views dos repos do motor
@@ -106,6 +107,8 @@ export const LlmCallRoleSchema = z.enum([
   "planejador",
   "parental_triage",
   "strategist",
+  "tactician",
+  "speaker",
   "other",
 ]);
 export type LlmCallRole = z.infer<typeof LlmCallRoleSchema>;
@@ -280,11 +283,50 @@ export const MaterializerTraceSchema = z.object({
   duration_ms: z.number().nonnegative(),
 });
 
+// S4 — Tactician decide a jogada; Speaker executa em fala.
+export const TacticianTraceSchema = z.object({
+  inputs: z.object({
+    pool_size: z.number().int().nonnegative(),
+    strategic_rationale: z.string().optional(),
+    signals: z.array(z.string()).optional(),
+    mood: z.number().optional(),
+    candidate_set_entropy: z.number().optional(),
+  }),
+  outputs: z.object({
+    jogada: z.string(),
+    selected_item_id: z.string(),
+    angle: z.string(),
+    rationale: z.string(),
+  }),
+  method: z.enum(["rule", "llm", "fallback"]),
+  llm_call_ref: z.string().optional(),
+  duration_ms: z.number().nonnegative(),
+});
+
+export const SpeakerTraceSchema = z.object({
+  inputs: z.object({
+    jogada: z.string(),
+    selected_item_id: z.string(),
+    user_message: z.string(),
+  }),
+  stable_prefix_hash: z.string(),
+  user_message_constructed: z.string(),
+  outputs: z.object({
+    raw_response: z.string(),
+    final_text: z.string(),
+  }),
+  retried_with_fallback: z.boolean(),
+  llm_call_ref: z.string(),
+  duration_ms: z.number().nonnegative(),
+});
+
 export type AssessorTrace = z.infer<typeof AssessorTraceSchema>;
 export type PlanejadorTrace = z.infer<typeof PlanejadorTraceSchema>;
 export type StrategistTrace = z.infer<typeof StrategistTraceSchema>;
 export type SelectorTrace = z.infer<typeof SelectorTraceSchema>;
 export type MaterializerTrace = z.infer<typeof MaterializerTraceSchema>;
+export type TacticianTrace = z.infer<typeof TacticianTraceSchema>;
+export type SpeakerTrace = z.infer<typeof SpeakerTraceSchema>;
 
 // ─────────────────────────────────────────────────────────────────────────
 // EngineTraceV2 — top-level aggregate per turn
@@ -307,6 +349,8 @@ export const EngineTraceV2Schema = z.object({
     strategist: StrategistTraceSchema.optional(),
     pragmatic_selector: SelectorTraceSchema.optional(),
     constrained_materializer: MaterializerTraceSchema.optional(),
+    tactician: TacticianTraceSchema.optional(),
+    speaker: SpeakerTraceSchema.optional(),
   }),
 
   llm_calls: z.array(LlmCallTraceSchema),
@@ -320,6 +364,13 @@ export const EngineTraceV2Schema = z.object({
       recoverable: z.literal(true),
     }),
   ),
+
+  /**
+   * S4 — TacticDecision do turn quando USE_SPLIT_DROTA=true.
+   * Permite credit assignment entre decisão tática e execução verbal,
+   * e replay determinístico-ish do Speaker dado o mesmo decision.
+   */
+  tactic_decision: TacticDecisionSchema.optional(),
 });
 
 export type EngineTraceV2 = z.infer<typeof EngineTraceV2Schema>;

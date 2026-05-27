@@ -121,6 +121,9 @@ import { assess } from "./unified-assessor.js";
 import { selectAction } from "./pragmatic-selector.js";
 import { materialize } from "./constrained-materializer.js";
 import { resolveInauguralTemplate } from "./inaugural-template.js";
+import { tactician } from "./tactician.js";
+import { speak } from "./speaker.js";
+import type { TacticDecision } from "@ascendimacy/shared";
 
 export interface SimplifiedPipelineOpts {
   /** TV2-4 (spec ops#1136): captura engine trace v2 no output. Default true. */
@@ -335,25 +338,90 @@ export async function handleSimplifiedPipeline(
     | { concept_id: string; suggested_framing: string }
     | undefined;
 
-  // 3b. Constrained Materializer — texto final com FALLBACK handling.
-  const matResult = await materialize(
-    {
-      action: selectionResult.selected,
-      subjectNameForm: input.persona.name,
-      mood: assessment.mood,
-      engagement: assessment.engagement,
-      turnCount: input.state.turn,
-      budgetRemaining: input.state.budgetRemaining,
-      jurisdictionActive:
-        ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
-          "br") as "br" | "jp" | "ch",
-      run_id: input.sessionId,
-      incomingMessage: lastUserMessage,
-      recentTurns,
-      ...(recallCheckCandidate ? { recallCheckCandidate } : {}),
-    },
-    collector ? { collector } : undefined,
-  );
+  // S4 — USE_SPLIT_DROTA gate: Tactician → Speaker substitui o
+  // constrained-materializer monolítico. Default OFF (estabilização).
+  const useSplitDrota = process.env["USE_SPLIT_DROTA"] === "true";
+
+  let matResult: Awaited<ReturnType<typeof materialize>>;
+  let tacticDecision: TacticDecision | undefined;
+  let tacticianTrace: import("@ascendimacy/shared").TacticianTrace | undefined;
+  let speakerTrace: import("@ascendimacy/shared").SpeakerTrace | undefined;
+
+  if (useSplitDrota) {
+    // S4 — split pipeline. Tactician decide, Speaker executa.
+    const tacResult = await tactician(
+      {
+        contentPool: ranked,
+        contextHints: input.contextHints ?? {},
+        strategicRationale:
+          (input.contextHints?.["strategic_rationale"] as string | undefined) ??
+          "",
+        signals: assessment.signals,
+        mood: assessment.mood,
+        engagement: assessment.engagement,
+        ...(input.contextHints?.["candidate_set_entropy"] !== undefined
+          ? {
+              candidateSetEntropy: Number(
+                input.contextHints["candidate_set_entropy"],
+              ),
+            }
+          : {}),
+        run_id: input.sessionId,
+      },
+      collector ? { collector } : undefined,
+    );
+    tacticDecision = tacResult.decision;
+    if (tacResult._trace) tacticianTrace = tacResult._trace;
+
+    const speakResult = await speak(
+      {
+        decision: tacResult.decision,
+        action: selectionResult.selected,
+        subjectNameForm: input.persona.name,
+        mood: assessment.mood,
+        engagement: assessment.engagement,
+        turnCount: input.state.turn,
+        budgetRemaining: input.state.budgetRemaining,
+        jurisdictionActive:
+          ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
+            "br") as "br" | "jp" | "ch",
+        run_id: input.sessionId,
+        incomingMessage: lastUserMessage,
+        recentTurns,
+      },
+      collector ? { collector } : undefined,
+    );
+    if (speakResult._trace) speakerTrace = speakResult._trace;
+    // Shape compat: speak() output mapeado pra MaterializationResult-like.
+    matResult = {
+      text: speakResult.text,
+      model_used: speakResult.model_used,
+      fallback_triggered: speakResult.fallback_triggered,
+      latency_ms: speakResult.latency_ms,
+      token_count: speakResult.token_count,
+      sanitization_applied: speakResult.sanitization_applied,
+    } as Awaited<ReturnType<typeof materialize>>;
+  } else {
+    // 3b. Constrained Materializer — texto final com FALLBACK handling.
+    matResult = await materialize(
+      {
+        action: selectionResult.selected,
+        subjectNameForm: input.persona.name,
+        mood: assessment.mood,
+        engagement: assessment.engagement,
+        turnCount: input.state.turn,
+        budgetRemaining: input.state.budgetRemaining,
+        jurisdictionActive:
+          ((input.contextHints?.["jurisdiction_active"] as string | undefined) ??
+            "br") as "br" | "jp" | "ch",
+        run_id: input.sessionId,
+        incomingMessage: lastUserMessage,
+        recentTurns,
+        ...(recallCheckCandidate ? { recallCheckCandidate } : {}),
+      },
+      collector ? { collector } : undefined,
+    );
+  }
 
   // ── Fase 3: ConceptLedgerWriter — após materializar o Fact, emite
   // presented_concept (+1pt) se item está taggeado com axis_id/family/
@@ -435,10 +503,13 @@ export async function handleSimplifiedPipeline(
         ...(matResult._trace
           ? { constrained_materializer: matResult._trace }
           : {}),
+        ...(tacticianTrace ? { tactician: tacticianTrace } : {}),
+        ...(speakerTrace ? { speaker: speakerTrace } : {}),
       },
       llm_calls: collector?.drain() ?? [],
       subject_knowledge_writes: skWrites,
       warnings,
+      ...(tacticDecision ? { tactic_decision: tacticDecision } : {}),
     };
   }
 
@@ -454,5 +525,6 @@ export async function handleSimplifiedPipeline(
       ? { skipReason: "materializer_fallback" }
       : {}),
     ...(engineTrace ? { engineTrace } : {}),
+    ...(tacticDecision ? { tactic_decision: tacticDecision } : {}),
   };
 }

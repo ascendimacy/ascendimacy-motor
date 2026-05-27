@@ -119,3 +119,18 @@ export {
   type MilestoneEvent,
   type MilestoneEventType,
 } from "./milestone-event.js";
+
+// S4 — Separação Tactician (decide jogada) vs Speaker (gera fala).
+// Spec: ascendimacy-ops/docs/specs/2026-05-26-s4-separacao-decide-gera-v0.md
+export {
+  JOGADA_VALUES,
+  JogadaSchema,
+  RegisterSchema,
+  TacticDecisionConstraintsSchema,
+  TacticDecisionSchema,
+  parseTacticDecision,
+  type Jogada,
+  type Register,
+  type TacticDecision,
+  type TacticDecisionConstraints,
+} from "./tactic-decision.js";
