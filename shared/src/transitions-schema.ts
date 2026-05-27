@@ -75,6 +75,24 @@ export interface TransitionEvaluationResult {
   regression_signals_present: string[];
   /** Razão humana-legível da decisão. */
   reason: string;
+  /**
+   * Closed-loop v1 (ARCHITECTURE.md §S5 — "promover eixo-status ao patamar do
+   * eixo-conceito"): quando feature flag TRIGGER_EVALUATOR_CLOSED_LOOP=true e
+   * `fired=true`, planejador enriquece o resultado com a intenção declarativa
+   * de aplicar a transição na statusMatrix. Orchestrator consome esse campo
+   * pra chamar `apply_status_transition` em motor-execucao e emitir
+   * `status_matrix_updated_by_trigger`.
+   *
+   * Sem este campo (flag OFF ou !fired) → comportamento v0 read-only preservado.
+   */
+  closed_loop_action?: {
+    /** Dimensão alvo na matrix (ex: "emotional"). */
+    dimension: string;
+    /** Zone alvo derivada do nome da transição (ex: "baia"). */
+    target_zone: "brejo" | "baia" | "pasto";
+    /** Origem da transição — pra audit + override semantics. */
+    source: "trigger_evaluator";
+  };
 }
 
 /**

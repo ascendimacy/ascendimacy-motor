@@ -357,7 +357,11 @@ export async function runTurn(
   });
 
   // motor#25 (handoff #25 B4 + B5): loga transitionEvaluations + entropy events.
-  // Read-only — só registra. v0 não move statusMatrix.
+  // v0 (flag OFF): só registra evento transition_evaluated (read-only).
+  // v1 (flag ON, ARCHITECTURE.md §S5): quando ev.closed_loop_action presente,
+  //   também chama apply_status_transition pra mover statusMatrix e emitir
+  //   status_matrix_updated_by_trigger. Planejador decide se enriquece;
+  //   orchestrator só repassa.
   if (plan.transitionEvaluations && plan.transitionEvaluations.length > 0) {
     for (const ev of plan.transitionEvaluations) {
       try {
@@ -378,6 +382,22 @@ export async function runTurn(
         });
       } catch {
         // Fail-soft
+      }
+      if (ev.closed_loop_action) {
+        try {
+          await clients.motorExecucao.callTool({
+            name: "apply_status_transition",
+            arguments: {
+              sessionId,
+              dimension: ev.closed_loop_action.dimension,
+              target: ev.closed_loop_action.target_zone,
+              source: ev.closed_loop_action.source,
+              transitionName: ev.transition_name,
+            },
+          });
+        } catch {
+          // Fail-soft — closed-loop não pode quebrar o turn.
+        }
       }
     }
   }
