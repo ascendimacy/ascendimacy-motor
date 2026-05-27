@@ -220,6 +220,71 @@ export interface EngineTraceMaterializerLike {
   duration_ms?: number;
 }
 
+export interface EngineTraceTacticianLike {
+  inputs?: {
+    pool_size?: number;
+    strategic_rationale?: string;
+    signals?: string[];
+    mood?: number;
+    candidate_set_entropy?: number;
+  };
+  outputs?: {
+    jogada?: string;
+    selected_item_id?: string;
+    angle?: string;
+    rationale?: string;
+  };
+  method?: "rule" | "llm" | "fallback";
+  llm_call_ref?: string;
+  duration_ms?: number;
+}
+
+export interface EngineTraceSpeakerLike {
+  inputs?: {
+    jogada?: string;
+    selected_item_id?: string;
+    user_message?: string;
+  };
+  stable_prefix_hash?: string;
+  user_message_constructed?: string;
+  outputs?: { raw_response?: string; final_text?: string };
+  retried_with_fallback?: boolean;
+  llm_call_ref?: string;
+  duration_ms?: number;
+}
+
+/**
+ * TacticDecision duck-typed (S4 split — spec 2026-05-26-s4-separacao-decide-gera-v0).
+ * Mantém apenas campos consumidos pela UI; ver shared/src/contracts/tactic-decision.ts.
+ */
+export interface TacticDecisionLike {
+  jogada?: string;
+  selected_item_id?: string;
+  target_axis?: string;
+  angle?: string;
+  constraints?: {
+    avoid?: string[];
+    must_include?: string;
+    register?: string;
+    max_length_chars?: number;
+  };
+  rationale?: string;
+  fallback_jogada?: string;
+}
+
+/**
+ * Drill attempt duck-typed — campo emergente em traces de B2 drilling
+ * (ainda não wired em engine-trace-v2; UI mostra "não houve" quando ausente).
+ */
+export interface DrillAttemptLike {
+  item_id?: string;
+  prompt?: string;
+  expected?: string;
+  given?: string;
+  correct?: boolean;
+  duration_ms?: number;
+}
+
 export interface EngineTraceSkWriteLike {
   type: string;
   payload?: Record<string, unknown>;
@@ -246,10 +311,13 @@ export interface EngineTraceV2Like {
     strategist?: EngineTraceStrategistLike;
     pragmatic_selector?: EngineTraceSelectorLike;
     constrained_materializer?: EngineTraceMaterializerLike;
+    tactician?: EngineTraceTacticianLike;
+    speaker?: EngineTraceSpeakerLike;
   };
   llm_calls?: LlmCallLike[];
   subject_knowledge_writes?: EngineTraceSkWriteLike[];
   warnings?: EngineTraceWarningLike[];
+  tactic_decision?: TacticDecisionLike;
 }
 
 export interface ReplayTraceTurn {
@@ -286,6 +354,24 @@ export interface ReplayTraceTurn {
    * (legacy STS schema).
    */
   subjectKnowledgeEvents?: unknown[];
+
+  /**
+   * Drill attempts neste turn (B2). Emergent — engineTrace v2 ainda não
+   * captura B2 nativamente, então campo é tolerante a ausência.
+   */
+  drillAttempts?: DrillAttemptLike[];
+
+  /**
+   * Cards (Drota) emitidos no turno (B1). Shape duck-typed enquanto o
+   * pipeline social não emite campo canônico em trace.
+   */
+  cardsEmitted?: Array<Record<string, unknown>>;
+
+  /** Sacrifice cost atribuído ao turno (B1) — opcional. */
+  sacrificeCost?: number;
+
+  /** True quando turno emitiu pulso social (B1). */
+  pulseEmitted?: boolean;
 }
 
 export interface ReplayTrace {
