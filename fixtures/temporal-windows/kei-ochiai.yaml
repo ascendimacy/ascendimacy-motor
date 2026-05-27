@@ -1,0 +1,26 @@
+# Kei Ochiai — temporal window fixture B1
+# 6 anos, Japão. Mesmo padrão do Ryo, sleep um pouco mais cedo.
+# Spec: ascendimacy-ops/docs/specs/2026-05-26-b1-hooks-temporais-v0.md §schema
+# Schema: shared/src/contracts/temporal-window.ts
+
+persona_id: kei-ochiai
+timezone: Asia/Tokyo
+windows:
+  - name: post-school-jp
+    weekday: [mon, tue, wed, thu, fri]
+    start_local: "16:30"
+    end_local: "17:30"
+    max_hooks_per_day: 1
+    requires_parental_ok: true
+  - name: weekend-morning-jp
+    weekday: [sat, sun]
+    start_local: "09:00"
+    end_local: "10:00"
+    max_hooks_per_day: 1
+    requires_parental_ok: true
+school_window:
+  start_local: "08:00"
+  end_local: "15:30"
+sleep_window:
+  start_local: "20:30"
+  end_local: "06:30"

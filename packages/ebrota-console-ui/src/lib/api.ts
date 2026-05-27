@@ -247,7 +247,7 @@ export interface EngineTraceV2Like {
     pragmatic_selector?: EngineTraceSelectorLike;
     constrained_materializer?: EngineTraceMaterializerLike;
   };
-  llm_calls?: unknown[];
+  llm_calls?: LlmCallLike[];
   subject_knowledge_writes?: EngineTraceSkWriteLike[];
   warnings?: EngineTraceWarningLike[];
 }

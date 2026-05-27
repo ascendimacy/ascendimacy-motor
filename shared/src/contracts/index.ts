@@ -156,3 +156,25 @@ export {
   type DrillResponse,
   type DrillState,
 } from "./drill-state.js";
+
+// B1 — hooks temporais + continuidade narrativa
+// (spec ascendimacy-ops/docs/specs/2026-05-26-b1-hooks-temporais-v0.md)
+export {
+  TemporalWindowSchema,
+  TemporalWindowEntrySchema,
+  TemporalExclusionWindowSchema,
+  TimeOfDaySchema,
+  WEEKDAY_VALUES,
+  type Weekday,
+  type TemporalWindow,
+  type TemporalWindowEntry,
+  type TemporalExclusionWindow,
+} from "./temporal-window.js";
+
+export {
+  NarrativeThreadSchema,
+  NarrativeThreadStatusSchema,
+  NARRATIVE_THREAD_STATUSES,
+  type NarrativeThread,
+  type NarrativeThreadStatus,
+} from "./narrative-thread.js";
