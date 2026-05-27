@@ -1,0 +1,15 @@
+# B2 drilling pilot persona (Ryo Ochiai, 8) — declarativa do bank JP-PT N5.
+# Spec: ascendimacy-ops/docs/specs/2026-05-26-b2-drilling-primer-v0.md
+#
+# `drill_bank_ids` opt-in: orchestrator carrega esses banks turn-a-turn pra
+# propor items SR due via `proposeDrillItem`. Personas sem o field não
+# participam do pipeline B2 (zero footprint).
+id: ryo-kid
+name: Ryo
+age: 8
+profile:
+  drill_bank_ids:
+    - ja-pt-vocab-n5
+  notes: |
+    Família Yuji vive no Japão; escola é JP, casa mistura.
+    Persona de teste do B2 drilling — banco N5 é começo razoável.

@@ -11,6 +11,7 @@ import {
   KIDS_HELIX_STATE_DDL,
   getKidsHelixState,
 } from "./kids-helix-state.js";
+import { DRILL_STATES_DDL } from "./drill-repo.js";
 import { getNow, resolveDbPath } from "./clock.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -45,6 +46,7 @@ function getDb(dbPath?: string): Database.Database {
       ${EMITTED_CARDS_DDL}
       ${CONTENT_USAGE_DDL}
       ${KIDS_HELIX_STATE_DDL}
+      ${DRILL_STATES_DDL}
     `);
   }
   return db;

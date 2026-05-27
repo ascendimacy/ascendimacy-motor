@@ -12,6 +12,7 @@
   import { createApiClient } from "../../lib/api.js";
   import type {
     ApiClient,
+    DrillAttemptRowLike,
     DrillBankSummaryLike,
     DrillStateLike,
   } from "../../lib/api.js";
@@ -28,6 +29,7 @@
   let states: DrillStateLike[] = [];
   let due: DrillStateLike[] = [];
   let mastered: DrillStateLike[] = [];
+  let attempts: DrillAttemptRowLike[] = [];
 
   $: personaId = $tracerSubjectId;
 
@@ -35,16 +37,19 @@
     loading = true;
     error = null;
     try {
-      const [banksRes, statesRes, dueRes, masteredRes] = await Promise.all([
-        api.listBanks(),
-        api.listDrillStates(persona),
-        api.listDrillDue(persona),
-        api.listDrillMastered(persona),
-      ]);
+      const [banksRes, statesRes, dueRes, masteredRes, attemptsRes] =
+        await Promise.all([
+          api.listBanks(),
+          api.listDrillStates(persona),
+          api.listDrillDue(persona),
+          api.listDrillMastered(persona),
+          api.listDrillAttempts(persona, 10),
+        ]);
       banks = banksRes.banks;
       states = statesRes.states;
       due = dueRes.states;
       mastered = masteredRes.states;
+      attempts = attemptsRes.attempts;
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
     } finally {
@@ -163,6 +168,39 @@
             </li>
           {/each}
         </ul>
+      {/if}
+    </section>
+
+    <section class="block" data-testid="b2-attempts-block">
+      <h3>
+        Last attempts <span class="count">({attempts.length})</span>
+      </h3>
+      {#if attempts.length === 0}
+        <p class="empty">Sem tentativas registradas para {personaId}.</p>
+      {:else}
+        <table class="drill-table">
+          <thead>
+            <tr>
+              <th>quando</th>
+              <th>item</th>
+              <th>resposta</th>
+              <th>latência</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each attempts as a (a.id)}
+              <tr>
+                <td><time>{a.attempted_at}</time></td>
+                <td><code>{a.item_id}</code></td>
+                <td>
+                  <span class="attempt {a.response}">{attemptGlyph(a.response)}</span>
+                  <span class="muted small">{a.response}</span>
+                </td>
+                <td>{a.latency_ms !== null ? a.latency_ms + "ms" : "—"}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       {/if}
     </section>
 

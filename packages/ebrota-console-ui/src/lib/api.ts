@@ -531,6 +531,19 @@ export interface DrillStateLike {
   last_5_attempts: string[];
 }
 
+/**
+ * B2 drill attempt row (audit log) — retornado por
+ * `GET /personas/:id/drill-attempts`.
+ */
+export interface DrillAttemptRowLike {
+  id: number;
+  persona_id: string;
+  item_id: string;
+  response: "correct" | "incorrect" | "timeout" | "slow_correct";
+  latency_ms: number | null;
+  attempted_at: string;
+}
+
 export interface ApiClient {
   getStatus(): Promise<BffStatus>;
   getMode(): Promise<{ mode: ConsoleMode }>;
@@ -658,6 +671,11 @@ export interface ApiClient {
   listDrillMastered(
     personaId: string,
   ): Promise<{ states: DrillStateLike[] }>;
+  /** Audit log de tentativas recentes (ordem DESC). */
+  listDrillAttempts(
+    personaId: string,
+    limit?: number,
+  ): Promise<{ attempts: DrillAttemptRowLike[] }>;
 
   // ─── Parental Engaged Dashboard (US-PE-01..09) ──────────────────
   getParentalDashboard(
@@ -1185,6 +1203,12 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     listDrillMastered: (personaId) =>
       get<{ states: DrillStateLike[] }>(
         `/personas/${encodeURIComponent(personaId)}/drill-mastered`,
+      ),
+    listDrillAttempts: (personaId, limit) =>
+      get<{ attempts: DrillAttemptRowLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/drill-attempts${
+          typeof limit === "number" ? `?limit=${limit}` : ""
+        }`,
       ),
 
     // ── Parental Engaged Dashboard (US-PE-01..09) ──────────────────
