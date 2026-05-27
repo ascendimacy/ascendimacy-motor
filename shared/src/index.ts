@@ -47,3 +47,4 @@ export * from "./transitions-schema.js";
 export * from "./gateway-client.js";
 export * from "./contracts/index.js";
 export * from "./parse-repetition-answer.js";
+export * from "./sr-algorithm.js";

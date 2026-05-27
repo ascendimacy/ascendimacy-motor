@@ -1,0 +1,401 @@
+# JLPT N5 — vocabulário básico JP → PT-BR (50 items)
+# Spec: ascendimacy-ops/docs/specs/2026-05-26-b2-drilling-primer-v0.md
+# Curado por Jun pra família Yuji (Ryo 8, Kei 6, Saki 4).
+# difficulty 1 = kana puro / katakana; difficulty 2 = kanji básico N5.
+bank_id: ja-pt-vocab-n5
+title: "Vocabulário básico JP-PT (JLPT N5)"
+curator: jun
+license: CC-BY-SA
+target_personas:
+  - ryo-ochiai
+  - kei-ochiai
+  - saki-ochiai
+items:
+  # ── Frutas / comidas (10) ───────────────────────────────────────────────
+  - id: jpv-001
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "りんご"
+      answer: "maçã"
+      accept_variants: ["maca"]
+  - id: jpv-002
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "バナナ"
+      answer: "banana"
+  - id: jpv-003
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "パン"
+      answer: "pão"
+      accept_variants: ["pao"]
+  - id: jpv-004
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "みかん"
+      answer: "tangerina"
+      accept_variants: ["mexerica"]
+  - id: jpv-005
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "いちご"
+      answer: "morango"
+  - id: jpv-006
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "ぶどう"
+      answer: "uva"
+  - id: jpv-007
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "すいか"
+      answer: "melancia"
+  - id: jpv-008
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "ごはん"
+      answer: "arroz"
+      accept_variants: ["comida"]
+  - id: jpv-009
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "みず"
+      answer: "água"
+      accept_variants: ["agua"]
+  - id: jpv-010
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "たまご"
+      answer: "ovo"
+
+  # ── Animais (10) ────────────────────────────────────────────────────────
+  - id: jpv-011
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "犬"
+      answer: "cachorro"
+      accept_variants: ["cão", "cao"]
+  - id: jpv-012
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "猫"
+      answer: "gato"
+  - id: jpv-013
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "鳥"
+      answer: "pássaro"
+      accept_variants: ["passaro"]
+  - id: jpv-014
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "魚"
+      answer: "peixe"
+  - id: jpv-015
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "うさぎ"
+      answer: "coelho"
+  - id: jpv-016
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "うま"
+      answer: "cavalo"
+  - id: jpv-017
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "ぞう"
+      answer: "elefante"
+  - id: jpv-018
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "ねずみ"
+      answer: "rato"
+  - id: jpv-019
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "くま"
+      answer: "urso"
+  - id: jpv-020
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "へび"
+      answer: "cobra"
+
+  # ── Família / pessoas (10) ──────────────────────────────────────────────
+  - id: jpv-021
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "お母さん"
+      answer: "mãe"
+      accept_variants: ["mae", "okaasan"]
+  - id: jpv-022
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "お父さん"
+      answer: "pai"
+      accept_variants: ["otousan"]
+  - id: jpv-023
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "おにいさん"
+      answer: "irmão mais velho"
+      accept_variants: ["irmao mais velho", "irmão", "irmao"]
+  - id: jpv-024
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "おねえさん"
+      answer: "irmã mais velha"
+      accept_variants: ["irma mais velha", "irmã", "irma"]
+  - id: jpv-025
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "おじいさん"
+      answer: "avô"
+      accept_variants: ["avo", "vovô", "vovo"]
+  - id: jpv-026
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "おばあさん"
+      answer: "avó"
+      accept_variants: ["avo", "vovó"]
+  - id: jpv-027
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "友達"
+      answer: "amigo"
+      accept_variants: ["amiga"]
+  - id: jpv-028
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "先生"
+      answer: "professor"
+      accept_variants: ["professora", "sensei"]
+  - id: jpv-029
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "子供"
+      answer: "criança"
+      accept_variants: ["crianca"]
+  - id: jpv-030
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "学生"
+      answer: "estudante"
+      accept_variants: ["aluno", "aluna"]
+
+  # ── Cores / números (10) ────────────────────────────────────────────────
+  - id: jpv-031
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "赤"
+      answer: "vermelho"
+      accept_variants: ["vermelha"]
+  - id: jpv-032
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "青"
+      answer: "azul"
+  - id: jpv-033
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "白"
+      answer: "branco"
+      accept_variants: ["branca"]
+  - id: jpv-034
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "黒"
+      answer: "preto"
+      accept_variants: ["preta"]
+  - id: jpv-035
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "黄色"
+      answer: "amarelo"
+      accept_variants: ["amarela"]
+  - id: jpv-036
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "一"
+      answer: "um"
+      accept_variants: ["uma", "1"]
+  - id: jpv-037
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "二"
+      answer: "dois"
+      accept_variants: ["duas", "2"]
+  - id: jpv-038
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "三"
+      answer: "três"
+      accept_variants: ["tres", "3"]
+  - id: jpv-039
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "四"
+      answer: "quatro"
+      accept_variants: ["4"]
+  - id: jpv-040
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 2
+    payload:
+      prompt: "五"
+      answer: "cinco"
+      accept_variants: ["5"]
+
+  # ── Verbos básicos hiragana (10) ────────────────────────────────────────
+  - id: jpv-041
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "たべる"
+      answer: "comer"
+  - id: jpv-042
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "のむ"
+      answer: "beber"
+  - id: jpv-043
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "みる"
+      answer: "ver"
+      accept_variants: ["olhar", "assistir"]
+  - id: jpv-044
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "きく"
+      answer: "ouvir"
+      accept_variants: ["escutar"]
+  - id: jpv-045
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "はなす"
+      answer: "falar"
+      accept_variants: ["conversar"]
+  - id: jpv-046
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "よむ"
+      answer: "ler"
+  - id: jpv-047
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "かく"
+      answer: "escrever"
+  - id: jpv-048
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "いく"
+      answer: "ir"
+  - id: jpv-049
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "くる"
+      answer: "vir"
+  - id: jpv-050
+    type: vocab
+    axis: language.jp_pt
+    difficulty: 1
+    payload:
+      prompt: "する"
+      answer: "fazer"
