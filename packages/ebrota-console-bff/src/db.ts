@@ -11,6 +11,9 @@
 
 import Database from "better-sqlite3";
 import type { Database as DatabaseType } from "better-sqlite3";
+import { EMITTED_CARDS_DDL } from "@ascendimacy/motor-execucao/cards-repo";
+import { DRILL_STATES_DDL } from "@ascendimacy/motor-execucao/drill-repo";
+import { NARRATIVE_THREADS_DDL } from "@ascendimacy/motor-execucao/narrative-thread-repo";
 
 const SCHEMA_SQL = `
 -- Session library (S-OC-30/31/32)
@@ -180,5 +183,10 @@ export function initDb(opts: InitDbOptions): DatabaseType {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(SCHEMA_SQL);
+  // B1/B2 wiring — aplica DDLs do motor-execucao para que reads via BFF
+  // não falhem com "no such table" em personas sem dados ainda.
+  db.exec(EMITTED_CARDS_DDL);
+  db.exec(DRILL_STATES_DDL);
+  db.exec(NARRATIVE_THREADS_DDL);
   return db;
 }
