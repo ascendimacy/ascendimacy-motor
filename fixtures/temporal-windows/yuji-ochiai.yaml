@@ -1,0 +1,17 @@
+# Yuji Ochiai — temporal window fixture B1
+# Adulto, Japão. Janela post-bedtime-kids (depois das crianças dormirem).
+# Spec: ascendimacy-ops/docs/specs/2026-05-26-b1-hooks-temporais-v0.md §schema
+# Schema: shared/src/contracts/temporal-window.ts
+
+persona_id: yuji-ochiai
+timezone: Asia/Tokyo
+windows:
+  - name: post-bedtime-kids-jp
+    weekday: [mon, tue, wed, thu, fri, sat, sun]
+    start_local: "21:00"
+    end_local: "22:00"
+    max_hooks_per_day: 1
+    requires_parental_ok: false
+sleep_window:
+  start_local: "23:30"
+  end_local: "06:00"
