@@ -12,3 +12,6 @@ logs/
 
 # BFF SQLite local cache (Sprint 5)
 .ebrota-console.db*
+
+# Smoke trio Yuji artifacts (scripts/smoke-trio-yuji.mjs output)
+smoke-artifacts/

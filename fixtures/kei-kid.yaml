@@ -1,0 +1,12 @@
+# Kei Ochiai — sibling persona fixture (Yuji family pilot prep).
+# Schema espelha fixtures/ryo-kid.yaml; consumida pelo smoke trio E2E.
+# Spec agent E6-M batch 6 (smoke trio Yuji concurrent).
+id: kei-kid
+name: Kei
+age: 6
+profile:
+  drill_bank_ids:
+    - ja-pt-vocab-n5
+  notes: |
+    Família Yuji vive no Japão; escola é JP, casa mistura.
+    Persona-irmã do Ryo. Bilíngue ja+pt iniciante; vocabulário menor.
