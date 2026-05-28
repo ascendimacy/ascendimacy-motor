@@ -1,0 +1,51 @@
+{
+  "sessionId": "saki__sess-fixture-1",
+  "persona": "saki",
+  "startedAt": "2026-05-25T11:00:00Z",
+  "endedAt": "2026-05-25T11:10:00Z",
+  "turns": [
+    {
+      "turnNumber": 1,
+      "incomingMessage": "oi",
+      "finalResponse": "olá!",
+      "timestamp": "2026-05-25T11:00:00Z",
+      "engineTrace": {
+        "schema_version": 2,
+        "components": {
+          "pragmatic_selector": {
+            "inputs": { "pool_size": 6 },
+            "outputs": { "selected_id": "card.canal.simple" }
+          },
+          "tactician": {
+            "outputs": {
+              "jogada": "canal",
+              "angle": "direto ao ponto",
+              "rationale": "saki simples"
+            },
+            "method": "rule"
+          }
+        },
+        "llm_calls": [],
+        "tactic_decision": {
+          "jogada": "canal",
+          "angle": "direto ao ponto",
+          "constraints": { "register": "firme" },
+          "rationale": "saki simples"
+        }
+      },
+      "motorTrace": {
+        "plan": {
+          "contentPool": [
+            { "item": { "id": "a", "type": "card_catalog" }, "score": 0.80 }
+          ]
+        },
+        "drota": {
+          "selectedContent": {
+            "item": { "id": "card.canal.simple", "type": "card_catalog" },
+            "score": 0.80
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,225 @@
+{
+  "sessionId": "ryo__sess-fixture-1",
+  "persona": "ryo",
+  "startedAt": "2026-05-25T10:00:00Z",
+  "endedAt": "2026-05-25T10:30:00Z",
+  "turns": [
+    {
+      "turnNumber": 1,
+      "incomingMessage": "oi",
+      "finalResponse": "olá!",
+      "timestamp": "2026-05-25T10:00:00Z",
+      "engineTrace": {
+        "schema_version": 2,
+        "components": {
+          "pragmatic_selector": {
+            "inputs": { "pool_size": 12, "mood": 6, "budget": 15 },
+            "outputs": { "selected_id": "card.bridge.curiosity", "pool_remaining": ["a","b"] }
+          },
+          "tactician": {
+            "outputs": {
+              "jogada": "bridge",
+              "selected_item_id": "card.bridge.curiosity",
+              "angle": "começar pela curiosidade",
+              "rationale": "energia alta, abrir espaço"
+            },
+            "method": "rule"
+          }
+        },
+        "llm_calls": [
+          { "id": "c1", "role": "assessor", "provider": "anthropic", "model": "haiku", "prompt": "p", "response": "r", "duration_ms": 100, "prompt_cache_hit": true }
+        ],
+        "tactic_decision": {
+          "jogada": "bridge",
+          "selected_item_id": "card.bridge.curiosity",
+          "angle": "começar pela curiosidade",
+          "constraints": { "register": "lúdico" },
+          "rationale": "energia alta"
+        },
+        "warnings": []
+      },
+      "motorTrace": {
+        "plan": {
+          "contentPool": [
+            { "item": { "id": "a", "type": "card_catalog" }, "score": 0.85 },
+            { "item": { "id": "b", "type": "card_catalog" }, "score": 0.72 },
+            { "item": { "id": "c", "type": "card_catalog" }, "score": 0.61 },
+            { "item": { "id": "d", "type": "card_catalog" }, "score": 0.55 },
+            { "item": { "id": "e", "type": "card_catalog" }, "score": 0.50 },
+            { "item": { "id": "f", "type": "card_catalog" }, "score": 0.42 }
+          ]
+        },
+        "drota": {
+          "selectedContent": {
+            "item": { "id": "card.bridge.curiosity", "type": "card_catalog" },
+            "score": 0.85
+          }
+        }
+      }
+    },
+    {
+      "turnNumber": 2,
+      "incomingMessage": "tá",
+      "finalResponse": "interessante",
+      "timestamp": "2026-05-25T10:05:00Z",
+      "engineTrace": {
+        "schema_version": 2,
+        "components": {
+          "pragmatic_selector": {
+            "inputs": { "pool_size": 10 },
+            "outputs": { "selected_id": "card.espelho.feeling" }
+          },
+          "tactician": {
+            "outputs": {
+              "jogada": "espelho",
+              "angle": "refletir o sentimento",
+              "rationale": "criança hesitante"
+            },
+            "method": "rule"
+          }
+        },
+        "llm_calls": [],
+        "tactic_decision": {
+          "jogada": "espelho",
+          "angle": "refletir o sentimento",
+          "constraints": { "register": "neutro" },
+          "rationale": "criança hesitante"
+        }
+      },
+      "motorTrace": {
+        "plan": {
+          "contentPool": [
+            { "item": { "id": "a", "type": "card_catalog" }, "score": 0.78 },
+            { "item": { "id": "b", "type": "card_catalog" }, "score": 0.65 }
+          ]
+        },
+        "drota": {
+          "selectedContent": {
+            "item": { "id": "card.espelho.feeling", "type": "card_catalog" },
+            "score": 0.78
+          }
+        }
+      }
+    },
+    {
+      "turnNumber": 3,
+      "incomingMessage": "conta uma história",
+      "finalResponse": "...",
+      "timestamp": "2026-05-25T10:10:00Z",
+      "engineTrace": {
+        "schema_version": 2,
+        "components": {
+          "pragmatic_selector": {
+            "inputs": { "pool_size": 14 },
+            "outputs": { "selected_id": "card.bridge.story" }
+          },
+          "tactician": {
+            "outputs": {
+              "jogada": "bridge",
+              "angle": "narrar caminho",
+              "rationale": "criança puxou história"
+            },
+            "method": "llm"
+          }
+        },
+        "llm_calls": [
+          { "id": "c3", "role": "tactician", "provider": "infomaniak", "model": "qwen3", "prompt": "p", "response": "r", "duration_ms": 200, "prompt_cache_hit": false }
+        ],
+        "tactic_decision": {
+          "jogada": "bridge",
+          "angle": "narrar caminho",
+          "constraints": { "register": "lúdico" },
+          "rationale": "criança puxou história"
+        }
+      },
+      "motorTrace": {
+        "plan": {
+          "contentPool": [
+            { "item": { "id": "a", "type": "card_catalog" }, "score": 0.91 }
+          ]
+        },
+        "drota": {
+          "selectedContent": {
+            "item": { "id": "card.bridge.story", "type": "card_catalog" },
+            "score": 0.91
+          }
+        }
+      }
+    },
+    {
+      "turnNumber": 4,
+      "incomingMessage": "blah",
+      "finalResponse": "ok",
+      "timestamp": "2026-05-25T10:15:00Z",
+      "engineTrace": {
+        "schema_version": 2,
+        "components": {
+          "pragmatic_selector": {
+            "inputs": { "pool_size": 8 },
+            "outputs": { "selected_id": "card.diamond.x" }
+          }
+        },
+        "llm_calls": []
+      },
+      "motorTrace": {
+        "plan": {
+          "contentPool": [
+            { "item": { "id": "x", "type": "card_catalog" }, "score": 0.70 }
+          ]
+        },
+        "drota": {
+          "selectedContent": {
+            "item": { "id": "card.diamond.x", "type": "card_catalog" },
+            "score": 0.70
+          }
+        }
+      }
+    },
+    {
+      "turnNumber": 5,
+      "incomingMessage": "tá ruim",
+      "finalResponse": "ok",
+      "timestamp": "2026-05-25T10:20:00Z",
+      "engineTrace": {
+        "schema_version": 2,
+        "components": {
+          "pragmatic_selector": {
+            "inputs": { "pool_size": 5 },
+            "outputs": { "selected_id": "card.recovery.calm" }
+          },
+          "tactician": {
+            "outputs": {
+              "jogada": "recovery",
+              "angle": "desacelerar",
+              "rationale": "sinal vermelho"
+            },
+            "method": "fallback"
+          }
+        },
+        "llm_calls": [],
+        "tactic_decision": {
+          "jogada": "recovery",
+          "angle": "desacelerar",
+          "constraints": { "register": "acolhedor" },
+          "rationale": "sinal vermelho"
+        },
+        "warnings": [
+          { "component": "constrained_materializer", "message": "materializer_fallback used", "recoverable": true }
+        ]
+      },
+      "motorTrace": {
+        "plan": {
+          "contentPool": [
+            { "item": { "id": "r", "type": "card_catalog" }, "score": 0.60 }
+          ]
+        },
+        "drota": {
+          "selectedContent": {
+            "item": { "id": "card.recovery.calm", "type": "card_catalog" },
+            "score": 0.60
+          }
+        }
+      }
+    }
+  ]
+}
