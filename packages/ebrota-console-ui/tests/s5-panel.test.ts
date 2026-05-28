@@ -112,12 +112,33 @@ function mockApi(overrides: Partial<ApiClient> = {}): ApiClient {
     listStsRuns: async () => ({ runs: [] }),
     startStsRun: async (input) => ({
       run_id: "test-run-id-12345678",
-      status: "dispatched_stub_v0",
+      status: "running",
       persona_id: input.persona_id,
       scenario_id: input.scenario_id,
       turns: input.turns ?? 6,
       dispatched_at: "2026-05-27T10:00:00Z",
-      note: "v0 stub",
+      pid: 99999,
+    }),
+    getStsRunStatus: async (runId) => ({
+      run_id: runId,
+      status: "running",
+      persona_id: "ryo-ochiai",
+      scenario_id: "smoke-3d",
+      turns_requested: 6,
+      turns_completed: 1,
+      started_at: "2026-05-27T10:00:00Z",
+      ended_at: null,
+      pid: 99999,
+      exit_code: null,
+      error_message: null,
+      last_progress_at: null,
+      stdout_tail: [],
+      stderr_tail: [],
+    }),
+    cancelStsRun: async (runId) => ({
+      run_id: runId,
+      status: "cancelled",
+      cancelled: true,
     }),
     getTemporalWindows: stub,
     listPulsoEvents: stub,
@@ -288,12 +309,12 @@ describe("STSLauncherModal", () => {
   it("submit dispara startStsRun e exibe running state", async () => {
     const startMock = vi.fn(async () => ({
       run_id: "run-abc12345-9999",
-      status: "dispatched_stub_v0" as const,
+      status: "running" as const,
       persona_id: "ryo-ochiai",
       scenario_id: "smoke-3d",
       turns: 6,
       dispatched_at: "2026-05-27T10:00:00Z",
-      note: "v0 stub",
+      pid: 99999,
     }));
     const api = mockApi({ startStsRun: startMock });
     render(STSLauncherModal, { props: { api, open: true } });

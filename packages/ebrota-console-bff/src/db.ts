@@ -171,6 +171,33 @@ CREATE TABLE IF NOT EXISTS strategy_plans (
 );
 CREATE INDEX IF NOT EXISTS idx_strategy_plans_subject
   ON strategy_plans(subject_id);
+
+-- STS run tracking (S5.b launcher real spawn — substitui stub do PR #258).
+-- Row criada em POST /sts/runs/start; status transita pending→running→
+-- succeeded/failed/cancelled conforme subprocess termina ou é killed.
+-- stdout_path/stderr_path apontam pra arquivos sob STS_LOG_DIR.
+CREATE TABLE IF NOT EXISTS sts_runs (
+  run_id TEXT PRIMARY KEY,
+  persona_id TEXT NOT NULL,
+  scenario_id TEXT NOT NULL,
+  turns_requested INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN (
+    'pending','running','succeeded','failed','cancelled'
+  )),
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  pid INTEGER,
+  exit_code INTEGER,
+  stdout_path TEXT,
+  stderr_path TEXT,
+  turns_completed INTEGER NOT NULL DEFAULT 0,
+  last_progress_at TEXT,
+  error_message TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sts_runs_started_at
+  ON sts_runs(started_at);
+CREATE INDEX IF NOT EXISTS idx_sts_runs_status
+  ON sts_runs(status);
 `;
 
 export interface InitDbOptions {

@@ -11,20 +11,34 @@
  *   GET  /personas/:id/kpi-longitudinal                (parcial stub_v0)
  *   GET  /sts/scenarios                                (lista hardcoded v0)
  *   GET  /sts/personas                                 (lista hardcoded v0)
- *   GET  /sts/runs?limit=N
- *   POST /sts/runs/start                               (stub_v0 — não spawna)
- *
- * Estratégia v0: leituras de `subject_knowledge` quando o writer já
- * persistiu (boundary_event / recall_check_attempt); empty data com
- * `source: "stub_v0"` quando feature backend não está pronta.
+ *   GET  /sts/runs?limit=N                             (sts_runs table)
+ *   GET  /sts/runs/:runId/status                       (status + tail logs)
+ *   POST /sts/runs/start                               (spawn real subprocess)
+ *   POST /sts/runs/:runId/cancel                       (SIGTERM)
  */
 
 import type { FastifyPluginAsync } from "fastify";
 import type { Database as DatabaseType } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
+import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, openSync, closeSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 
 export interface S5RoutesOptions {
   db: DatabaseType;
+  /**
+   * Caller-injectable override pra testes. Em prod, segue
+   * STS_REPO_ROOT (env) || "/home/alexa/ascendimacy-motor".
+   */
+  stsRepoRoot?: string;
+  /** Diretório onde stdout/stderr logs ficam. Default: STS_LOG_DIR || $TMPDIR/sts-runs. */
+  stsLogDir?: string;
+  /**
+   * Whether to inherit current `process.env` plus `USE_MOCK_LLM=true`. Default true.
+   * Testes podem desligar.
+   */
+  defaultUseMockLlm?: boolean;
 }
 
 interface SkRow {
@@ -36,6 +50,23 @@ interface SkRow {
   turn_ref: string;
   session_id: string;
   created_at: string;
+}
+
+interface StsRunRow {
+  run_id: string;
+  persona_id: string;
+  scenario_id: string;
+  turns_requested: number;
+  status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  started_at: string;
+  ended_at: string | null;
+  pid: number | null;
+  exit_code: number | null;
+  stdout_path: string | null;
+  stderr_path: string | null;
+  turns_completed: number;
+  last_progress_at: string | null;
+  error_message: string | null;
 }
 
 export interface GuardrailHistoryEntry {
@@ -122,6 +153,9 @@ export interface StsRunSummary {
   turn_count: number;
   score: string | null;
   trace_path: string | null;
+  status?: StsRunRow["status"];
+  turns_requested?: number;
+  turns_completed?: number;
 }
 
 export interface StsRunStartRequest {
@@ -132,12 +166,30 @@ export interface StsRunStartRequest {
 
 export interface StsRunStartResult {
   run_id: string;
-  status: "dispatched_stub_v0";
+  status: StsRunRow["status"];
   persona_id: string;
   scenario_id: string;
   turns: number;
   dispatched_at: string;
-  note: string;
+  pid: number | null;
+  note?: string;
+}
+
+export interface StsRunStatusResult {
+  run_id: string;
+  status: StsRunRow["status"];
+  persona_id: string;
+  scenario_id: string;
+  turns_requested: number;
+  turns_completed: number;
+  started_at: string;
+  ended_at: string | null;
+  pid: number | null;
+  exit_code: number | null;
+  error_message: string | null;
+  last_progress_at: string | null;
+  stdout_tail: string[];
+  stderr_tail: string[];
 }
 
 const STS_SCENARIOS: StsScenario[] = [
@@ -168,6 +220,13 @@ const STS_SCENARIOS: StsScenario[] = [
     description: "WhatsApp group session sintética Ryo+Kei+bot (joint mode).",
     recommended_turns: 9,
     duration_label: "T+~1d",
+  },
+  {
+    id: "fail-fast",
+    label: "fail-fast (test)",
+    description: "Scenario de teste que falha intencionalmente — usado em integration tests do BFF.",
+    recommended_turns: 4,
+    duration_label: "T+test",
   },
 ];
 
@@ -342,42 +401,283 @@ function computeKpiLongitudinal(db: DatabaseType, personaId: string): KpiLongitu
   };
 }
 
-function listStsRuns(
-  db: DatabaseType,
-  limit: number,
-): StsRunSummary[] {
+function rowToSummary(r: StsRunRow): StsRunSummary {
+  return {
+    run_id: r.run_id,
+    persona_id: r.persona_id,
+    scenario_id: r.scenario_id,
+    started_at: r.started_at,
+    ended_at: r.ended_at,
+    turn_count: r.turns_completed,
+    score: null,
+    trace_path: null,
+    status: r.status,
+    turns_requested: r.turns_requested,
+    turns_completed: r.turns_completed,
+  };
+}
+
+function listStsRuns(db: DatabaseType, limit: number): StsRunSummary[] {
   const rows = db
     .prepare(
-      `SELECT session_id, persona_id, conversation_id, started_at, ended_at,
-              turn_count, trace_path
-       FROM sessions
-       WHERE kind = 'sts'
+      `SELECT * FROM sts_runs
        ORDER BY started_at DESC
        LIMIT ?`,
     )
-    .all(limit) as Array<{
-      session_id: string;
-      persona_id: string;
-      conversation_id: string;
-      started_at: string;
-      ended_at: string | null;
-      turn_count: number;
-      trace_path: string | null;
-    }>;
-  return rows.map((r) => ({
-    run_id: r.session_id,
-    persona_id: r.persona_id,
-    scenario_id: r.conversation_id,
-    started_at: r.started_at,
-    ended_at: r.ended_at,
-    turn_count: r.turn_count,
-    score: null,
-    trace_path: r.trace_path,
-  }));
+    .all(limit) as StsRunRow[];
+  return rows.map(rowToSummary);
+}
+
+function getRunRow(db: DatabaseType, runId: string): StsRunRow | null {
+  const r = db
+    .prepare(`SELECT * FROM sts_runs WHERE run_id = ?`)
+    .get(runId) as StsRunRow | undefined;
+  return r ?? null;
+}
+
+function tailFile(path: string | null, maxLines = 100): string[] {
+  if (path === null || !existsSync(path)) return [];
+  try {
+    const stat = statSync(path);
+    if (stat.size === 0) return [];
+    // Read whole file when small; for v0 stub logs are short (<10KB).
+    const max = 256 * 1024;
+    const buf = readFileSync(path, "utf8");
+    const trimmed = buf.length > max ? buf.slice(buf.length - max) : buf;
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.length > 0);
+    return lines.slice(-maxLines);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Tracks live child processes keyed by run_id so we can SIGTERM on cancel.
+ * Module-level: shared across requests within the same Fastify instance.
+ * Cleared on `exit`/`error`.
+ */
+type RunHandles = Map<string, ChildProcess>;
+
+function spawnStsRun(args: {
+  db: DatabaseType;
+  repoRoot: string;
+  logDir: string;
+  runHandles: RunHandles;
+  runId: string;
+  personaId: string;
+  scenarioId: string;
+  turnsRequested: number;
+  defaultUseMockLlm: boolean;
+  shutdownState: { closed: boolean };
+}): { pid: number | null; status: StsRunRow["status"] } {
+  const {
+    db,
+    repoRoot,
+    logDir,
+    runHandles,
+    runId,
+    personaId,
+    scenarioId,
+    turnsRequested,
+    defaultUseMockLlm,
+    shutdownState,
+  } = args;
+
+  if (!existsSync(logDir)) {
+    mkdirSync(logDir, { recursive: true });
+  }
+  const stdoutPath = join(logDir, `${runId}.stdout.log`);
+  const stderrPath = join(logDir, `${runId}.stderr.log`);
+  const stdoutFd = openSync(stdoutPath, "a");
+  const stderrFd = openSync(stderrPath, "a");
+
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (defaultUseMockLlm) {
+    env.USE_MOCK_LLM = "true";
+  }
+
+  const scriptPath = resolve(repoRoot, "scripts/run-sts.mjs");
+  let proc: ChildProcess;
+  try {
+    proc = spawn(
+      "node",
+      [
+        scriptPath,
+        "--persona",
+        personaId,
+        "--scenario",
+        scenarioId,
+        "--turns",
+        String(turnsRequested),
+        "--run-id",
+        runId,
+      ],
+      {
+        cwd: repoRoot,
+        env,
+        stdio: ["ignore", stdoutFd, stderrFd],
+        detached: false,
+      },
+    );
+  } catch (err) {
+    closeSync(stdoutFd);
+    closeSync(stderrFd);
+    db.prepare(
+      `UPDATE sts_runs
+       SET status='failed', ended_at=?, error_message=?
+       WHERE run_id = ?`,
+    ).run(
+      new Date().toISOString(),
+      err instanceof Error ? err.message : String(err),
+      runId,
+    );
+    return { pid: null, status: "failed" };
+  }
+
+  const pid = proc.pid ?? null;
+
+  db.prepare(
+    `UPDATE sts_runs
+     SET status='running', pid=?, stdout_path=?, stderr_path=?
+     WHERE run_id = ?`,
+  ).run(pid, stdoutPath, stderrPath, runId);
+
+  if (pid !== null) {
+    runHandles.set(runId, proc);
+  }
+
+  // Parse stdout to update turns_completed. spawn() with stdio targeting
+  // file descriptors disables piping into the parent, so we re-read the
+  // log file lightly on a small interval. For v0 stub this is sufficient.
+  const tickProgress = (): void => {
+    if (shutdownState.closed) return;
+    const lines = tailFile(stdoutPath, 200);
+    let completed = 0;
+    for (const l of lines) {
+      const m = l.match(/^turn (\d+)\/\d+/);
+      if (m && m[1] !== undefined) {
+        const n = Number.parseInt(m[1], 10);
+        if (!Number.isNaN(n) && n > completed) completed = n;
+      }
+    }
+    try {
+      db.prepare(
+        `UPDATE sts_runs
+         SET turns_completed=?, last_progress_at=?
+         WHERE run_id = ? AND status='running'`,
+      ).run(completed, new Date().toISOString(), runId);
+    } catch {
+      /* DB may be closed mid-shutdown */
+    }
+  };
+  const progressTimer: NodeJS.Timeout = setInterval(tickProgress, 500);
+  if (typeof progressTimer.unref === "function") progressTimer.unref();
+
+  proc.on("error", (err) => {
+    clearInterval(progressTimer);
+    runHandles.delete(runId);
+    try { closeSync(stdoutFd); } catch { /* ignore */ }
+    try { closeSync(stderrFd); } catch { /* ignore */ }
+    if (shutdownState.closed) return;
+    try {
+      const current = getRunRow(db, runId);
+      if (current === null || current.status === "running" || current.status === "pending") {
+        db.prepare(
+          `UPDATE sts_runs
+           SET status='failed', ended_at=?, error_message=?
+           WHERE run_id = ?`,
+        ).run(new Date().toISOString(), err.message, runId);
+      }
+    } catch {
+      /* DB closed */
+    }
+  });
+
+  proc.on("exit", (code, signal) => {
+    clearInterval(progressTimer);
+    runHandles.delete(runId);
+    try { closeSync(stdoutFd); } catch { /* ignore */ }
+    try { closeSync(stderrFd); } catch { /* ignore */ }
+    if (shutdownState.closed) return;
+    tickProgress();
+    try {
+      const current = getRunRow(db, runId);
+      // Don't override cancelled state set by /cancel endpoint.
+      if (current !== null && current.status === "cancelled") return;
+      const endedAt = new Date().toISOString();
+      if (signal === "SIGTERM" || signal === "SIGINT") {
+        db.prepare(
+          `UPDATE sts_runs
+           SET status='cancelled', ended_at=?, exit_code=?
+           WHERE run_id = ?`,
+        ).run(endedAt, code ?? null, runId);
+        return;
+      }
+      if (code === 0) {
+        db.prepare(
+          `UPDATE sts_runs
+           SET status='succeeded', ended_at=?, exit_code=0
+           WHERE run_id = ?`,
+        ).run(endedAt, runId);
+      } else {
+        const tail = tailFile(stderrPath, 5).join(" / ");
+        db.prepare(
+          `UPDATE sts_runs
+           SET status='failed', ended_at=?, exit_code=?, error_message=?
+           WHERE run_id = ?`,
+        ).run(endedAt, code ?? null, tail || `exit code ${code ?? "null"}`, runId);
+      }
+    } catch {
+      /* DB closed */
+    }
+  });
+
+  return { pid, status: "running" };
 }
 
 const s5Routes: FastifyPluginAsync<S5RoutesOptions> = async (fastify, opts) => {
   const { db } = opts;
+  const stsRepoRoot =
+    opts.stsRepoRoot ?? process.env.STS_REPO_ROOT ?? "/home/alexa/ascendimacy-motor";
+  const stsLogDir =
+    opts.stsLogDir ?? process.env.STS_LOG_DIR ?? join(tmpdir(), "sts-runs");
+  const defaultUseMockLlm = opts.defaultUseMockLlm ?? true;
+  const runHandles: RunHandles = new Map();
+  // Wired to onClose so post-shutdown subprocess exit handlers can no-op
+  // instead of crashing on a closed DB (issue surfaced em integration suite).
+  const shutdownState = { closed: false };
+
+  // Best-effort cleanup if Fastify shuts down mid-run.
+  fastify.addHook("onClose", async () => {
+    shutdownState.closed = true;
+    const procs = Array.from(runHandles.values());
+    for (const proc of procs) {
+      try {
+        proc.kill("SIGTERM");
+      } catch {
+        /* ignore */
+      }
+    }
+    // Wait briefly for processes to actually exit so their exit listeners
+    // fire BEFORE the DB closes downstream. 200ms é suficiente pro stub.
+    await Promise.all(
+      procs.map(
+        (p) =>
+          new Promise<void>((resolve) => {
+            if (p.exitCode !== null) {
+              resolve();
+              return;
+            }
+            const timer = setTimeout(() => resolve(), 200);
+            p.once("exit", () => {
+              clearTimeout(timer);
+              resolve();
+            });
+          }),
+      ),
+    );
+    runHandles.clear();
+  });
 
   fastify.get<{
     Params: { id: string };
@@ -436,8 +736,62 @@ const s5Routes: FastifyPluginAsync<S5RoutesOptions> = async (fastify, opts) => {
   fastify.get<{ Querystring: { limit?: string } }>(
     "/sts/runs",
     async (req) => {
-      const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : 20;
+      const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : 50;
       return { runs: listStsRuns(db, limit) };
+    },
+  );
+
+  fastify.get<{ Params: { runId: string } }>(
+    "/sts/runs/:runId/status",
+    async (req, reply) => {
+      const row = getRunRow(db, req.params.runId);
+      if (row === null) {
+        return reply.code(404).send({ error: "run_id desconhecido" });
+      }
+      const result: StsRunStatusResult = {
+        run_id: row.run_id,
+        status: row.status,
+        persona_id: row.persona_id,
+        scenario_id: row.scenario_id,
+        turns_requested: row.turns_requested,
+        turns_completed: row.turns_completed,
+        started_at: row.started_at,
+        ended_at: row.ended_at,
+        pid: row.pid,
+        exit_code: row.exit_code,
+        error_message: row.error_message,
+        last_progress_at: row.last_progress_at,
+        stdout_tail: tailFile(row.stdout_path, 100),
+        stderr_tail: tailFile(row.stderr_path, 100),
+      };
+      return result;
+    },
+  );
+
+  fastify.post<{ Params: { runId: string } }>(
+    "/sts/runs/:runId/cancel",
+    async (req, reply) => {
+      const row = getRunRow(db, req.params.runId);
+      if (row === null) {
+        return reply.code(404).send({ error: "run_id desconhecido" });
+      }
+      if (row.status !== "running" && row.status !== "pending") {
+        return { run_id: row.run_id, status: row.status, cancelled: false };
+      }
+      const proc = runHandles.get(row.run_id);
+      if (proc !== undefined && proc.pid !== undefined) {
+        try {
+          proc.kill("SIGTERM");
+        } catch {
+          /* process already exited */
+        }
+      }
+      db.prepare(
+        `UPDATE sts_runs
+         SET status='cancelled', ended_at=?
+         WHERE run_id = ?`,
+      ).run(new Date().toISOString(), row.run_id);
+      return { run_id: row.run_id, status: "cancelled", cancelled: true };
     },
   );
 
@@ -472,15 +826,36 @@ const s5Routes: FastifyPluginAsync<S5RoutesOptions> = async (fastify, opts) => {
           ? Math.floor(body.turns)
           : scenario.recommended_turns;
 
+      const runId = randomUUID();
+      const now = new Date().toISOString();
+
+      db.prepare(
+        `INSERT INTO sts_runs
+         (run_id, persona_id, scenario_id, turns_requested, status, started_at, turns_completed)
+         VALUES (?, ?, ?, ?, 'pending', ?, 0)`,
+      ).run(runId, body.persona_id, body.scenario_id, turns, now);
+
+      const { pid, status } = spawnStsRun({
+        db,
+        repoRoot: stsRepoRoot,
+        logDir: stsLogDir,
+        runHandles,
+        runId,
+        personaId: body.persona_id,
+        scenarioId: body.scenario_id,
+        turnsRequested: turns,
+        defaultUseMockLlm,
+        shutdownState,
+      });
+
       const result: StsRunStartResult = {
-        run_id: randomUUID(),
-        status: "dispatched_stub_v0",
+        run_id: runId,
+        status,
         persona_id: body.persona_id,
         scenario_id: body.scenario_id,
         turns,
-        dispatched_at: new Date().toISOString(),
-        note:
-          "v0 stub — STS spawn real ainda não wired. Rode `node scripts/sts-group-dyad.mjs` ou similar pra disparo manual; este endpoint apenas reserva run_id pra tracking futuro.",
+        dispatched_at: now,
+        pid,
       };
       return result;
     },
