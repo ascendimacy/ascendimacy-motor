@@ -671,6 +671,13 @@ export interface StsPersonaLike {
   language: string;
 }
 
+export type StsRunStatus =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
 export interface StsRunSummaryLike {
   run_id: string;
   persona_id: string;
@@ -680,16 +687,43 @@ export interface StsRunSummaryLike {
   turn_count: number;
   score: string | null;
   trace_path: string | null;
+  status?: StsRunStatus;
+  turns_requested?: number;
+  turns_completed?: number;
 }
 
 export interface StsRunStartResultLike {
   run_id: string;
-  status: "dispatched_stub_v0";
+  status: StsRunStatus;
   persona_id: string;
   scenario_id: string;
   turns: number;
   dispatched_at: string;
-  note: string;
+  pid?: number | null;
+  note?: string;
+}
+
+export interface StsRunStatusResultLike {
+  run_id: string;
+  status: StsRunStatus;
+  persona_id: string;
+  scenario_id: string;
+  turns_requested: number;
+  turns_completed: number;
+  started_at: string;
+  ended_at: string | null;
+  pid: number | null;
+  exit_code: number | null;
+  error_message: string | null;
+  last_progress_at: string | null;
+  stdout_tail: string[];
+  stderr_tail: string[];
+}
+
+export interface StsRunCancelResultLike {
+  run_id: string;
+  status: StsRunStatus;
+  cancelled: boolean;
 }
 
 export interface DrillBankSummaryLike {
@@ -909,6 +943,8 @@ export interface ApiClient {
   startStsRun(
     input: { persona_id: string; scenario_id: string; turns?: number },
   ): Promise<StsRunStartResultLike>;
+  getStsRunStatus(runId: string): Promise<StsRunStatusResultLike>;
+  cancelStsRun(runId: string): Promise<StsRunCancelResultLike>;
 
   // ─── B2 Drilling ────────────────────────────────────────────────
   /** Lista banks disponíveis em fixtures/banks/. */
@@ -1575,6 +1611,14 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       ),
     startStsRun: (input) =>
       post<StsRunStartResultLike>("/sts/runs/start", input),
+    getStsRunStatus: (runId) =>
+      get<StsRunStatusResultLike>(
+        `/sts/runs/${encodeURIComponent(runId)}/status`,
+      ),
+    cancelStsRun: (runId) =>
+      post<StsRunCancelResultLike>(
+        `/sts/runs/${encodeURIComponent(runId)}/cancel`,
+      ),
 
     // ─── B2 ─────────────────────────────────────────────────────────
     listBanks: () => get<{ banks: DrillBankSummaryLike[] }>("/banks"),

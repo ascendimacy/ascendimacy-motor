@@ -224,47 +224,20 @@ describe("GET /sts/personas", () => {
   });
 });
 
+// /sts/runs e /sts/runs/start agora bate na nova tabela `sts_runs` + spawn
+// real. Os contratos GET vazio / validation são cobertos aqui; spawn end-
+// to-end vive em `sts-spawn.integration.test.ts`.
+
 describe("GET /sts/runs", () => {
-  it("retorna apenas sessions kind='sts'", async () => {
-    insertSession("ryo__real", "ryo", "real", "2026-05-20T10:00:00Z");
-    insertSession("ryo__sts1", "ryo", "sts", "2026-05-22T10:00:00Z");
-    insertSession("paula__sts1", "paula-mendes", "sts", "2026-05-23T10:00:00Z");
+  it("retorna lista vazia quando sts_runs vazio", async () => {
     const res = await inject("/sts/runs");
-    const body = res.body as { runs: Array<{ run_id: string; persona_id: string }> };
-    expect(body.runs.length).toBe(2);
-    expect(body.runs.every((r) => r.run_id.includes("sts"))).toBe(true);
+    expect(res.status).toBe(200);
+    const body = res.body as { runs: unknown[] };
+    expect(body.runs).toEqual([]);
   });
 });
 
-describe("POST /sts/runs/start", () => {
-  it("retorna run_id + status=dispatched_stub_v0", async () => {
-    const res = await inject("/sts/runs/start", "POST", {
-      persona_id: "ryo-ochiai",
-      scenario_id: "smoke-3d",
-    });
-    expect(res.status).toBe(200);
-    const body = res.body as {
-      run_id: string;
-      status: string;
-      turns: number;
-      note: string;
-    };
-    expect(body.run_id.length).toBeGreaterThan(0);
-    expect(body.status).toBe("dispatched_stub_v0");
-    expect(body.turns).toBe(6); // smoke-3d recommended
-    expect(body.note).toContain("v0 stub");
-  });
-
-  it("usa turns custom quando fornecido", async () => {
-    const res = await inject("/sts/runs/start", "POST", {
-      persona_id: "paula-mendes",
-      scenario_id: "realista",
-      turns: 12,
-    });
-    const body = res.body as { turns: number };
-    expect(body.turns).toBe(12);
-  });
-
+describe("POST /sts/runs/start (validation)", () => {
   it("400 quando persona_id desconhecida", async () => {
     const res = await inject("/sts/runs/start", "POST", {
       persona_id: "fulano-inexistente",

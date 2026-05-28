@@ -119,6 +119,18 @@ export interface CreateBffServerOptions {
    * o draft no SQLite mas não escreve YAML em disco.
    */
   fixturesDir?: string;
+  /**
+   * STS launcher (S5.b) — repositório raiz onde `scripts/run-sts.mjs` mora.
+   * Default `STS_REPO_ROOT` env || "/home/alexa/ascendimacy-motor".
+   * Tests pass own repo root pointing at a controlled stub.
+   */
+  stsRepoRoot?: string;
+  /** STS launcher (S5.b) — diretório de logs stdout/stderr. Default
+   *  `STS_LOG_DIR` env || `$TMPDIR/sts-runs`. */
+  stsLogDir?: string;
+  /** STS launcher (S5.b) — adiciona `USE_MOCK_LLM=true` ao env do
+   *  subprocess. Default true. */
+  stsDefaultUseMockLlm?: boolean;
 }
 
 export interface BffServer {
@@ -152,7 +164,16 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
       ...(opts.tracesDir !== undefined ? { tracesDir: opts.tracesDir } : {}),
     }),
   );
-  void fastify.register(async (instance) => (await import("./routes/s5-routes.js")).default(instance, { db: opts.db }));
+  void fastify.register(async (instance) =>
+    (await import("./routes/s5-routes.js")).default(instance, {
+      db: opts.db,
+      ...(opts.stsRepoRoot !== undefined ? { stsRepoRoot: opts.stsRepoRoot } : {}),
+      ...(opts.stsLogDir !== undefined ? { stsLogDir: opts.stsLogDir } : {}),
+      ...(opts.stsDefaultUseMockLlm !== undefined
+        ? { defaultUseMockLlm: opts.stsDefaultUseMockLlm }
+        : {}),
+    }),
+  );
 
   // B1/B2 wiring — Camada Social + Drilling. Fastify enfileira o register
   // até .listen()/.ready() resolverem; ok chamar síncrono dentro do factory.

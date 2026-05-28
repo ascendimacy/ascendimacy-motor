@@ -1,10 +1,10 @@
 <script lang="ts">
   /**
-   * STSLauncherModal — wizard mínimo pra disparar uma run STS.
+   * STSLauncherModal — wizard pra disparar uma run STS.
    *
-   * v0 dispatch é stub (POST /sts/runs/start retorna run_id reservado,
-   * spawn real ainda não wired — ver `s5-routes.ts`). Mesmo assim a UI
-   * exibe progress + virtual clock pra validar a forma do contrato.
+   * Backend (s5-routes.ts) faz spawn real de scripts/run-sts.mjs.
+   * UI poll-a `GET /sts/runs/:id/status` a cada 2s até status terminal
+   * (succeeded/failed/cancelled). Botão "cancelar" envia SIGTERM.
    *
    * Spec: US-S5b-02 (console-ebrota-user-stories-v0.md).
    */
@@ -14,14 +14,25 @@
     StsPersonaLike,
     StsScenarioLike,
     StsRunStartResultLike,
+    StsRunStatusResultLike,
+    StsRunStatus,
   } from "../../lib/api.js";
 
   export let api: ApiClient;
   export let open: boolean = false;
+  /** Polling interval em ms — exposto pra testes. */
+  export let pollMs: number = 2000;
 
   const dispatch = createEventDispatcher<{ close: void; started: StsRunStartResultLike }>();
 
-  type FormState = "idle" | "loading" | "ready" | "submitting" | "running" | "error";
+  type FormState =
+    | "idle"
+    | "loading"
+    | "ready"
+    | "submitting"
+    | "running"
+    | "finished"
+    | "error";
   let formState: FormState = "idle";
   let personas: StsPersonaLike[] = [];
   let scenarios: StsScenarioLike[] = [];
@@ -32,36 +43,52 @@
   let turns = 6;
 
   let lastResult: StsRunStartResultLike | null = null;
-  let virtualClockTickMs = 1500;
-  let virtualClockTimer: ReturnType<typeof setInterval> | null = null;
-  let virtualClockProgress = 0;
+  let lastStatus: StsRunStatusResultLike | null = null;
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   $: selectedScenario = scenarios.find((s) => s.id === scenarioId) ?? null;
   $: if (selectedScenario && formState === "ready") {
     turns = selectedScenario.recommended_turns;
   }
 
+  $: runStatus = (lastStatus?.status ?? lastResult?.status ?? "pending") as StsRunStatus;
+  $: turnsCompleted = lastStatus?.turns_completed ?? 0;
+
   function close(): void {
-    stopVirtualClock();
+    stopPolling();
     dispatch("close");
   }
 
-  function stopVirtualClock(): void {
-    if (virtualClockTimer !== null) {
-      clearInterval(virtualClockTimer);
-      virtualClockTimer = null;
+  function stopPolling(): void {
+    if (pollTimer !== null) {
+      clearInterval(pollTimer);
+      pollTimer = null;
     }
   }
 
-  function startVirtualClock(): void {
-    stopVirtualClock();
-    virtualClockProgress = 0;
-    virtualClockTimer = setInterval(() => {
-      virtualClockProgress = Math.min(virtualClockProgress + 1, turns);
-      if (virtualClockProgress >= turns) {
-        stopVirtualClock();
+  async function pollOnce(): Promise<void> {
+    if (lastResult === null) return;
+    try {
+      const status = await api.getStsRunStatus(lastResult.run_id);
+      lastStatus = status;
+      if (
+        status.status === "succeeded" ||
+        status.status === "failed" ||
+        status.status === "cancelled"
+      ) {
+        formState = "finished";
+        stopPolling();
       }
-    }, virtualClockTickMs);
+    } catch (err) {
+      errMsg = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  function startPolling(): void {
+    stopPolling();
+    // Primeiro poll imediato + intervalo
+    void pollOnce();
+    pollTimer = setInterval(() => void pollOnce(), pollMs);
   }
 
   async function loadOptions(): Promise<void> {
@@ -87,6 +114,7 @@
     if (personaId === "" || scenarioId === "") return;
     formState = "submitting";
     errMsg = "";
+    lastStatus = null;
     try {
       lastResult = await api.startStsRun({
         persona_id: personaId,
@@ -94,7 +122,7 @@
         turns,
       });
       formState = "running";
-      startVirtualClock();
+      startPolling();
       dispatch("started", lastResult);
     } catch (err) {
       errMsg = err instanceof Error ? err.message : String(err);
@@ -102,10 +130,25 @@
     }
   }
 
+  async function cancelRun(): Promise<void> {
+    if (lastResult === null) return;
+    try {
+      const res = await api.cancelStsRun(lastResult.run_id);
+      // Force a status refresh so tail/exit info loads.
+      void pollOnce();
+      if (res.cancelled) {
+        formState = "finished";
+        stopPolling();
+      }
+    } catch (err) {
+      errMsg = err instanceof Error ? err.message : String(err);
+    }
+  }
+
   function reset(): void {
-    stopVirtualClock();
+    stopPolling();
     lastResult = null;
-    virtualClockProgress = 0;
+    lastStatus = null;
     formState = "ready";
   }
 
@@ -116,19 +159,26 @@
   }
 
   $: if (!open) {
-    stopVirtualClock();
+    stopPolling();
   }
 
-  onDestroy(() => stopVirtualClock());
+  onDestroy(() => stopPolling());
 
-  function formatVirtualClock(progress: number, total: number, label: string): string {
-    if (total <= 0) return label;
-    const frac = progress / total;
-    const days = Math.round(frac * 30);
-    if (label.includes("3d")) {
-      return `T+${Math.min(Math.round(frac * 3), 3)}d ${Math.round((frac * 72) % 24)}h`;
+  function statusLabel(s: StsRunStatus): string {
+    switch (s) {
+      case "pending":
+        return "⏳ pending";
+      case "running":
+        return "▶ running";
+      case "succeeded":
+        return "✓ succeeded";
+      case "failed":
+        return "✗ failed";
+      case "cancelled":
+        return "⊘ cancelled";
+      default:
+        return s;
     }
-    return `T+${Math.min(days, 30)}d`;
   }
 </script>
 
@@ -170,31 +220,66 @@
         <button type="button" class="action" on:click={loadOptions}>
           tentar de novo
         </button>
-      {:else if formState === "running" && lastResult !== null}
-        <div class="running-block" data-testid="sts-launcher-running">
+      {:else if (formState === "running" || formState === "finished") && lastResult !== null}
+        <div
+          class="running-block"
+          data-testid={formState === "running" ? "sts-launcher-running" : "sts-launcher-finished"}
+        >
           <p>
-            <strong>Run em andamento</strong>
+            <strong>{statusLabel(runStatus)}</strong>
             — run_id <code>{lastResult.run_id.slice(0, 8)}…</code>
+            {#if lastResult.pid !== null && lastResult.pid !== undefined}
+              <span class="muted small">pid {lastResult.pid}</span>
+            {/if}
           </p>
-          <p class="muted small">{lastResult.note}</p>
           <div class="virtual-clock" data-testid="sts-launcher-clock">
-            <span class="vc-label">virtual clock:</span>
-            <span class="vc-value">
-              {formatVirtualClock(
-                virtualClockProgress,
-                turns,
-                selectedScenario?.duration_label ?? "T+?",
-              )}
-            </span>
-            <span class="vc-progress">
-              ({virtualClockProgress}/{turns} turns)
+            <span class="vc-label">progress:</span>
+            <span class="vc-value" data-testid="sts-launcher-progress">
+              {turnsCompleted}/{turns} turns
             </span>
           </div>
-          <progress max={turns} value={virtualClockProgress} class="progress" />
+          <progress
+            max={turns}
+            value={turnsCompleted}
+            class="progress"
+            data-testid="sts-launcher-progress-bar"
+          />
+          {#if lastStatus !== null && lastStatus.exit_code !== null}
+            <p class="muted small" data-testid="sts-launcher-exit-code">
+              exit code: <code>{lastStatus.exit_code}</code>
+            </p>
+          {/if}
+          {#if lastStatus !== null && lastStatus.error_message !== null}
+            <p class="error small" data-testid="sts-launcher-error-message">
+              {lastStatus.error_message}
+            </p>
+          {/if}
+          {#if formState === "finished" && lastStatus !== null && (lastStatus.stdout_tail.length > 0 || lastStatus.stderr_tail.length > 0)}
+            <details class="logs" data-testid="sts-launcher-logs">
+              <summary>logs (tail)</summary>
+              {#if lastStatus.stdout_tail.length > 0}
+                <pre class="log-block">{lastStatus.stdout_tail.join("\n")}</pre>
+              {/if}
+              {#if lastStatus.stderr_tail.length > 0}
+                <pre class="log-block stderr">{lastStatus.stderr_tail.join("\n")}</pre>
+              {/if}
+            </details>
+          {/if}
           <div class="actions">
-            <button type="button" class="action" on:click={reset}>
-              ↻ nova run
-            </button>
+            {#if formState === "running"}
+              <button
+                type="button"
+                class="action"
+                on:click={cancelRun}
+                data-testid="sts-launcher-cancel"
+              >
+                ⊘ cancelar
+              </button>
+            {:else}
+              <button type="button" class="action" on:click={reset}>
+                ↻ nova run
+              </button>
+            {/if}
             <button type="button" class="action primary" on:click={close}>
               fechar
             </button>
@@ -397,13 +482,34 @@
     font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
     color: #ef4444;
   }
-  .vc-progress {
-    opacity: 0.6;
-    font-size: 0.78rem;
-  }
   .progress {
     width: 100%;
     height: 6px;
+  }
+  .logs {
+    font-size: 0.78rem;
+    background: rgba(127, 127, 127, 0.1);
+    border-radius: 3px;
+    padding: 0.4rem;
+  }
+  .logs summary {
+    cursor: pointer;
+    opacity: 0.75;
+  }
+  .log-block {
+    margin: 0.3rem 0 0 0;
+    padding: 0.4rem;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 3px;
+    overflow-x: auto;
+    max-height: 160px;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    white-space: pre;
+  }
+  .log-block.stderr {
+    border-left: 3px solid #ef4444;
   }
   .small {
     font-size: 0.78rem;
