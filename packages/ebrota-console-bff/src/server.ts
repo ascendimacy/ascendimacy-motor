@@ -89,6 +89,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import b1RoutesPlugin from "./routes/b1-routes.js";
 import b2RoutesPlugin from "./routes/b2-routes.js";
+import mc10MobileRoutes from "./routes/mc10-routes.js";
 
 export interface CreateBffServerOptions {
   daemon: OrchestratorDaemonClient;
@@ -188,6 +189,11 @@ export function createBffServer(opts: CreateBffServerOptions): BffServer {
 
   // Parental Engaged Dashboard (US-PE-01..09) — plugin Fastify isolado.
   void fastify.register(parentalDashboardRoutes, {});
+
+  // MC10 mobile onboarding (alternativa mobile-first ao wizard web).
+  // Feature flag MC10_MOBILE_ONBOARDING=true habilita os endpoints; sem
+  // flag, retornam 503. Twilio webhook wiring é outro PR.
+  void fastify.register(mc10MobileRoutes, { db: opts.db });
 
   // In-memory set de sessionIds ativos (iniciados via /sessions/start-card,
   // removidos via /sessions/:id/end). Permite que App.svelte faça polling

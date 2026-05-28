@@ -198,6 +198,22 @@ CREATE INDEX IF NOT EXISTS idx_sts_runs_started_at
   ON sts_runs(started_at);
 CREATE INDEX IF NOT EXISTS idx_sts_runs_status
   ON sts_runs(status);
+
+-- MC10 mobile onboarding (alternativa mobile-first ao wizard web). State
+-- machine de 7 prompts canônicos via WhatsApp. Feature flag
+-- MC10_MOBILE_ONBOARDING=true habilita os endpoints.
+CREATE TABLE IF NOT EXISTS mc10_mobile_sessions (
+  session_id TEXT PRIMARY KEY,
+  started_at TEXT NOT NULL,
+  current_step TEXT NOT NULL,
+  replies_json TEXT NOT NULL DEFAULT '{}',
+  completed_at TEXT,
+  completion_payload_json TEXT,
+  child_name TEXT,
+  child_age INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_mc10_mobile_started_at
+  ON mc10_mobile_sessions(started_at);
 `;
 
 export interface InitDbOptions {
