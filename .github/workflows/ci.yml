@@ -31,6 +31,13 @@ jobs:
       - name: Build motor-channels
         run: npm run build -w packages/motor-channels
 
+      # motor-execucao é dependência de runtime do BFF (ebrota-console-bff).
+      # O BFF importa via subpaths (@ascendimacy/motor-execucao/cards-repo, drill-repo, mc1-repo etc).
+      # Esses subpaths só existem após o build (apontam para ./dist).
+      # Sem isso, vitest no BFF falha com "Does the file exist?".
+      - name: Build motor-execucao (required by BFF + integration tests)
+        run: npm run build -w motor-execucao
+
       - name: Run tests
         run: npm test
 
