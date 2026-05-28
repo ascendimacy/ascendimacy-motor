@@ -762,6 +762,11 @@ export interface ApiClient {
     frameworkIds?: string[],
   ): Promise<{ maps: SubjectMapLike }>;
 
+  // ─── S2 wiring — Playbook ativo + Journey stage + Drota config ──
+  getActivePlaybook(personaId: string): Promise<ActivePlaybookLike>;
+  getJourneyStage(personaId: string): Promise<JourneyStageInfoLike>;
+  getDrotaConfig(personaId: string): Promise<DrotaConfigLike>;
+
   // ─── S1 wiring — Declared Objectives + Threads + SK summary ─────
   getDeclaredObjectives(
     personaId: string,
@@ -923,6 +928,36 @@ export interface ApiClient {
   }>;
   /** Cancela MC1 pending da criança. Idempotente: cancelled=0 se nada pra cancelar. */
   cancelMc1(childId: string): Promise<{ childId: string; cancelled: number }>;
+}
+
+// ─── S2 wiring — Playbook ativo + Journey stage + Drota config ─────
+
+export interface ActivePlaybookLike {
+  personaId: string;
+  playbookId: string;
+  playbookName: string;
+  version: string;
+  appliedAt: string;
+  appliedReason: "default_at_persona_create" | "wizard_complete" | "manual_override";
+  developmentStub: boolean;
+}
+
+export interface JourneyStageInfoLike {
+  personaId: string;
+  stage: "discovery_only" | "mapping_ready" | "applied_double_helix";
+  stageEnteredAt: string;
+  turnsInStage: number;
+  nextStageHint: "mapping_ready" | "applied_double_helix" | null;
+  blockedBy: null | "insufficient_discoveries" | "consent_required";
+}
+
+export interface DrotaConfigLike {
+  personaId: string;
+  drotaProfile: "kids" | "eprumo" | "drota-mestre";
+  splitDrotaEnabled: boolean;
+  splitDrotaSource: "env" | "persona_override";
+  registerDefault: string;
+  developmentStub: boolean;
 }
 
 // ─── S1 wiring — Declared Objectives + Narrative Threads + SK summary ──
@@ -1321,6 +1356,18 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
         `/subjects/${encodeURIComponent(subjectId)}/maps${q ? `?${q}` : ""}`,
       );
     },
+    getActivePlaybook: (personaId) =>
+      get<ActivePlaybookLike>(
+        `/personas/${encodeURIComponent(personaId)}/active-playbook`,
+      ),
+    getJourneyStage: (personaId) =>
+      get<JourneyStageInfoLike>(
+        `/personas/${encodeURIComponent(personaId)}/journey-stage`,
+      ),
+    getDrotaConfig: (personaId) =>
+      get<DrotaConfigLike>(
+        `/personas/${encodeURIComponent(personaId)}/drota-config`,
+      ),
     getDeclaredObjectives: (personaId) =>
       get<{ objectives: DeclaredObjectiveLike[] }>(
         `/personas/${encodeURIComponent(personaId)}/objectives`,
