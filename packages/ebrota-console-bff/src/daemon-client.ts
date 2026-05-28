@@ -178,12 +178,25 @@ export function createStdioDaemonClient(
   );
 
   let connected = false;
+  let connectingPromise: Promise<void> | null = null;
 
   const ensureConnected = async (): Promise<void> => {
-    if (!connected) {
-      await client.connect(transport);
-      connected = true;
+    if (connected) return;
+    if (connectingPromise !== null) {
+      await connectingPromise;
+      return;
     }
+    connectingPromise = client
+      .connect(transport)
+      .then(() => {
+        connected = true;
+        connectingPromise = null;
+      })
+      .catch((err: unknown) => {
+        connectingPromise = null;
+        throw err;
+      });
+    await connectingPromise;
   };
 
   const callTool = async <T>(
@@ -269,7 +282,7 @@ export function createStdioDaemonClient(
 
     async close() {
       if (connected) {
-        await transport.close();
+        await client.close();
         connected = false;
       }
     },
