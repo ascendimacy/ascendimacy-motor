@@ -492,6 +492,55 @@ export interface DyadConfigLike {
   source: string;
 }
 
+// ─── S3 Decisão duck-types (decision history, jogada histogram, stats) ──
+
+export interface TacticDecisionSummaryLike {
+  jogada: string;
+  angle: string;
+  register: string;
+  method: "rule" | "llm" | "fallback";
+}
+
+export interface DecisionRowLike {
+  turnRef: string;
+  decidedAt: string;
+  decisionPath: string;
+  selectedItemId: string;
+  selectedItemType: string;
+  selectedScore: number | null;
+  poolSize: number;
+  topNScores: number[];
+  tacticDecision: TacticDecisionSummaryLike | null;
+  cacheHit: boolean;
+  skipReason: string | null;
+}
+
+export interface JogadaDistributionLike {
+  personaId: string;
+  totalDecisions: number;
+  byJogada: {
+    bridge: number;
+    espelho: number;
+    canal: number;
+    diamante: number;
+    arena: number;
+    recovery: number;
+  };
+  byMethod: { rule: number; llm: number; fallback: number };
+  byRegister: Record<string, number>;
+  developmentStub: boolean;
+}
+
+export interface DecisionStatsLike {
+  personaId: string;
+  totalTurns: number;
+  cacheHitRate: number;
+  fallbackRate: number;
+  avgPoolSize: number;
+  avgTopScore: number;
+  selectorEscalations: number;
+}
+
 // ─── S5 Avaliação duck-types (guardrail/STS/longitudinal) ──────────
 
 export interface GuardrailCheckEntryLike {
@@ -755,6 +804,14 @@ export interface ApiClient {
   ): Promise<{ cards: EmittedCardLike[] }>;
   /** Configuração de dyad ativo (V0: stub null). */
   getDyad(personaId: string): Promise<DyadConfigLike>;
+
+  // ─── S3 Motor de Decisão (history / jogada distribution / stats) ─
+  getDecisionHistory(
+    personaId: string,
+    limit?: number,
+  ): Promise<{ personaId: string; decisions: DecisionRowLike[] }>;
+  getJogadaDistribution(personaId: string): Promise<JogadaDistributionLike>;
+  getDecisionStats(personaId: string): Promise<DecisionStatsLike>;
 
   // ─── S5 Motor de Avaliação (guardrail / STS / longitudinal) ────
   getGuardrailHistory(
@@ -1336,6 +1393,22 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     getDyad: (personaId) =>
       get<DyadConfigLike>(
         `/personas/${encodeURIComponent(personaId)}/dyad`,
+      ),
+
+    // ─── S3 Motor de Decisão ────────────────────────────────────────
+    getDecisionHistory: (personaId, limit) =>
+      get<{ personaId: string; decisions: DecisionRowLike[] }>(
+        `/personas/${encodeURIComponent(personaId)}/decision-history${
+          limit !== undefined ? `?limit=${limit}` : ""
+        }`,
+      ),
+    getJogadaDistribution: (personaId) =>
+      get<JogadaDistributionLike>(
+        `/personas/${encodeURIComponent(personaId)}/jogada-distribution`,
+      ),
+    getDecisionStats: (personaId) =>
+      get<DecisionStatsLike>(
+        `/personas/${encodeURIComponent(personaId)}/decision-stats`,
       ),
 
     // ─── S5 Motor de Avaliação ──────────────────────────────────────
