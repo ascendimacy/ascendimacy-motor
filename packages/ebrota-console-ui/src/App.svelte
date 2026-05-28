@@ -19,6 +19,8 @@
   import S1AprendizPanel from "./components/subsystem-panels/S1AprendizPanel.svelte";
   import S2DoutrinaPanel from "./components/subsystem-panels/S2DoutrinaPanel.svelte";
   import S3DecisaoPanel from "./components/subsystem-panels/S3DecisaoPanel.svelte";
+  import S3DecisaoTurnPanel from "./components/subsystem-panels/S3DecisaoTurnPanel.svelte";
+  import S4ExpressaoPanel from "./components/subsystem-panels/S4ExpressaoPanel.svelte";
   import S4ExpressaoTurnPanel from "./components/subsystem-panels/S4ExpressaoTurnPanel.svelte";
   import S5AvaliacaoPanel from "./components/subsystem-panels/S5AvaliacaoPanel.svelte";
   import B1SocialPanel from "./components/subsystem-panels/B1SocialPanel.svelte";
@@ -180,7 +182,7 @@
           {:else if $expandedSubsystem === "S3"}
             <S3DecisaoPanel {api} />
           {:else if $expandedSubsystem === "S4"}
-            <S4ExpressaoTurnPanel />
+            <S4ExpressaoPanel />
           {:else if $expandedSubsystem === "S5"}
             <S5AvaliacaoPanel />
           {:else if $expandedSubsystem === "B1"}

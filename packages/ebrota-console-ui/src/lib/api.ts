@@ -541,6 +541,55 @@ export interface DecisionStatsLike {
   selectorEscalations: number;
 }
 
+// ─── S4 Motor de Expressão duck-types (metrics/distribution/samples) ──
+
+export interface ExpressionMetricsLike {
+  personaId: string;
+  totalTurns: number;
+  cacheHitRate: number;
+  fallbackRate: number;
+  avgTokensIn: number;
+  avgTokensOut: number;
+  avgLatencyMs: number;
+  avgCostUsd: number;
+  sanitizationAppliedRate: number;
+  retriedWithFallbackRate: number;
+  byModel: Record<string, { calls: number; avgLatencyMs: number }>;
+  developmentStub: boolean;
+}
+
+export interface TacticDecisionDistributionLike {
+  personaId: string;
+  totalDecisions: number;
+  splitDrotaActive: boolean;
+  byJogada: Record<string, number>;
+  byRegister: Record<string, number>;
+  byMethod: Record<string, number>;
+  averages: {
+    angleCharsAvg: number;
+    maxLengthCharsAvg: number;
+  };
+  developmentStub: boolean;
+}
+
+export interface ExpressionSampleLike {
+  turnRef: string;
+  generatedAt: string | null;
+  finalText: string;
+  model: string | null;
+  latencyMs: number | null;
+  tokensOut: number | null;
+  fallbackTriggered: boolean;
+  sanitizationApplied: boolean;
+  jogada: string | null;
+}
+
+export interface ExpressionSamplesResponseLike {
+  personaId: string;
+  samples: ExpressionSampleLike[];
+  developmentStub: boolean;
+}
+
 // ─── S5 Avaliação duck-types (guardrail/STS/longitudinal) ──────────
 
 export interface GuardrailCheckEntryLike {
@@ -817,6 +866,16 @@ export interface ApiClient {
   ): Promise<{ personaId: string; decisions: DecisionRowLike[] }>;
   getJogadaDistribution(personaId: string): Promise<JogadaDistributionLike>;
   getDecisionStats(personaId: string): Promise<DecisionStatsLike>;
+
+  // ─── S4 Motor de Expressão (metrics / tactic dist / samples) ──
+  getExpressionMetrics(personaId: string): Promise<ExpressionMetricsLike>;
+  getTacticDecisionDistribution(
+    personaId: string,
+  ): Promise<TacticDecisionDistributionLike>;
+  getExpressionSamples(
+    personaId: string,
+    limit?: number,
+  ): Promise<ExpressionSamplesResponseLike>;
 
   // ─── S5 Motor de Avaliação (guardrail / STS / longitudinal) ────
   getGuardrailHistory(
@@ -1456,6 +1515,22 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
     getDecisionStats: (personaId) =>
       get<DecisionStatsLike>(
         `/personas/${encodeURIComponent(personaId)}/decision-stats`,
+      ),
+
+    // ─── S4 Motor de Expressão ─────────────────────────────────────
+    getExpressionMetrics: (personaId) =>
+      get<ExpressionMetricsLike>(
+        `/personas/${encodeURIComponent(personaId)}/expression-metrics`,
+      ),
+    getTacticDecisionDistribution: (personaId) =>
+      get<TacticDecisionDistributionLike>(
+        `/personas/${encodeURIComponent(personaId)}/tactic-decision-distribution`,
+      ),
+    getExpressionSamples: (personaId, limit) =>
+      get<ExpressionSamplesResponseLike>(
+        `/personas/${encodeURIComponent(personaId)}/expression-samples${
+          typeof limit === "number" ? `?limit=${limit}` : ""
+        }`,
       ),
 
     // ─── S5 Motor de Avaliação ──────────────────────────────────────
