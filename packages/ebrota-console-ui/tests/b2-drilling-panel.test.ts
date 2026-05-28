@@ -19,6 +19,7 @@ function buildApi(over: Partial<ApiClient> = {}): ApiClient {
     listDrillStates: vi.fn().mockResolvedValue({ states: [] }),
     listDrillDue: vi.fn().mockResolvedValue({ states: [] }),
     listDrillMastered: vi.fn().mockResolvedValue({ states: [] }),
+    listDrillAttempts: vi.fn().mockResolvedValue({ attempts: [] }),
   };
   return { ...base, ...over } as ApiClient;
 }
