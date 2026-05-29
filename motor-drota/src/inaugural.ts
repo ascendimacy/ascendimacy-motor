@@ -70,27 +70,90 @@ function buildSoloJp(ctx: InauguralContext): InauguralOutput {
   };
 }
 
-function buildSoloBr(ctx: InauguralContext): InauguralOutput {
-  const addressee = ctx.isJoint && ctx.jointPartnerName
+/**
+ * v0.2.7-bands (2026-05-28) — 3 bandas etárias do tutor self-introduction.
+ * Estrutura comum: identidade + diferenciação + partnership + artefato +
+ * convite + consent gate. Banda etária define vocabulário + densidade.
+ *
+ * Dispatch em buildInaugural via ctx.personaAge:
+ *  - < 10: buildSoloBrLudic
+ *  - 10-14 OU age desconhecida: buildSoloBr (direct, default)
+ *  - >= 15: buildSoloBrPhil
+ */
+function joinAddressee(ctx: InauguralContext): string {
+  return ctx.isJoint && ctx.jointPartnerName
     ? `${ctx.personaName} e ${ctx.jointPartnerName}`
     : ctx.personaName;
+}
 
+function buildSoloBrLudic(ctx: InauguralContext): InauguralOutput {
+  const addressee = joinAddressee(ctx);
   const text = [
-    `${addressee}, bom te conhecer.`,
+    `${addressee}, oi!`,
     ``,
-    `Quero deixar claro logo de cara: não estou aqui pra te avaliar. Sem provas, sem julgamentos — o que você trouxer aqui, fica aqui.`,
+    `Sou um tutor — tipo um amigo que ajuda você a descobrir coisas que você é bom e que ninguém viu ainda.`,
     ``,
-    `Se quiser parar em qualquer momento, é só me falar. Sem problema nenhum.`,
+    `Seus pais te deram um baralho com 4 super-poderes (eles chamam de virtudes). A gente pode jogar com ele e descobrir os seus.`,
     ``,
-    `Tem alguma coisa que te interesse muito ultimamente, ${ctx.personaName}? Pode ser qualquer coisa — algo que você faz, aprende, ou que fica na sua cabeça mesmo sem querer.`,
+    `Que tal a gente tentar? Se for chato, a gente para.`,
   ].join("\n");
-
   return {
     text,
-    template_used: "inaugural_solo_br",
+    template_used: "inaugural_solo_br_tutor_intro_ludic_v027",
     non_evaluation_clause_present: true,
     exit_right_present: true,
   };
+}
+
+function buildSoloBr(ctx: InauguralContext): InauguralOutput {
+  // Banda "direct" (10-14) — cobre Ryo, Kei. Default quando age desconhecida.
+  // Decisão Alexa 2026-05-28: tutor se apresenta + convite a atividade com
+  // baralho de 4 virtudes + consent gate explícito.
+  // Spec base: 2026-05-25-session-phases-journey-stages-strategist.md.
+  const addressee = joinAddressee(ctx);
+  const text = [
+    `${addressee}, bom te conhecer.`,
+    ``,
+    `Sou um tutor. Diferente de professor: não tenho matéria pra cobrir. Diferente de terapeuta: não vou ficar te perguntando como você se sente.`,
+    ``,
+    `O que faço é a gente escolher junto que potencial seu vale a pena desenvolver. Sem prova, sem nota. Se não curtir, a gente para.`,
+    ``,
+    `Te mandaram um baralho com 4 virtudes — tem uma atividade rápida com ele que pode mostrar onde você quer começar. Vamos tentar?`,
+  ].join("\n");
+  return {
+    text,
+    template_used: "inaugural_solo_br_tutor_intro_direct_v027",
+    non_evaluation_clause_present: true,
+    exit_right_present: true,
+  };
+}
+
+function buildSoloBrPhil(ctx: InauguralContext): InauguralOutput {
+  const addressee = joinAddressee(ctx);
+  const text = [
+    `${addressee}, oi.`,
+    ``,
+    `Sou um tutor. Tutoria é a forma mais antiga de educação que ainda funciona — alguém que te ajuda a descobrir o que você ainda não vê em si, sem currículo, sem nota.`,
+    ``,
+    `A gente pode escolher junto o potencial que vale a pena desenvolver. Se não rolar, a gente encerra.`,
+    ``,
+    `Te enviei um baralho de 4 virtudes — base da ética clássica, mas usável hoje. Topa fazer uma atividade rápida com ele? Pode te dizer coisas inesperadas sobre você.`,
+  ].join("\n");
+  return {
+    text,
+    template_used: "inaugural_solo_br_tutor_intro_phil_v027",
+    non_evaluation_clause_present: true,
+    exit_right_present: true,
+  };
+}
+
+function dispatchSoloBr(ctx: InauguralContext): InauguralOutput {
+  const age = ctx.personaAge;
+  if (typeof age === "number" && age > 0) {
+    if (age < 10) return buildSoloBrLudic(ctx);
+    if (age >= 15) return buildSoloBrPhil(ctx);
+  }
+  return buildSoloBr(ctx);
 }
 
 function buildRecorrente(ctx: InauguralContext): InauguralOutput {
@@ -113,5 +176,6 @@ export async function buildInaugural(ctx: InauguralContext): Promise<InauguralOu
   if (isJpProfile(ctx.profileId)) {
     return buildSoloJp(ctx);
   }
-  return buildSoloBr(ctx);
+  // v0.2.7-bands — dispatch BR por banda etária (ludic <10, direct 10-14, phil 15+).
+  return dispatchSoloBr(ctx);
 }

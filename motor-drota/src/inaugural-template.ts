@@ -95,22 +95,30 @@ export interface InauguralResolveOutput {
 // Universal fallback (built-in PT-BR — funciona sem nenhum YAML)
 // ─────────────────────────────────────────────────────────────────────────
 
+// v0.2.7 — Tutor self-introduction como UNIVERSAL_FALLBACK.
+// Decisão (Alexa 2026-05-28): primeira jogada do bot DEVE ser se apresentar
+// como tutor + convite com baralho concreto + consent gate explícito.
+// Spec base: 2026-05-25-session-phases-journey-stages-strategist.md.
+// Modulação por idade fica v0.3 — esta versão usa a banda "direct" (10-14)
+// que cobre o caso STS Ryo/Kei. Voice_profile / cultural_default ainda
+// podem override por família/cultura.
 const UNIVERSAL_FALLBACK = {
   greeting: "Oi",
   purpose:
-    "Estou aqui pra pensar coisas com você. Não dou respostas — falo junto.",
-  non_evaluation_clause: "Isso não é prova nem avaliação.",
-  exit_right: "Se quiser parar, é só falar.",
-  confirmation_invite_default: "O que tá rolando aí?",
-  confirmation_invite_template: "Hoje quer falar sobre {interest}?",
+    "Sou um tutor. Diferente de professor: não tenho matéria pra cobrir. Diferente de terapeuta: não vou ficar te perguntando como você se sente. O que faço é a gente escolher junto que potencial seu vale a pena desenvolver.",
+  non_evaluation_clause: "Sem prova, sem nota.",
+  exit_right: "Se não curtir, a gente para.",
+  confirmation_invite_default:
+    "Te mandaram um baralho com 4 virtudes — tem uma atividade rápida com ele que pode mostrar onde você quer começar. Vamos tentar?",
+  confirmation_invite_template:
+    "Te mandaram um baralho com 4 virtudes. Sei que você curte {interest} — vamos fazer uma atividade rápida com o baralho? Pode te mostrar onde começar.",
   /**
-   * Subject Knowledge Fase 3: pergunta aberta default quando nenhuma
-   * tradição/cultura customizada provê uma. Intencionalmente investiga
-   * INTEREST (a maior probabilidade de retorno num turn 0). Cultural
-   * defaults podem override pra `feeling`, `context`, etc.
+   * v0.2.7: discovery_question agora é o convite à atividade do baralho.
+   * Subject Knowledge Fase 3 honrado — investiga interest VIA artefato
+   * concreto (não pergunta vaga "o que te interessa?").
    */
   discovery_question: {
-    text: "Tem alguma coisa que tá te interessando agora? Pode ser qualquer coisa — algo que você faz, que aprende, ou que fica na sua cabeça mesmo sem querer.",
+    text: "Te mandaram um baralho com 4 virtudes — tem uma atividade rápida com ele que pode mostrar onde você quer começar. Vamos tentar?",
     intent: "interest" as const,
     expected_signal_categories: ["interest_marker", "engagement_high"],
   },

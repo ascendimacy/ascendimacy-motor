@@ -22,6 +22,7 @@ import type {
   SelectorTrace,
   SessionState,
   EngagementLevel,
+  TutorialMove,
 } from "@ascendimacy/shared";
 import type { AssessmentResult } from "./unified-assessor.js";
 
@@ -46,6 +47,18 @@ export interface SelectorInput {
   state: SessionState;
   /** Override opcional de criticality por candidate (se motor#X adicionar). */
   criticalityByItemId?: Record<string, Criticality>;
+  /**
+   * CP8 / Item 12 — par CASEL ativo do Double Helix. Usado como tie-break
+   * pedagógico no sort quando `tutorialMoveType` é `correct` ou `recall`.
+   * Vem de `contextHints.helix_active_pair` no caller.
+   */
+  helixActivePair?: readonly string[];
+  /**
+   * CP8 / Item 12 — move_type do contrato tutorial. Só ativa o tie-break
+   * helix quando ∈ {correct, recall}. Em outros casos (explain/apply/close),
+   * sort permanece cost → score como antes.
+   */
+  tutorialMoveType?: TutorialMove;
 }
 
 export interface SelectionResult {
@@ -118,6 +131,20 @@ function getCost(item: ScoredContentItem): number {
   return item.item.sacrifice_amount ?? 0;
 }
 
+/**
+ * CP8 / Item 12 — true se item.casel_target tem qualquer overlap com
+ * o par CASEL ativo do Helix. Defensive: target ausente / não-array
+ * sempre retorna false (item tratado como não-alinhado).
+ */
+function matchesHelix(
+  c: ScoredContentItem,
+  activePair: readonly string[],
+): boolean {
+  const target = c.item.casel_target;
+  if (!Array.isArray(target) || target.length === 0) return false;
+  return target.some((t) => activePair.includes(t as string));
+}
+
 function getCriticality(
   item: ScoredContentItem,
   overrides?: Record<string, Criticality>,
@@ -175,7 +202,11 @@ export function selectAction(
   input: SelectorInput,
   opts?: SelectActionOpts,
 ): SelectionResult {
-  const { candidates, assessment, state, criticalityByItemId } = input;
+  const { candidates, assessment, state, criticalityByItemId, helixActivePair, tutorialMoveType } = input;
+  const helixTieBreakActive =
+    Array.isArray(helixActivePair) &&
+    helixActivePair.length > 0 &&
+    (tutorialMoveType === "correct" || tutorialMoveType === "recall");
   const budgetBefore = state.budgetRemaining;
   const t0 = Date.now();
   const filtersApplied: SelectorTrace["filters_applied"] = [];
@@ -342,10 +373,17 @@ export function selectAction(
     };
   }
 
-  // Step 5 — Sort: menor custo + tie-break por score (desc)
+  // Step 5 — Sort: menor custo + (CP8: tie-break helix se ativo) + score (desc)
   viable.sort((a, b) => {
     const costDiff = getCost(a) - getCost(b);
     if (costDiff !== 0) return costDiff;
+    // CP8 / Item 12 — quando move_type ∈ {correct, recall} e há par Helix
+    // ativo, items com casel_target alinhado vencem dentro do empate de custo.
+    if (helixTieBreakActive) {
+      const aMatch = matchesHelix(a, helixActivePair!);
+      const bMatch = matchesHelix(b, helixActivePair!);
+      if (aMatch !== bMatch) return aMatch ? -1 : 1;
+    }
     return b.score - a.score; // maior score primeiro em empate
   });
 

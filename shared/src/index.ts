@@ -25,6 +25,7 @@ export * from "./lineage-catalog.js";
 export * from "./subject-knowledge.js";
 export * from "./subject-knowledge-writers.js";
 export * from "./concept-ledger-writer.js";
+export * from "./tutorial.js";
 export * from "./recall-check-evaluator.js";
 export * from "./map-framework.js";
 export * from "./session-phases.js";

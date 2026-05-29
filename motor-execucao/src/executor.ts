@@ -149,6 +149,41 @@ export function executePlaybook(
     });
   }
 
+  // CP7 / Item 10 — persistir contrato tutorial em eventLog.
+  // v0.2: outcome inicial mapeado por move_type (close → deferred; demais
+  // → attempted). Classificação real (correct/incorrect/partial) depende de
+  // detecção de feedback do sujeito — vem em v0.3 junto com check/apply.
+  const tutorial = contextHints?.["tutorial"] as
+    | {
+        move_type?: string;
+        teaching_goal?: string;
+        mastery_ref?: { kind?: string; id?: string };
+      }
+    | undefined;
+  if (tutorial && typeof tutorial.move_type === "string") {
+    // v0.2.6: outcome semântico por move_type.
+    //  - close   → deferred  (fechamento explícito)
+    //  - discover → discovered (descoberta em andamento, sem ensino)
+    //  - outros  → attempted (entregou movimento, aguarda feedback v0.3)
+    const outcome =
+      tutorial.move_type === "close"
+        ? "deferred"
+        : tutorial.move_type === "discover"
+          ? "discovered"
+          : "attempted";
+    logEvent(sessionId, {
+      timestamp: getNow(),
+      type: "tutorial_outcome",
+      data: {
+        move_type: tutorial.move_type,
+        teaching_goal: tutorial.teaching_goal ?? null,
+        mastery_ref: tutorial.mastery_ref ?? null,
+        outcome,
+        turn: newState.turn,
+      },
+    });
+  }
+
   // S-T-09-03 (ops#994): trigger fire-and-forget de generateActionMenu
   // se metadata indica conclusão de onboarding. Caller (server.ts) é
   // responsável por injetar deps em prod; ausente = no-op (legacy).
