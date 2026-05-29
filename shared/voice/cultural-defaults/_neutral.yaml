@@ -12,12 +12,18 @@ locale: pt-BR
 inaugural:
   greeting: "Oi"
   greeting_with_name_format: "{greeting}, {name}."
+  # v0.2.7 (2026-05-28): Tutor self-introduction.
+  # Decisão Alexa: "primeiro desafio para o bot é explicar o que é um tutor".
+  # Estrutura: identidade + diferenciação + partnership + artefato + consent gate.
+  # Modulação por idade fica pra v0.3 — esta versão usa banda direct (10-14).
   purpose: |
-    Estou aqui pra pensar coisas com você. Não sou quem dá respostas — sou quem fala junto.
-  non_evaluation_clause: "Isso não é prova nem avaliação."
-  exit_right: "Se quiser parar, é só falar. Sem problema nenhum."
-  confirmation_invite_template: "Hoje, quer falar sobre {interest}?"
-  confirmation_invite_default: "O que tá rolando aí?"
+    Sou um tutor. Diferente de professor: não tenho matéria pra cobrir. Diferente de terapeuta: não vou ficar te perguntando como você se sente. O que faço é a gente escolher junto que potencial seu vale a pena desenvolver.
+  non_evaluation_clause: "Sem prova, sem nota."
+  exit_right: "Se não curtir, a gente para."
+  confirmation_invite_template: |
+    Te mandaram um baralho com 4 virtudes. Sei que você curte {interest} — vamos fazer uma atividade rápida com o baralho? Pode te mostrar onde começar.
+  confirmation_invite_default: |
+    Te mandaram um baralho com 4 virtudes — tem uma atividade rápida com ele que pode mostrar onde você quer começar. Vamos tentar?
 
 pulso:
   type: plain

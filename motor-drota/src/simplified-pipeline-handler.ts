@@ -252,11 +252,27 @@ export async function handleSimplifiedPipeline(
   );
 
   // 2. Pragmatic Selector — determinístico, zero LLM.
+  // CP8 / Item 12 — propaga helix_active_pair e move_type pra tie-break helix.
+  const helixActivePair = Array.isArray(input.contextHints?.["helix_active_pair"])
+    ? (input.contextHints["helix_active_pair"] as readonly string[])
+    : undefined;
+  const tutorialMoveType = (
+    input.contextHints?.["tutorial"] as { move_type?: string } | undefined
+  )?.move_type as
+    | "explain"
+    | "check"
+    | "correct"
+    | "apply"
+    | "recall"
+    | "close"
+    | undefined;
   const selectionResult = selectAction(
     {
       candidates: ranked,
       assessment,
       state: input.state,
+      helixActivePair,
+      tutorialMoveType,
     },
     captureTrace ? { captureTrace: true } : undefined,
   );

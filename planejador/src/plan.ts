@@ -20,6 +20,9 @@ import type {
   ParentalProfile,
   ContentItem,
   EventEntry,
+  TutorialContext,
+  TutorialMove,
+  TutorialMoveAlternative,
 } from "@ascendimacy/shared";
 import {
   scorePool,
@@ -116,10 +119,13 @@ function seedPath(): string | undefined {
  * que eu perguntei". Bot emitiu Fact ignorando question explícita do sujeito.
  * Fix: planejador injeta question_detected pra materializer priorizar resp.
  */
-export function detectQuestionInMessage(message: string): {
+export function detectQuestionInMessage(message: string | undefined): {
   has_question: boolean;
   question_text?: string;
 } {
+  if (!message || typeof message !== "string") {
+    return { has_question: false };
+  }
   const normalized = message.toLowerCase().trim();
   if (normalized.length === 0) return { has_question: false };
 
@@ -145,6 +151,264 @@ export function detectQuestionInMessage(message: string): {
     return { has_question: true, question_text: message.trim() };
   }
   return { has_question: false };
+}
+
+/**
+  * Tutor Clássico v0.1 — emissão do contrato de movimento tutorial.
+  *
+  * Esta é a implementação mínima para fazer o contrato circular pelo pipeline.
+  * O objetivo atual (Itens 1 e 2 do Lote 1) é apenas garantir que:
+  * - O contrato é emitido
+  * - O contrato chega até o materializer
+  *
+  * A lógica inteligente de decisão de `move_type` será feita no Item 6 (Lote 1, CP4).
+  */
+function computeBasicTutorialContext(
+  input: PlanTurnInput,
+  topItem?: ContentItem | null,
+): TutorialContext | null {
+  // CP4 / Itens 6+7 — decisão determinística baseada em sinais e estado.
+  // Sem LLM. Ordem de prioridade: close > correct > recall > explain.
+
+  const signals = Array.isArray(input.contextHints?.["extracted_signals"])
+    ? (input.contextHints!["extracted_signals"] as string[])
+    : [];
+
+  const eventLog = Array.isArray(input.state?.eventLog) ? input.state.eventLog : [];
+
+  const hasExitSignal = signals.some(
+    (s) => s === "exit_marker_explicit" || s === "exit_marker_implicit",
+  );
+  const hasConfusionSignal = signals.some(
+    (s) => s === "confusion" || s === "distress" || s === "frustration",
+  );
+
+  // CP_discovery_gate (v0.2.6) — durante journey_stage="discovery_only" ou
+  // session_phase="ice_breaker", suprime entrega de conteúdo e emite
+  // move_type="discover". Tutor para de empurrar ensino enquanto a conversa
+  // ainda está mapeando interesse do sujeito.
+  // Spec: 2026-05-25-session-phases-journey-stages-strategist.md
+  const stateAsRecord = input.state as unknown as Record<string, unknown> | undefined;
+  const journeyStage =
+    stateAsRecord?.["journey_stage"] ??
+    input.contextHints?.["journey_stage"];
+  const sessionPhase =
+    stateAsRecord?.["sessionPhase"] ??
+    input.contextHints?.["sessionPhase"] ??
+    input.contextHints?.["session_phase"];
+  const isDiscoveryStage =
+    journeyStage === "discovery_only" || sessionPhase === "ice_breaker";
+
+  // Último item efetivamente apresentado em turn anterior.
+  // O scorer evita re-emitir items used_in_session, então comparar com
+  // topItem.id seria estruturalmente impossível. Usamos o eventLog direto.
+  // eventLog vem em ordem DESC (newest first); iteramos do índice 0 e
+  // a primeira match é o playbook_executed MAIS RECENTE.
+  let lastExecutedId: string | null = null;
+  for (let i = 0; i < eventLog.length; i++) {
+    const ev = eventLog[i] as { type?: string; data?: { selectedContentId?: unknown } };
+    if (
+      ev?.type === "playbook_executed" &&
+      typeof ev?.data?.selectedContentId === "string" &&
+      ev.data.selectedContentId.length > 0
+    ) {
+      lastExecutedId = ev.data.selectedContentId;
+      break;
+    }
+  }
+
+  // recall dispara quando há item recentemente apresentado E o scorer
+  // rotacionou para outro (situação "rotacionou sem consolidar").
+  // CP-recall-cooldown (v0.2.5): bloqueia recall nos primeiros RECALL_COOLDOWN_TURNS
+  // turns pra evitar "recall imediato no T2" — STS realista mostrou que isso
+  // gera bot retomando coisa que mal foi apresentada. Cooldown se aplica APENAS
+  // a recall; close/correct continuam ativos no T1/T2 quando há signal.
+  const RECALL_COOLDOWN_TURNS = 2;
+  const currentTurn = typeof input.state?.turn === "number" ? input.state.turn : 0;
+  const recallCooldownActive = currentTurn < RECALL_COOLDOWN_TURNS;
+  const shouldRecall =
+    !recallCooldownActive && lastExecutedId != null && topItem?.id !== lastExecutedId;
+
+  let moveType: TutorialMove = "explain";
+  let goal = input.incomingMessage
+    ? "Trabalhar a mensagem atual do sujeito"
+    : "Avançar no objetivo formativo da sessão";
+
+  if (hasExitSignal) {
+    moveType = "close";
+    goal = "Fechar respeitando sinal de saída do sujeito";
+  } else if (isDiscoveryStage) {
+    moveType = "discover";
+    goal = "Descobrir interesse via pergunta aberta sobre o sujeito";
+  } else if (hasConfusionSignal) {
+    moveType = "correct";
+    goal = "Reformular ou simplificar — sujeito sinalizou confusão";
+  } else if (shouldRecall) {
+    moveType = "recall";
+    goal = "Resgatar conceito já apresentado para consolidar";
+  }
+
+  const ctx: TutorialContext = {
+    teaching_goal: goal.slice(0, 80),
+    move_type: moveType,
+  };
+
+  // mastery_ref:
+  // - recall → ancorado no item sendo recordado (lastExecutedId)
+  // - outros → ancorado no top scored item (CP3 / Item 5)
+  // kind="item" sempre em v0.2; "concept"/"axis" virão no Lote 2.
+  // discover (v0.2.6) NÃO ancora em content_item — descoberta vem da conversa,
+  // não de pool estático. mastery_ref ausente sinaliza "ainda não temos
+  // sobre o quê ensinar" pro materializer + replay UI.
+  const masteryTargetId =
+    moveType === "discover"
+      ? null
+      : moveType === "recall" && lastExecutedId
+        ? lastExecutedId
+        : (typeof topItem?.id === "string" && topItem.id.length > 0 ? topItem.id : null);
+
+  if (masteryTargetId) {
+    ctx.mastery_ref = { kind: "item", id: masteryTargetId };
+  }
+
+  // CP6 / Items 9 + 11 — policies determinísticas por move_type.
+  // advance_policy: hold_until_correct para correct/check; can_move_on
+  // para recall/close (movimentos leves); hold_until_attempted para
+  // explain/apply (espera tentativa antes de avançar).
+  // failure_policy: simplify pra correct; re_explain pra recall/apply;
+  // recheck_later pra check; undefined pra explain/close (sem falha esperada).
+  // must_revisit_by_turn: turn atual + 3 quando failure_policy === recheck_later.
+  // Cast widens the narrowed control-flow type back to TutorialMove para
+  // permitir cases pra check/apply (que serão emitidos em v0.3).
+  switch (moveType as TutorialMove) {
+    case "discover":
+      ctx.advance_policy = "can_move_on";
+      break;
+    case "explain":
+      ctx.advance_policy = "hold_until_attempted";
+      break;
+    case "check":
+      ctx.advance_policy = "hold_until_correct";
+      ctx.failure_policy = "recheck_later";
+      break;
+    case "correct":
+      ctx.advance_policy = "hold_until_correct";
+      ctx.failure_policy = "simplify";
+      break;
+    case "apply":
+      ctx.advance_policy = "hold_until_attempted";
+      ctx.failure_policy = "re_explain";
+      break;
+    case "recall":
+      ctx.advance_policy = "can_move_on";
+      ctx.failure_policy = "re_explain";
+      break;
+    case "close":
+      ctx.advance_policy = "can_move_on";
+      break;
+  }
+
+  if (ctx.failure_policy === "recheck_later") {
+    const currentTurn = typeof input.state?.turn === "number" ? input.state.turn : 0;
+    ctx.must_revisit_by_turn = currentTurn + 3;
+  }
+
+  // CP6 / move_alternatives — observabilidade da decisão.
+  // Registra outros move_types cujas condições estavam satisfeitas mas
+  // perderam por prioridade. Lê hasExitSignal/hasConfusionSignal/shouldRecall
+  // computados no início desta função.
+  const alternatives: TutorialMoveAlternative[] = [];
+  if (moveType !== "close" && hasExitSignal) {
+    alternatives.push({
+      move_type: "close",
+      reason: "extracted_signals contém exit_marker_*",
+    });
+  }
+  if (moveType !== "correct" && hasConfusionSignal) {
+    alternatives.push({
+      move_type: "correct",
+      reason: "extracted_signals contém confusion/distress/frustration",
+    });
+  }
+  if (moveType !== "recall" && shouldRecall) {
+    alternatives.push({
+      move_type: "recall",
+      reason: "eventLog tem playbook_executed; scorer rotacionou",
+    });
+  }
+  if (alternatives.length > 0) {
+    ctx.move_alternatives = alternatives;
+  }
+
+  return ctx;
+}
+
+/**
+ * CP5 / Item 8 — linha curta por `move_type` que vai entrar em `instruction_addition`.
+ *
+ * O materializer já renderiza `instruction_addition` dentro do bloco
+ * <instruction_addition>...</instruction_addition> do prompt (ver
+ * motor-drota/src/server.ts:buildDrotaPrompt). A reação ao `move_type` é
+ * implementada via esse canal — sem mudar o template estável do materializer,
+ * sem invalidar o prefix caching do prompt.
+ *
+ * Cada linha começa com "MOVIMENTO: <verbo>." pra ser reconhecível em
+ * smoke/trace/replay UI.
+ */
+/**
+ * v0.2.7 — Tutor self-introduction modulada por idade.
+ * Spec base: 2026-05-25-session-phases-journey-stages-strategist.md
+ *            + decisão Alexa 2026-05-28 "primeira jogada do bot é se apresentar como tutor".
+ *
+ * Estrutura comum (qualquer banda):
+ *  1. Identidade — "Sou um tutor"
+ *  2. Diferenciação — não professor / não terapeuta / não amigo casual
+ *  3. Artefato — baralho com 4 virtudes
+ *  4. Convite à atividade — "vamos tentar?"
+ *  5. Consent gate — "se não curtir, a gente para"
+ *  6. Partnership — "escolher junto que potencial desenvolver"
+ *
+ * Banda etária define vocabulário + densidade, não estrutura.
+ */
+function buildTutorSelfIntro(age: number | undefined): string {
+  const ageBand = typeof age === "number" && age > 0 ? (age < 10 ? "ludic" : age <= 14 ? "direct" : "philosophical") : "direct";
+
+  switch (ageBand) {
+    case "ludic":
+      return "MOVIMENTO INAUGURAL: tutor se apresenta lúdico. Estrutura OBRIGATÓRIA (1) 'Sou um tutor — tipo um amigo que ajuda você a descobrir coisas que você é bom e que ninguém viu ainda'; (2) baralho de 4 super-poderes (virtudes); (3) convite a um JOGO com ele pra descobrir os super-poderes do sujeito; (4) 'topa tentar? se for chato a gente para'. NÃO introduza nenhum outro conceito além de tutor + baralho. Sem moralização.";
+    case "philosophical":
+      return "MOVIMENTO INAUGURAL: tutor se apresenta filosófico. Estrutura OBRIGATÓRIA (1) 'Sou um tutor. Tutoria é a forma mais antiga de educação que ainda funciona — alguém que te ajuda a descobrir o que você ainda não vê em si, sem currículo, sem nota'; (2) baralho de 4 virtudes — base da ética clássica, usável hoje; (3) 'a gente pode escolher junto o potencial que vale a pena desenvolver'; (4) 'topa fazer uma atividade rápida com ele? se não rolar a gente encerra'. NÃO empurre conteúdo além da auto-apresentação. Sem TED Talk.";
+    case "direct":
+    default:
+      return "MOVIMENTO INAUGURAL: tutor se apresenta direto. Estrutura OBRIGATÓRIA (1) 'Sou um tutor. Diferente de professor: não tenho matéria pra cobrir. Diferente de terapeuta: não vou ficar te perguntando como você se sente'; (2) 'O que faço é a gente escolher junto que potencial seu vale a pena desenvolver'; (3) 'Te mandaram um baralho com 4 virtudes — tem uma atividade rápida com ele que pode mostrar onde você quer começar'; (4) 'Vamos tentar? Se você não curtir a gente para'. NÃO introduza nenhum conceito de conteúdo (animais, ciência, metáforas). Sem moralização.";
+  }
+}
+
+function buildTutorialInstructionLine(tutorial: TutorialContext, ctx?: { isInaugural?: boolean; age?: number }): string {
+  // v0.2.7 — quando inaugural + discover, emite self-introduction modulada por idade
+  // ao invés da linha genérica de descobrir. O materializer recebe template forte
+  // pra realmente fazer a apresentação correta na primeira jogada do bot.
+  if (ctx?.isInaugural === true && tutorial.move_type === "discover") {
+    return buildTutorSelfIntro(ctx.age);
+  }
+  switch (tutorial.move_type) {
+    case "discover":
+      return "MOVIMENTO: descobrir. NÃO introduza conteúdo novo. Faça UMA pergunta aberta sobre algo que o sujeito acabou de mencionar (ou interesse declarado). Aceite deflection sem insistir. Sem framing terapêutico.";
+    case "explain":
+      return "MOVIMENTO: explicar. Introduza UM conceito novo com 1 reconhecimento curto, 1 explicação ancorada e 1 pergunta de compreensão.";
+    case "check":
+      return "MOVIMENTO: verificar. Faça UMA pergunta curta e precisa sobre o que acabou de ser apresentado. Não introduza tema novo.";
+    case "correct":
+      return "MOVIMENTO: corrigir. Reformule de forma mais simples. Convide o sujeito a tentar de novo, sem pressão.";
+    case "apply":
+      return "MOVIMENTO: aplicar. Conecte o conceito a um caso concreto do sujeito. Pergunta de uso, exemplo ou decisão.";
+    case "recall":
+      return "MOVIMENTO: retomar. Resgate brevemente o conceito anterior. Cheque lembrança, sem reabrir a explicação.";
+    case "close":
+      return "MOVIMENTO: fechar. Uma linha do que foi trabalhado + uma linha do próximo passo. Sem reabrir tema.";
+    default:
+      return "";
+  }
 }
 
 export function buildSystemPrompt(input: PlanTurnInput): string {
@@ -506,6 +770,19 @@ export async function planTurn(
       llmCallId = opts.collector.peek()[beforeSize]?.id;
     }
     rationale = parseRationale(llmResult.content);
+
+    // Bypass para testes/smokes quando USE_MOCK_LLM=true:
+    // o mock sempre injeta {language, mood, urgency}, que sobrescreve
+    // contextHints arbitrários passados pelo caller (ex: infra smokes).
+    // Com o bypass, input.contextHints manda, e só injetamos o que o código
+    // explicitamente adiciona depois (tutorial, helix, budget, etc).
+    if (useMockLlm) {
+      rationale = {
+        ...rationale,
+        contextHints: {},
+      };
+    }
+
     if (topK !== null && menuSource?.strategic_rationale == null) {
       // Menu hit mas rationale ausente → fallback to LLM. Log pra observability.
       try {
@@ -590,6 +867,29 @@ export async function planTurn(
     contextHints["question_text"] = questionDetect.question_text;
     contextHints["respond_to_question_first"] = true;
   }
+
+  // Tutor Clássico v0.1 — contrato mínimo de movimento tutorial
+  // (ver docs/specs/2026-05-28-loop-tutorial-v0.md)
+  const tutorial = computeBasicTutorialContext(input, topK?.[0]?.item ?? null);
+  if (tutorial) {
+    contextHints["tutorial"] = tutorial;
+  }
+
+  // CP5 / Item 8 — instruction_addition recebe linha curta por move_type.
+  // Materializer já consome instruction_addition; muda comportamento sem
+  // tocar no template do prompt nem no prefix cache.
+  // v0.2.7 — isInaugural = state.turn === 0 (primeiro turn da sessão).
+  // age vem do persona pra modulação dos templates de auto-apresentação.
+  const tutorialInstructionLine = tutorial
+    ? buildTutorialInstructionLine(tutorial, {
+        isInaugural: typeof input.state?.turn === "number" && input.state.turn === 0,
+        age: typeof input.persona?.age === "number" ? input.persona.age : undefined,
+      })
+    : "";
+  const instructionAddition = [gardnerInstruction.text, tutorialInstructionLine]
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .join("\n\n");
   if (focusDim) {
     contextHints["casel_focus_dimension"] = focusDim;
     contextHints["casel_focus_targets"] = caselTargets;
@@ -898,7 +1198,7 @@ export async function planTurn(
             reasons: s.reasons,
           })),
           contextHints,
-          instruction_addition: gardnerInstruction.text,
+          instruction_addition: instructionAddition,
           strategicRationale: rationale.strategicRationale,
           candidateSetEntropy,
         },
@@ -911,7 +1211,7 @@ export async function planTurn(
     strategicRationale: rationale.strategicRationale,
     contentPool: slimPool,
     contextHints,
-    instruction_addition: gardnerInstruction.text,
+    instruction_addition: instructionAddition,
     transitionEvaluations: transitionEvaluations.length > 0 ? transitionEvaluations : undefined,
     candidateSetEntropy,
     is_critical: criticalDetection.is_critical,

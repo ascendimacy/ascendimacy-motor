@@ -58,10 +58,13 @@ const RULES: Rule[] = [
 ];
 
 export function detectMilestone(
-  message: string,
+  message: string | undefined,
   signals: string[],
   persona: string,
 ): MilestoneEvent | null {
+  if (!message || typeof message !== "string") {
+    return null;
+  }
   const lower = message.toLowerCase();
 
   for (const rule of RULES) {
