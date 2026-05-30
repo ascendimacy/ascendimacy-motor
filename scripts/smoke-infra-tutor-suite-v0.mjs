@@ -35,6 +35,7 @@ const SMOKES = [
   { cp: "CP8", item: "Item 12", name: "helix", file: "smoke-infra-tutor-helix-v0.mjs" },
   { cp: "CP9", item: "Item 13", name: "e2e [func]", file: "smoke-func-tutor-e2e-v0.mjs" },
   { cp: "v0.2.7", item: "Bandas", name: "inaugural-bands", file: "smoke-infra-tutor-inaugural-bands-v0.mjs" },
+  { cp: "v0.2.8", item: "DiscPool", name: "discovery-pool", file: "smoke-infra-tutor-discovery-pool-v0.mjs" },
 ];
 
 const TOTALS_RE = /Total:\s+(\d+)\s+pass,\s+(\d+)\s+fail,\s+(\d+)\s+bypass/;
