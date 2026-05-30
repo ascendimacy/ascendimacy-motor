@@ -124,6 +124,8 @@ import { resolveInauguralTemplate } from "./inaugural-template.js";
 import { tactician } from "./tactician.js";
 import { speak } from "./speaker.js";
 import { selectDiscoveryOption } from "./discovery-option-selector.js";
+import { selectExplainOption } from "./explain-option-selector.js";
+import { generateExplainOptions } from "./explain-agent.js";
 import type { TacticDecision } from "@ascendimacy/shared";
 
 export interface SimplifiedPipelineOpts {
@@ -412,6 +414,56 @@ export async function handleSimplifiedPipeline(
       recoverable: true,
     });
     fallbackTriggered = true;
+    recallCheckEmitted = undefined;
+  } else if (tutorialMoveType === "explain" && selectionResult.selected) {
+    // v0.3-B — Explain Dynamic Pool short-circuit.
+    // Quando tutorial.move_type=explain, geramos 4 framings (concrete_example,
+    // metaphor, contrast, lineage_anchor) ancorados no item já selecionado,
+    // selector escolhe por signals, materializer é curto-circuitado.
+    //
+    // fallbackTriggered=false por design — explain APRESENTA conceito, então
+    // o ledger DEVE contabilizar presented_concept (gate pedagógico correto).
+    const item = selectionResult.selected.item;
+    // ContentItem é union discriminada; fact/bridge/quest existem em curiosity_hook
+    // e cultural_diamond (não em card_catalog). Acesso narrowing-safe via cast.
+    const itemAny = item as {
+      id: string;
+      fact?: string;
+      bridge?: string;
+      quest?: string;
+      extracted_keywords?: readonly string[];
+      lineage_anchor?: string;
+    };
+    const explainOptions = await generateExplainOptions({
+      item: {
+        id: itemAny.id,
+        ...(itemAny.fact ? { fact: itemAny.fact } : {}),
+        ...(itemAny.bridge ? { bridge: itemAny.bridge } : {}),
+        ...(itemAny.quest ? { quest: itemAny.quest } : {}),
+        ...(itemAny.extracted_keywords ? { keywords: itemAny.extracted_keywords } : {}),
+        ...(itemAny.lineage_anchor ? { lineage_anchor: itemAny.lineage_anchor } : {}),
+      },
+      recentTurns,
+      subjectName: input.persona.name,
+      signals: assessment.signals,
+      runId: input.sessionId,
+    });
+    const extractedSignals =
+      (input.contextHints?.["extracted_signals"] as string[] | undefined) ?? [];
+    const combinedSignals = Array.from(
+      new Set([...extractedSignals, ...assessment.signals]),
+    );
+    const selection = selectExplainOption({
+      options: explainOptions,
+      signals: combinedSignals,
+    });
+    finalText = selection.chosen.text;
+    warnings.push({
+      component: "explain_option_selector",
+      message: `kind=${selection.chosen.kind} reason=${selection.reason}`,
+      recoverable: true,
+    });
+    fallbackTriggered = false;
     recallCheckEmitted = undefined;
   } else if (USE_SPLIT_DROTA) {
     // ── S4 path ──────────────────────────────────────────────────────────
