@@ -46,6 +46,7 @@ import {
   isExhausted,
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
+import { generateDiscoveryOptions } from "./discovery-agent.js";
 import { detectMilestone } from "./milestone-detector.js";
 import type { LlmTraceCollector, PlanejadorTrace } from "@ascendimacy/shared";
 
@@ -873,6 +874,40 @@ export async function planTurn(
   const tutorial = computeBasicTutorialContext(input, topK?.[0]?.item ?? null);
   if (tutorial) {
     contextHints["tutorial"] = tutorial;
+  }
+
+  // v0.2.8 (Discovery-Specific Pool) — quando move_type=discover, chama o
+  // Discovery Agent (LLM extra) pra gerar 5 opções de pergunta aberta
+  // ancoradas em sinais + tópicos mencionados + necessidades latentes.
+  // Opções vão pra contextHints.discovery_options; motor-drota's pipeline
+  // detecta + usa esse pool em vez do contentPool estático quando discover.
+  // Cobra +1 LLM call apenas em discover turns.
+  if (tutorial?.move_type === "discover") {
+    const discoveryInput = {
+      recentTurns: Array.isArray(input.contextHints?.["recent_turns"])
+        ? (input.contextHints["recent_turns"] as Array<{ role: "user" | "assistant"; content: string }>)
+        : [],
+      extractedSignals: Array.isArray(input.contextHints?.["extracted_signals"])
+        ? (input.contextHints["extracted_signals"] as string[])
+        : [],
+      latentNeeds: Array.isArray(child?.latent_needs)
+        ? (child.latent_needs as string[])
+        : [],
+      topicMentions: Array.isArray(input.contextHints?.["topic_mentions"])
+        ? (input.contextHints["topic_mentions"] as string[])
+        : [],
+      incomingMessage: typeof input.incomingMessage === "string" ? input.incomingMessage : undefined,
+      subjectName: input.persona?.name ?? "amigo",
+    };
+    try {
+      const discoveryOptions = await generateDiscoveryOptions(discoveryInput);
+      if (discoveryOptions.length > 0) {
+        contextHints["discovery_options"] = discoveryOptions;
+      }
+    } catch {
+      // Telemetry: discovery failure não bloqueia turn — segue sem discovery_options
+      // (fallback determinístico já cobre LLM crashes dentro do agent).
+    }
   }
 
   // CP5 / Item 8 — instruction_addition recebe linha curta por move_type.

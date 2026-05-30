@@ -374,7 +374,32 @@ export async function handleSimplifiedPipeline(
     | import("@ascendimacy/shared").MaterializerTrace
     | undefined;
 
-  if (USE_SPLIT_DROTA) {
+  // v0.2.8 — Discovery-Specific Pool short-circuit.
+  // Quando planejador emitiu contextHints.discovery_options (porque move_type=
+  // discover), bypassamos o materializer LLM. O finalText vira a primeira
+  // discovery option escolhida (heurística v1 — v0.3 pode rankear por signal
+  // match ou rotação por kind).
+  //
+  // Motivação: STS realista mostrou LLM ignorando MOVIMENTO: descobrir e
+  // empurrando content do pool estático. Dar pool DIFERENTE (questões de
+  // descoberta) + curto-circuitar materializer = honra contrato sem depender
+  // do LLM seguir instrução negativa.
+  //
+  // fallbackTriggered=true por design — não apresentamos conteúdo educacional,
+  // então concept ledger não acumula presented_concept (gate pedagogicamente
+  // correto pra fase de discovery).
+  const discoveryOptions = input.contextHints?.["discovery_options"] as
+    | Array<{ kind: string; text: string; anchor: string }>
+    | undefined;
+  const discoveryShortCircuit =
+    Array.isArray(discoveryOptions) && discoveryOptions.length > 0;
+
+  if (discoveryShortCircuit) {
+    const chosen = discoveryOptions![0]!;
+    finalText = chosen.text;
+    fallbackTriggered = true;
+    recallCheckEmitted = undefined;
+  } else if (USE_SPLIT_DROTA) {
     // ── S4 path ──────────────────────────────────────────────────────────
     // Step 1: Tactician decides jogada from content pool + assessor signals.
     const tacResult = await tactician(
