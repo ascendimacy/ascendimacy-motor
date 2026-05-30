@@ -38,7 +38,9 @@ describe("buildInaugural — primeira sessão (turn 0 + isFirstSession)", () => 
 
   it("BR profile: uses inaugural_solo_br template", async () => {
     const result = await buildInaugural(baseCtxBr);
-    expect(result.template_used).toBe("inaugural_solo_br");
+    // v0.2.7+: template pode ser variante por banda etária (direct/ludic/phil).
+    // Aceita "inaugural_solo_br" puro ou "inaugural_solo_br_*".
+    expect(result.template_used).toMatch(/^inaugural_solo_br/);
     expect(result.non_evaluation_clause_present).toBe(true);
     expect(result.exit_right_present).toBe(true);
   });
