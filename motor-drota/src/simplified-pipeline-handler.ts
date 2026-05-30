@@ -123,6 +123,7 @@ import { materialize } from "./constrained-materializer.js";
 import { resolveInauguralTemplate } from "./inaugural-template.js";
 import { tactician } from "./tactician.js";
 import { speak } from "./speaker.js";
+import { selectDiscoveryOption } from "./discovery-option-selector.js";
 import type { TacticDecision } from "@ascendimacy/shared";
 
 export interface SimplifiedPipelineOpts {
@@ -376,9 +377,8 @@ export async function handleSimplifiedPipeline(
 
   // v0.2.8 — Discovery-Specific Pool short-circuit.
   // Quando planejador emitiu contextHints.discovery_options (porque move_type=
-  // discover), bypassamos o materializer LLM. O finalText vira a primeira
-  // discovery option escolhida (heurística v1 — v0.3 pode rankear por signal
-  // match ou rotação por kind).
+  // discover), bypassamos o materializer LLM. O finalText vem da opção
+  // escolhida por selectDiscoveryOption (v0.3-A: heurística por signal + turn).
   //
   // Motivação: STS realista mostrou LLM ignorando MOVIMENTO: descobrir e
   // empurrando content do pool estático. Dar pool DIFERENTE (questões de
@@ -395,8 +395,22 @@ export async function handleSimplifiedPipeline(
     Array.isArray(discoveryOptions) && discoveryOptions.length > 0;
 
   if (discoveryShortCircuit) {
-    const chosen = discoveryOptions![0]!;
-    finalText = chosen.text;
+    const extractedSignals =
+      (input.contextHints?.["extracted_signals"] as string[] | undefined) ?? [];
+    const combinedSignals = Array.from(
+      new Set([...extractedSignals, ...assessment.signals]),
+    );
+    const selection = selectDiscoveryOption({
+      options: discoveryOptions!,
+      signals: combinedSignals,
+      turn: input.state.turn,
+    });
+    finalText = selection.chosen.text;
+    warnings.push({
+      component: "discovery_option_selector",
+      message: `kind=${selection.chosen.kind} reason=${selection.reason}`,
+      recoverable: true,
+    });
     fallbackTriggered = true;
     recallCheckEmitted = undefined;
   } else if (USE_SPLIT_DROTA) {
