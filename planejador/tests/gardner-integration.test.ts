@@ -161,7 +161,7 @@ describe("planTurn — emite instruction_addition quando programa ativo", () => 
     expect(out.instruction_addition).toContain("semana");
   });
 
-  it("instruction_addition vazia quando programa pausado por brejo", async () => {
+  it("instruction_addition sem diretiva gardner quando programa pausado por brejo", async () => {
     const out = await planTurn({
       sessionId: "s1",
       persona: makePersona(),
@@ -173,7 +173,9 @@ describe("planTurn — emite instruction_addition quando programa ativo", () => 
       }),
       incomingMessage: "oi",
     });
-    expect(out.instruction_addition).toBe("");
+    // v0.2.7+: instruction_addition pode conter MOVIMENTO (tutorial) mas
+    // NÃO deve carregar diretiva Gardner ("semana") quando pausado.
+    expect(out.instruction_addition).not.toContain("semana");
     expect(out.contextHints["gardner_pause_reason"]).toBe("emotional_brejo");
   });
 
@@ -190,7 +192,7 @@ describe("planTurn — emite instruction_addition quando programa ativo", () => 
     expect(out.contextHints["gardner_current_week"]).toBe(1);
   });
 
-  it("instruction_addition vazia quando programa não iniciado", async () => {
+  it("instruction_addition sem diretiva gardner quando programa não iniciado", async () => {
     const out = await planTurn({
       sessionId: "s1",
       persona: makePersona(),
@@ -199,6 +201,7 @@ describe("planTurn — emite instruction_addition quando programa ativo", () => 
       state: makeState(),
       incomingMessage: "oi",
     });
-    expect(out.instruction_addition).toBe("");
+    // v0.2.7+: MOVIMENTO tutorial pode estar presente; Gardner não.
+    expect(out.instruction_addition).not.toContain("semana");
   });
 });
