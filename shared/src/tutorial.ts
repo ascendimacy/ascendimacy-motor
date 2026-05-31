@@ -11,7 +11,15 @@ export type TutorialMove =
   | "correct"
   | "apply"
   | "recall"
-  | "close";
+  | "close"
+  /**
+   * compose_playbook (v0 emergent physical world challenge — fatia 4):
+   * dispara quando `contextHints.compose_playbook_request === true`. Bot
+   * coleta inventário do sujeito + compõe EmergentPlaybook via Strategist.
+   * Saída em contextHints: inventory_probe_options + emergent_playbook.
+   * Integração motor-drota é fatia futura — por ora só wiring planejador.
+   */
+  | "compose_playbook";
 
 export type TutorialAdvancePolicy =
   | "hold_until_attempted"
