@@ -268,6 +268,7 @@ export async function handleSimplifiedPipeline(
     | "apply"
     | "recall"
     | "close"
+    | "compose_playbook"
     | undefined;
   const selectionResult = selectAction(
     {

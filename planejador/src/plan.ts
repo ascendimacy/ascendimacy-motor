@@ -47,6 +47,9 @@ import {
 } from "@ascendimacy/shared";
 import { callLlm, callLlmMock, callHaiku, type LlmCallResult } from "./llm-client.js";
 import { generateDiscoveryOptions } from "./discovery-agent.js";
+import { generateInventoryProbeQuestions } from "./inventory-probe-agent.js";
+import { composePlaybook } from "./strategist/playbook-composer.js";
+import type { SubjectInventory, EmergentVirtueTarget } from "@ascendimacy/shared";
 import { detectMilestone } from "./milestone-detector.js";
 import type { LlmTraceCollector, PlanejadorTrace } from "@ascendimacy/shared";
 
@@ -230,12 +233,22 @@ function computeBasicTutorialContext(
   const shouldRecall =
     !recallCooldownActive && lastExecutedId != null && topItem?.id !== lastExecutedId;
 
+  // Fatia 4 (physical_world_playbook spec §5 — emergent composition):
+  // Console parental seta `contextHints.compose_playbook_request=true`
+  // depois de aprovar um piloto de desafio físico real. Highest priority
+  // — sobrepõe close/discover/etc. Default ausente → comportamento atual.
+  const composePlaybookRequested =
+    input.contextHints?.["compose_playbook_request"] === true;
+
   let moveType: TutorialMove = "explain";
   let goal = input.incomingMessage
     ? "Trabalhar a mensagem atual do sujeito"
     : "Avançar no objetivo formativo da sessão";
 
-  if (hasExitSignal) {
+  if (composePlaybookRequested) {
+    moveType = "compose_playbook";
+    goal = "Coletar inventário + compor desafio físico real para o sujeito";
+  } else if (hasExitSignal) {
     moveType = "close";
     goal = "Fechar respeitando sinal de saída do sujeito";
   } else if (isDiscoveryStage) {
@@ -305,6 +318,12 @@ function computeBasicTutorialContext(
       ctx.failure_policy = "re_explain";
       break;
     case "close":
+      ctx.advance_policy = "can_move_on";
+      break;
+    case "compose_playbook":
+      // Pode avançar sem requerer correct/attempted — a decisão de seguir
+      // pra próximo step do playbook é responsabilidade do PendingChallenge
+      // state machine (fatia futura), não do tutorial flow.
       ctx.advance_policy = "can_move_on";
       break;
   }
@@ -907,6 +926,74 @@ export async function planTurn(
     } catch {
       // Telemetry: discovery failure não bloqueia turn — segue sem discovery_options
       // (fallback determinístico já cobre LLM crashes dentro do agent).
+    }
+  }
+
+  // Fatia 4 (physical_world_playbook §5.1+5.2) — quando move_type=compose_playbook,
+  // roda probe (questões de inventário) E composer (gera EmergentPlaybook) em
+  // sequência. Probe primeiro: se inventário já completo, retorna [] e composer
+  // usa o que tem; senão, composer roda com fallback determinístico (bolo template).
+  //
+  // Outputs em contextHints:
+  //   - inventory_probe_options: questões que faltam perguntar
+  //   - emergent_playbook: instância composta (presente sempre quando flag setado)
+  //
+  // Motor-drota não consome ainda (integração materializer = fatia futura). Por
+  // ora é apenas wiring planejador-side validado por testes de planTurn.
+  if (tutorial?.move_type === "compose_playbook") {
+    const partialInventory = input.contextHints?.["subject_inventory"] as
+      | Partial<SubjectInventory>
+      | undefined;
+    const recentTurns = Array.isArray(input.contextHints?.["recent_turns"])
+      ? (input.contextHints!["recent_turns"] as Array<{ role: "user" | "assistant"; content: string }>)
+      : [];
+    const subjectName = input.persona?.name ?? "amigo";
+    const subjectAge = typeof input.persona?.age === "number" ? input.persona.age : undefined;
+
+    try {
+      const probeInput: Parameters<typeof generateInventoryProbeQuestions>[0] = {
+        recentTurns,
+        subjectName,
+      };
+      if (subjectAge !== undefined) probeInput.subjectAge = subjectAge;
+      if (partialInventory) probeInput.partial_inventory = partialInventory;
+      const probeOptions = await generateInventoryProbeQuestions(probeInput);
+      if (probeOptions.length > 0) {
+        contextHints["inventory_probe_options"] = probeOptions;
+      }
+    } catch {
+      // Probe failure não bloqueia composer abaixo.
+    }
+
+    try {
+      // Inventário pra composer: completa partial com defaults razoáveis pra
+      // permitir fallback determinístico. v0 não exige inventário completo;
+      // fatia futura adiciona gate "só compõe se confidence >= 2".
+      const inventoryForCompose: SubjectInventory = {
+        collected_at: partialInventory?.collected_at ?? new Date().toISOString(),
+        available_materials: partialInventory?.available_materials ?? [],
+        available_time_minutes: partialInventory?.available_time_minutes ?? 0,
+        available_budget_cents: partialInventory?.available_budget_cents ?? 0,
+        family_present: partialInventory?.family_present ?? [],
+        aspirational_wishlist: partialInventory?.aspirational_wishlist ?? [],
+        confidence: partialInventory?.confidence ?? 0,
+      };
+      const currentObjectives = Array.isArray(input.contextHints?.["playbook_objectives"])
+        ? (input.contextHints!["playbook_objectives"] as readonly EmergentVirtueTarget[])
+        : [];
+      const playbookInput: Parameters<typeof composePlaybook>[0] = {
+        inventory: inventoryForCompose,
+        active_axes: Array.isArray(input.contextHints?.["axes_active"])
+          ? (input.contextHints!["axes_active"] as readonly string[])
+          : [],
+        current_objectives: currentObjectives,
+        subject_name: subjectName,
+      };
+      if (subjectAge !== undefined) playbookInput.subject_age = subjectAge;
+      const playbook = await composePlaybook(playbookInput);
+      contextHints["emergent_playbook"] = playbook;
+    } catch {
+      // Composer failure não bloqueia turn — segue sem playbook.
     }
   }
 
