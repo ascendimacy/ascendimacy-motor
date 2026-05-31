@@ -1,0 +1,119 @@
+# Philosophical Dilemma Archetype Catalog v1
+#
+# Spec: ascendimacy-ops/docs/specs/2026-05-30-physical-world-challenge-piloto-bolo-v0.md §5.4
+#
+# 8 archetypes iniciais — cada um testa uma virtude específica via case
+# curto com tensão real. NÃO há resposta "certa": o motor avalia o
+# RACIOCÍNIO explicitado (0-3), não a escolha.
+#
+# Strategist consome este catálogo no `composePlaybook` e injeta no máximo
+# 1 dilema por step. `applicable_triggers` indica em qual ponto do step
+# o dilema disparou (step_complete / step_midway / evidence_received).
+#
+# `prompt_template` usa placeholders { context_X } que o composer substitui
+# por valores derivados do playbook (e.g. nome de pessoa, item, valor).
+
+version: 1
+
+archetypes:
+  - id: temptation_to_skip
+    virtue_tested: persistencia
+    evaluation_focus: raciocinio
+    applicable_triggers:
+      - step_midway
+    prompt_template: >-
+      Você está {context_what_doing} e tá cansativo agora.
+      Para de fazer ou continua? Não tem resposta certa — me
+      conta o que faz mais sentido pra você e por quê.
+    description: >-
+      Plantar tentação de desistir no meio do step. Cabe em qualquer
+      execute_recipe_step ou wait com expected_duration > 15min.
+
+  - id: silent_error
+    virtue_tested: honestidade
+    evaluation_focus: consistencia_com_valor_declarado
+    applicable_triggers:
+      - step_complete
+      - evidence_received
+    prompt_template: >-
+      Você cometeu {context_error} e ninguém viu. Você conta pra
+      {context_audience} agora ou guarda pra você?
+    description: >-
+      Quando evidência mostra erro (sujeito errou medida, passo, etc).
+      Testa se honestidade é declarada vs vivida.
+
+  - id: share_vs_keep
+    virtue_tested: generosidade
+    evaluation_focus: consideracao_do_outro
+    applicable_triggers:
+      - step_complete
+    prompt_template: >-
+      Você tem {context_quantity} de {context_thing}. Você divide com
+      {context_other} ou guarda? O que pesa mais na sua decisão?
+    description: >-
+      Plantar no step final de qualquer playbook com resultado físico
+      compartilhável. Testa generosidade vs apego.
+
+  - id: cheap_vs_quality
+    virtue_tested: discernimento
+    evaluation_focus: raciocinio
+    applicable_triggers:
+      - step_complete
+    prompt_template: >-
+      Você pode pagar mais por {context_better} ou economizar com
+      {context_worse}. Você nem sempre tem que escolher o mais barato.
+      Como você decide aqui?
+    description: >-
+      Plantar em shopping_list ou buy step quando há opções de preço.
+      Testa julgamento sob restrição econômica.
+
+  - id: give_credit
+    virtue_tested: humildade
+    evaluation_focus: consistencia_com_valor_declarado
+    applicable_triggers:
+      - step_complete
+    prompt_template: >-
+      Foi sua ideia mas {context_helper} ajudou no caminho. Quando
+      você conta o que fez, fala 'eu' ou 'a gente'?
+    description: >-
+      Plantar em reflect step quando família/parceiro contribuiu.
+      Testa reconhecimento da contribuição alheia.
+
+  - id: early_quit
+    virtue_tested: paciencia
+    evaluation_focus: raciocinio
+    applicable_triggers:
+      - step_midway
+      - evidence_received
+    prompt_template: >-
+      Tá dando errado — {context_problem}. Você para por aqui ou
+      ajusta e continua? Como você sabe a diferença entre "ajustar"
+      e "teimar"?
+    description: >-
+      Plantar quando evidência sugere problema (foto mostra erro,
+      tempo estourou). Testa discernimento entre persistência
+      sábia e cabeça-dura.
+
+  - id: judge_yourself
+    virtue_tested: honestidade_auto
+    evaluation_focus: raciocinio
+    applicable_triggers:
+      - step_complete
+    prompt_template: >-
+      Ficou {context_result} — não excelente, não ruim. {context_audience}
+      pergunta como foi. Você fala "tá bom" ou descreve o que faltou?
+    description: >-
+      Plantar em judge step quando resultado é mediano. Testa auto-
+      avaliação honesta (resiste à tentação de embelezar).
+
+  - id: prioritize_who
+    virtue_tested: justica
+    evaluation_focus: consideracao_do_outro
+    applicable_triggers:
+      - step_complete
+    prompt_template: >-
+      Tem {context_constraint} e dois lados afetados ({context_side_a}
+      vs {context_side_b}). Como você escolhe quem fica com o quê?
+    description: >-
+      Plantar quando há recurso finito a distribuir (último pedaço,
+      última peça, tempo limitado). Testa critério de justiça.
