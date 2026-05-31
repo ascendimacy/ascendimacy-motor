@@ -466,6 +466,70 @@ export async function handleSimplifiedPipeline(
     });
     fallbackTriggered = false;
     recallCheckEmitted = undefined;
+  } else if (tutorialMoveType === "compose_playbook") {
+    // v0 (fatia 5) — compose_playbook short-circuit:
+    // Quando planejador emitiu compose_playbook move + inventory_probe_options
+    // OU emergent_playbook em contextHints, motor apresenta o conteúdo sem
+    // passar pelo materializer LLM.
+    //
+    // Ordem de prioridade:
+    //   1. inventory_probe_options presentes → apresenta primeira pergunta
+    //      (inventário ainda incompleto, prossegue coletando)
+    //   2. emergent_playbook presente → apresenta intro do desafio composto
+    //
+    // fallbackTriggered=true por design — meta-conversação (probe ou intro de
+    // playbook), não apresentação de conceito pedagógico → ledger não
+    // contabiliza presented_concept.
+    const probeOptions = input.contextHints?.["inventory_probe_options"] as
+      | Array<{ kind: string; text: string }>
+      | undefined;
+    const playbook = input.contextHints?.["emergent_playbook"] as
+      | {
+          steps?: Array<{ hint_to_subject?: string }>;
+          total_duration_minutes?: number;
+          budget_range_cents?: { max?: number };
+          composition_rationale?: string;
+        }
+      | undefined;
+
+    if (Array.isArray(probeOptions) && probeOptions.length > 0) {
+      const firstProbe = probeOptions[0]!;
+      finalText = firstProbe.text;
+      warnings.push({
+        component: "compose_playbook_wiring",
+        message: `presenting probe kind=${firstProbe.kind}`,
+        recoverable: true,
+      });
+    } else if (playbook && playbook.steps && playbook.steps.length > 0) {
+      const stepCount = playbook.steps.length;
+      const totalMin = playbook.total_duration_minutes ?? 0;
+      const budgetMaxR$ = ((playbook.budget_range_cents?.max ?? 0) / 100).toFixed(2);
+      const firstStepHint =
+        playbook.steps[0]?.hint_to_subject ?? "começamos juntos";
+      const rationale = playbook.composition_rationale ?? "";
+      finalText =
+        `${input.persona.name}, vou te propor um desafio real: ${stepCount} passos, ~${totalMin}min, até R$${budgetMaxR$}.` +
+        (rationale ? ` ${rationale}` : "") +
+        ` Primeiro passo: ${firstStepHint} Topa?`;
+      warnings.push({
+        component: "compose_playbook_wiring",
+        message: `presenting playbook intro (steps=${stepCount}, duration_min=${totalMin})`,
+        recoverable: true,
+      });
+    } else {
+      // Sem probe nem playbook em contextHints — planejador deveria ter
+      // populado mas falhou (mock mode + erro?). Fallback conversacional.
+      finalText =
+        `${input.persona.name}, tô tentando montar um desafio real pra gente. Me dá um minuto?`;
+      warnings.push({
+        component: "compose_playbook_wiring",
+        message:
+          "no probe_options nor emergent_playbook in contextHints — fallback conversational",
+        recoverable: true,
+      });
+    }
+    fallbackTriggered = true;
+    recallCheckEmitted = undefined;
   } else if (USE_SPLIT_DROTA) {
     // ── S4 path ──────────────────────────────────────────────────────────
     // Step 1: Tactician decides jogada from content pool + assessor signals.
